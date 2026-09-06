@@ -113,22 +113,26 @@ CPAMP 管理和观测经过 CPA / CLIProxyAPI 的流量，本身不是模型代�
 
 ## 快速开始
 
-### 安装脚本
+### 部署 CPA Manager Plus
 
-按向导执行完整安装或仅安装 CPAMP：
-
-```bash
-curl -fsSLO https://raw.githubusercontent.com/seakee/CPA-Manager-Plus/main/bin/install-cpamp.sh
-bash install-cpamp.sh
-```
-
-只预览操作：
+本仓库默认从自己的源码构建，包含多实例汇总、无刷新实例切换及子路径部署改动：
 
 ```bash
-CPAMP_DRY_RUN=1 bash install-cpamp.sh
+git clone https://github.com/power12317/CPA-Manager-Plus.git
+cd CPA-Manager-Plus
+docker compose up -d --build
+docker compose logs cpa-manager-plus
 ```
 
-升级、修复和管理员密钥恢复行为见 [一键安装脚本](https://seakee.github.io/CPA-Manager-Plus/docs/deployment/installer.html)。
+需要 Docker Compose v2.20+。推送到本仓库 `main` 后，Actions 会发布自己的 GHCR 镜像；
+等 **Publish Docker image** 成功后，也可使用镜像部署：
+
+```bash
+docker compose -f docker-compose.image.yml up -d --pull always
+```
+
+管理员密钥、网络、镜像权限、更新及备份见[Docker 部署](docs/docker-deployment.md)。
+上游安装脚本和 `seakee/cpa-manager-plus` 镜像不包含本仓库改动。
 
 ### CPA + CPAMP 一起部署
 
@@ -143,7 +147,7 @@ services:
       - cpa-data:/app/data
 
   cpa-manager-plus:
-    image: seakee/cpa-manager-plus:latest
+    image: ghcr.io/power12317/cpa-manager-plus:latest
     restart: unless-stopped
     ports:
       - '18317:18317'
@@ -171,7 +175,7 @@ docker run -d \
   --restart unless-stopped \
   -p 18317:18317 \
   -v cpa-manager-plus-data:/data \
-  seakee/cpa-manager-plus:latest
+  ghcr.io/power12317/cpa-manager-plus:latest
 ```
 
 推荐 CPA 版本：`v7.1.39+`，HTTP usage queue 至少需要 `v6.10.8+`。

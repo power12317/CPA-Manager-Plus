@@ -21,6 +21,8 @@ concurrency:
 jobs:
   preflight:
     name: Release preflight
+    # This repository publishes through docker-publish.yml to its own GHCR.
+    if: github.repository == 'seakee/CPA-Manager-Plus'
     runs-on: ubuntu-latest
     permissions:
       contents: read

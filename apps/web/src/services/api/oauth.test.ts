@@ -27,6 +27,34 @@ beforeEach(() => {
 });
 
 describe('oauthApi', () => {
+  it('pins a flow started from all instances to its source for polling and callbacks', async () => {
+    const root = { apiBase: 'https://manager.example/cpamp', managementKey: 'admin' };
+    mocks.get.mockResolvedValueOnce({
+      url: 'https://auth.example/authorize?state=flow-scope-test',
+      state: '@cpamp/default/flow-scope-test',
+    });
+    const result = await oauthApi.startAuth('codex', root);
+    expect(result.state).toBe('flow-scope-test');
+    mocks.get.mockResolvedValueOnce({ status: 'wait' });
+    await oauthApi.getAuthStatus(result.state!, {
+      apiBase: 'https://another.example',
+      managementKey: 'other',
+    });
+    expect(mocks.get).toHaveBeenLastCalledWith(
+      '/get-auth-status',
+      expect.objectContaining({
+        baseURL: `${root.apiBase}/api/instances/default/v0/management`,
+        headers: { Authorization: 'Bearer admin' },
+        params: { state: 'flow-scope-test' },
+      })
+    );
+    await oauthApi.submitCallback('codex', 'http://localhost/callback?state=flow-scope-test', root);
+    expect(mocks.post).toHaveBeenLastCalledWith(
+      '/oauth-callback',
+      expect.anything(),
+      expect.objectContaining({ baseURL: `${root.apiBase}/api/instances/default/v0/management` })
+    );
+  });
   it('marks built-in web UI OAuth starts with is_webui', async () => {
     mocks.get.mockResolvedValue({ url: 'https://auth.example/codex', state: 'state-1' });
 

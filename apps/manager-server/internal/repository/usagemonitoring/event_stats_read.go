@@ -73,6 +73,7 @@ func (r *repository) LoadAggregate(ctx context.Context, filter AnalyticsFilter) 
 		coalesce(sum(cache_creation_tokens), 0),
 		coalesce(sum(total_tokens), 0),
 		avg(nullif(latency_ms, 0)),
+		count(nullif(latency_ms, 0)),
 		coalesce(sum(case when total_tokens = 0 and failed = 0 then 1 else 0 end), 0)
 	from filtered_events`, source)
 	var aggregate Aggregate
@@ -88,6 +89,7 @@ func (r *repository) LoadAggregate(ctx context.Context, filter AnalyticsFilter) 
 		&aggregate.CacheCreationTokens,
 		&aggregate.TotalTokens,
 		&aggregate.AvgLatencyMS,
+		&aggregate.LatencySamples,
 		&aggregate.ZeroTokenCalls,
 	); err != nil {
 		return Aggregate{}, state, false, err

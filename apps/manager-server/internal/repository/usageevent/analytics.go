@@ -496,6 +496,7 @@ func (r *repository) AggregateWithFilter(ctx context.Context, filter AnalyticsFi
 	coalesce(sum(cache_creation_tokens), 0),
 	coalesce(sum(total_tokens), 0),
 	avg(nullif(latency_ms, 0)),
+	count(nullif(latency_ms, 0)),
 	coalesce(sum(case when total_tokens = 0 and failed = 0 then 1 else 0 end), 0)
 from usage_events `+where, args...)
 
@@ -513,6 +514,7 @@ from usage_events `+where, args...)
 		&agg.CacheCreationTokens,
 		&agg.TotalTokens,
 		&agg.AvgLatencyMS,
+		&agg.LatencySamples,
 		&agg.ZeroTokenCalls,
 	); err != nil {
 		return Aggregate{}, err

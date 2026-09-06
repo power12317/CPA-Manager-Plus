@@ -315,9 +315,11 @@ function requestPanelFeatureAvailability(input: PanelFeatureAvailabilityRequestI
 export function usePanelFeatureAvailability(): PanelFeatureAvailability {
   const demoMode = __DEMO_SITE__ && isDemoMode();
   const apiBase = useAuthStore((state) => state.apiBase);
+  const sessionMode = useAuthStore((state) => state.sessionMode);
   const managementKey = useAuthStore((state) => state.managementKey);
   const usageServiceRevision = useUsageServiceStore((state) => state.revision);
-  const panelBase = useMemo(() => detectApiBaseFromLocation(), []);
+  const documentBase = useMemo(() => detectApiBaseFromLocation(), []);
+  const panelBase = sessionMode === 'manager_embedded' ? apiBase : documentBase;
   const requestInput = useMemo(
     () => ({
       apiBase,
@@ -361,6 +363,17 @@ export function usePanelFeatureAvailability(): PanelFeatureAvailability {
 
   if (demoMode) return demoAvailability;
   if (state.requestKey === requestKey) return state.availability;
+
+  // Keep the existing navigation visible while the new instance is probed.
+  // Content gates still wait for confirmation before mounting scoped tools.
+  if (sessionMode === 'manager_embedded' && state.availability.panelHostConfirmed) {
+    return {
+      ...state.availability,
+      checking: true,
+      panelBase: normalizeBase(panelBase),
+      managerServiceBase: normalizeBase(apiBase),
+    };
+  }
 
   return {
     ...initialAvailability,

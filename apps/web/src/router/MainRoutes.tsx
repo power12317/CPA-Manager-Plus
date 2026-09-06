@@ -8,6 +8,10 @@ import {
 } from 'react-router-dom';
 import { AccountsPage } from '@/pages/AccountsPage';
 import { DashboardPage } from '@/pages/DashboardPage';
+import { InstancesPage } from '@/pages/InstancesPage';
+import { InstanceRedirect, ReturnToAggregate } from '@/features/cluster/InstanceRedirect';
+import { aggregateRoutes } from '@/features/cluster/instanceSelection';
+import { instanceIdFromBase, preferredInstanceScope } from '@/utils/instanceScope';
 import { AiProvidersPage } from '@/pages/AiProvidersPage';
 import { AiProvidersClaudeEditLayout } from '@/pages/AiProvidersClaudeEditLayout';
 import { AiProvidersClaudeEditPage } from '@/pages/AiProvidersClaudeEditPage';
@@ -103,6 +107,7 @@ function LogsGate({ children }: { children: ReactElement }) {
 const mainRoutes: RouteObject[] = [
   { path: '/', element: <DashboardPage /> },
   { path: '/dashboard', element: <DashboardPage /> },
+  { path: '/instances', element: <InstancesPage /> },
   { path: '/settings', element: <Navigate to="/config" replace /> },
   { path: '/api-keys', element: <Navigate to="/config" replace /> },
   { path: '/ai-providers/gemini/new', element: <AiProvidersGeminiEditPage /> },
@@ -259,10 +264,28 @@ const ensureRouteLocationBase = (
 };
 
 export function MainRoutes({ location, routeBase }: { location?: Location; routeBase?: string }) {
+  const actualLocation = useLocation();
+  const mode = useAuthStore((s) => s.sessionMode);
+  const base = useAuthStore((s) => s.apiBase);
   const routeLocation = useMemo(
     () => ensureRouteLocationBase(location, routeBase),
     [location, routeBase]
   );
 
-  return useRoutes(mainRoutes, routeLocation);
+  const content = useRoutes(mainRoutes, routeLocation);
+  const path = (location || actualLocation).pathname;
+  const currentLocation = location || actualLocation;
+  const currentRoute = `${path}${currentLocation.search}`;
+  if (
+    mode === 'manager_embedded' &&
+    instanceIdFromBase(base) &&
+    aggregateRoutes.has(path) &&
+    preferredInstanceScope(base) === ''
+  ) {
+    return <ReturnToAggregate route={currentRoute} />;
+  }
+  if (mode === 'manager_embedded' && !instanceIdFromBase(base) && !aggregateRoutes.has(path)) {
+    return <InstanceRedirect route={currentRoute} />;
+  }
+  return content;
 }

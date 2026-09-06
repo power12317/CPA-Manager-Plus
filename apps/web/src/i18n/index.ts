@@ -9,22 +9,23 @@ import zhTW from './locales/zh-TW.json';
 import en from './locales/en.json';
 import ru from './locales/ru.json';
 import { getInitialLanguage } from '@/utils/language';
+import { clusterEN, clusterZH } from './cluster';
 
 i18n.use(initReactI18next).init({
   resources: {
-    'zh-CN': { translation: zhCN },
-    'zh-TW': { translation: zhTW },
-    en: { translation: en },
-    ru: { translation: ru }
+    'zh-CN': { translation: { ...zhCN, cluster: clusterZH } },
+    'zh-TW': { translation: { ...zhTW, cluster: clusterZH } },
+    en: { translation: { ...en, cluster: clusterEN } },
+    ru: { translation: { ...ru, cluster: clusterEN } },
   },
   lng: getInitialLanguage(),
   fallbackLng: 'zh-CN',
   interpolation: {
-    escapeValue: false // React 已经转义
+    escapeValue: false, // React 已经转义
   },
   react: {
-    useSuspense: false
-  }
+    useSuspense: false,
+  },
 });
 
 export default i18n;

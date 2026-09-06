@@ -14,6 +14,7 @@ import { PageTransition } from '@/components/common/PageTransition';
 import { DatabaseMaintenanceBanner } from '@/components/common/DatabaseMaintenanceBanner';
 import { DatabaseMaintenanceProvider } from '@/components/common/DatabaseMaintenanceContext';
 import { MainRoutes } from '@/router/MainRoutes';
+import { InstanceBar } from '@/features/cluster/InstanceBar';
 import {
   IconGithub,
   IconSidebarAuthFiles,
@@ -469,7 +470,7 @@ function MainLayoutContent({ routeBase = '', demoMode = false }: MainLayoutProps
     fetchConfig().catch(() => {
       // ignore initial failure; login flow会提示
     });
-  }, [fetchConfig]);
+  }, [fetchConfig, apiBase]);
 
   const loadPluginResources = useCallback(async () => {
     if (connectionStatus !== 'connected' || !supportsPlugin) {
@@ -987,8 +988,9 @@ function MainLayoutContent({ routeBase = '', demoMode = false }: MainLayoutProps
               .join(' ')}
           >
             <DatabaseMaintenanceBanner />
+            <InstanceBar />
             <PageTransition
-              key={routeBase || 'main'}
+              key={`${routeBase || 'main'}:${apiBase}`}
               render={(location) => <MainRoutes location={location} routeBase={routeBase} />}
               getRouteOrder={(pathname) => getRouteOrder(stripRouteBase(pathname, routeBase))}
               getTransitionVariant={(fromPathname, toPathname) =>

@@ -448,11 +448,14 @@ const buildPreservedList = async <T>(
   getIdentity: (record: Record<string, unknown>) => string
 ) => {
   const payloads = configs.map((item) => serialize(item));
+  const signal = apiClient.getScopeSignal();
 
   let rawConfig: unknown;
   try {
     rawConfig = await apiClient.get('/config');
+    signal.throwIfAborted();
   } catch {
+    signal.throwIfAborted();
     return payloads.map((payload) => {
       if (!Array.isArray(payload.models)) return payload;
       return {
@@ -543,12 +546,16 @@ const enqueueProviderSectionWrite = <T>(section: string, task: () => Promise<T>)
 const mutateLatestProviderList = async (
   section: string,
   mutate: (latestItems: unknown[]) => unknown[]
-) =>
-  enqueueProviderSectionWrite(section, async () => {
+) => {
+  const signal = apiClient.getScopeSignal();
+  return enqueueProviderSectionWrite(section, async () => {
+    signal.throwIfAborted();
     const rawConfig = await apiClient.get('/config');
+    signal.throwIfAborted();
     const latestItems = getRawSectionList(rawConfig, section);
     await apiClient.put(`/${section}`, mutate(latestItems));
   });
+};
 
 const matchesProviderConfig = (
   record: Record<string, unknown>,

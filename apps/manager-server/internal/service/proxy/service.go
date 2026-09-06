@@ -273,6 +273,7 @@ func (s *Service) proxyToSavedSetup(w http.ResponseWriter, r *http.Request, writ
 		writeError(w, http.StatusBadGateway, proxyErr)
 	}
 	proxy.ModifyResponse = func(response *http.Response) error {
+		rewriteLocalRedirect(response, target, r.URL.Path)
 		responseProcessed = true
 		if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 			return s.restoreInspectionOwnershipDetached(r.Context(), revokedOwnership)
@@ -1387,6 +1388,10 @@ func (s *Service) ProxyModelList(w http.ResponseWriter, r *http.Request, writeEr
 		return
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.ModifyResponse = func(response *http.Response) error {
+		rewriteLocalRedirect(response, target, r.URL.Path)
+		return nil
+	}
 	originalDirector := proxy.Director
 	proxy.Director = func(req *http.Request) {
 		originalDirector(req)

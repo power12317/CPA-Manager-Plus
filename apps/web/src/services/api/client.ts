@@ -13,6 +13,7 @@ import {
   VERSION_HEADER_KEYS,
 } from '@/utils/constants';
 import { computeApiUrl } from '@/utils/connection';
+import { AGGREGATE_COVERAGE_EVENT, getAggregateCredentialInstance } from '@/utils/aggregateScope';
 import {
   handleDemoApiRequest,
   handleDemoFormRequest,
@@ -24,6 +25,7 @@ export type ApiClientRequestScope = Pick<ApiClientConfig, 'apiBase' | 'managemen
 
 export type ScopedApiRequestConfig = AxiosRequestConfig & {
   cpampScopedRequest?: true;
+  cpampGeneration?: number;
 };
 
 export const createScopedApiRequestConfig = (
@@ -42,6 +44,9 @@ class ApiClient {
   private instance: AxiosInstance;
   private apiBase: string = '';
   private managementKey: string = '';
+  private configuredBase: string = '';
+  private generation = 0;
+  private scopeController = new AbortController();
 
   constructor() {
     this.instance = axios.create({
@@ -58,7 +63,14 @@ class ApiClient {
    * 设置 API 配置
    */
   setConfig(config: ApiClientConfig): void {
-    this.apiBase = computeApiUrl(config.apiBase);
+    const nextBase = computeApiUrl(config.apiBase);
+    if (this.apiBase !== nextBase || this.managementKey !== config.managementKey) {
+      this.generation += 1;
+      this.scopeController.abort();
+      this.scopeController = new AbortController();
+    }
+    this.configuredBase = config.apiBase;
+    this.apiBase = nextBase;
     this.managementKey = config.managementKey;
 
     if (config.timeout) {
@@ -66,6 +78,14 @@ class ApiClient {
     } else {
       this.instance.defaults.timeout = REQUEST_TIMEOUT_MS;
     }
+  }
+
+  getRequestScope(): ApiClientRequestScope {
+    return { apiBase: this.configuredBase, managementKey: this.managementKey };
+  }
+
+  getScopeSignal(): AbortSignal {
+    return this.scopeController.signal;
   }
 
   private readHeader(headers: Record<string, unknown> | undefined, keys: string[]): string | null {
@@ -120,6 +140,8 @@ class ApiClient {
   }
 
   private requestTargetsCurrentConfig(config?: AxiosRequestConfig): boolean {
+    const generation = (config as ScopedApiRequestConfig | undefined)?.cpampGeneration;
+    if (generation !== undefined && generation !== this.generation) return false;
     const requestBase = String(config?.baseURL ?? '').replace(/\/+$/, '');
     const requestAuthorization = this.readHeader(
       config?.headers as Record<string, unknown> | undefined,
@@ -145,6 +167,10 @@ class ApiClient {
         // operation began. Regular requests continue to use the current global config.
         if (!scopedRequest) {
           config.baseURL = this.apiBase;
+          (config as ScopedApiRequestConfig).cpampGeneration = this.generation;
+          config.signal = config.signal
+            ? AbortSignal.any([config.signal as AbortSignal, this.scopeController.signal])
+            : this.scopeController.signal;
         }
         if (config.url) {
           // Normalize deprecated Gemini endpoint to the current path.
@@ -155,15 +181,47 @@ class ApiClient {
         if (!scopedRequest && this.managementKey) {
           config.headers.Authorization = `Bearer ${this.managementKey}`;
         }
+        if (String(config.baseURL).includes('/api/aggregate/')) {
+          const instance = getAggregateCredentialInstance();
+          if (instance) config.headers['X-CPAMP-Instance-Hint'] = instance;
+          const physicalName = config.headers['X-CPAMP-Auth-File-Physical-Name'];
+          if (physicalName) {
+            config.headers['X-CPAMP-Auth-File-Physical-Name'] = encodeURIComponent(
+              String(physicalName)
+            );
+            config.headers['X-CPAMP-Auth-File-Physical-Name-Encoding'] = 'uri';
+          }
+        }
 
         return config;
       },
-      (error) => Promise.reject(this.handleError(error))
+      (error) => {
+        throw this.handleError(error);
+      },
+      { synchronous: true }
     );
 
     // 响应拦截器
     this.instance.interceptors.response.use(
       (response) => {
+        const generation = (response.config as ScopedApiRequestConfig)?.cpampGeneration;
+        if (generation !== undefined && generation !== this.generation) {
+          const error = new Error('Instance scope changed') as ApiError;
+          error.name = 'CanceledError';
+          error.code = 'ERR_CANCELED';
+          throw error;
+        }
+        if (
+          this.requestTargetsCurrentConfig(response.config) &&
+          String(response.config?.baseURL).includes('/api/aggregate/') &&
+          response.data?.instanceCoverage
+        ) {
+          window.dispatchEvent(
+            new CustomEvent(AGGREGATE_COVERAGE_EVENT, {
+              detail: { path: response.config.url, coverage: response.data.instanceCoverage },
+            })
+          );
+        }
         const headers = response.headers as Record<string, string | undefined>;
         const version = this.readHeader(headers, VERSION_HEADER_KEYS);
         const commit = this.readHeader(headers, COMMIT_HEADER_KEYS);

@@ -185,6 +185,7 @@ export function AiProvidersOpenAIEditLayout() {
   const invalidIndexParam = hasIndexParam && editIndex === null;
 
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
+  const apiBase = useAuthStore((state) => state.apiBase);
   const disableControls = connectionStatus !== 'connected';
 
   const config = useConfigStore((state) => state.config);
@@ -199,8 +200,8 @@ export function AiProvidersOpenAIEditLayout() {
   const [saving, setSaving] = useState(false);
 
   const draftKey = useMemo(() => {
-    return buildProviderDraftKey('openai', editIndex, invalidIndexParam, params.index);
-  }, [editIndex, invalidIndexParam, params.index]);
+    return `${apiBase}\u0000${buildProviderDraftKey('openai', editIndex, invalidIndexParam, params.index)}`;
+  }, [apiBase, editIndex, invalidIndexParam, params.index]);
 
   const draft = useOpenAIEditDraftStore((state) => state.drafts[draftKey]);
   const acquireDraft = useOpenAIEditDraftStore((state) => state.acquireDraft);

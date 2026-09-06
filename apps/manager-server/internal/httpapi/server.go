@@ -8,6 +8,7 @@ import (
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/app"
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/collector"
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/config"
+	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/http/middleware"
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/http/router"
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/store"
 )
@@ -47,7 +48,7 @@ func New(cfg config.Config, store *store.Store, collector *collector.Manager, au
 }
 
 func (s *Server) Handler() http.Handler {
-	return s.handler
+	return middleware.BasePath(s.appCtx.Config.BasePath, s.handler)
 }
 
 func (s *Server) AppContext() *app.Context {

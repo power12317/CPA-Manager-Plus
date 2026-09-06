@@ -59,6 +59,8 @@ type Manager struct {
 	quotaSnapshots    *quotasnapshotsvc.Service
 	usageEventHandler UsageEventHandler
 	mu                sync.Mutex
+	lifecycleMu       sync.Mutex
+	done              chan struct{}
 	cancel            context.CancelFunc
 	status            Status
 	runtimeCfg        RuntimeConfig
@@ -79,6 +81,11 @@ func NewManager(base config.Config, store *store.Store) *Manager {
 }
 
 func (m *Manager) Start(ctx context.Context, cfg RuntimeConfig) {
+	m.lifecycleMu.Lock()
+	defer m.lifecycleMu.Unlock()
+	if err := m.stopAndWait(ctx); err != nil {
+		return
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.cancel != nil {
@@ -99,7 +106,9 @@ func (m *Manager) Start(ctx context.Context, cfg RuntimeConfig) {
 	if runtimeHandler, ok := handler.(UsageRuntimeConfigHandler); ok {
 		go runtimeHandler.UpdateRuntimeConfig(runCtx, cfg)
 	}
-	go m.run(runCtx, cfg)
+	done := make(chan struct{})
+	m.done = done
+	go func() { defer close(done); m.run(runCtx, cfg) }()
 }
 
 func (m *Manager) Stop() {
@@ -110,6 +119,31 @@ func (m *Manager) Stop() {
 		m.cancel = nil
 	}
 	m.status.Collector = "stopped"
+}
+
+// StopAndWait fences a queue consumer before its database closes or a new
+// instance runtime is started. Queue pops are destructive, so cancellation
+// alone is not a sufficient lifecycle boundary.
+func (m *Manager) StopAndWait(ctx context.Context) error {
+	m.lifecycleMu.Lock()
+	defer m.lifecycleMu.Unlock()
+	return m.stopAndWait(ctx)
+}
+
+func (m *Manager) stopAndWait(ctx context.Context) error {
+	m.Stop()
+	m.mu.Lock()
+	done := m.done
+	m.mu.Unlock()
+	if done == nil {
+		return nil
+	}
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (m *Manager) Status() Status {

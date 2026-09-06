@@ -3218,7 +3218,7 @@ func TestAnalyticsHourlyRollupMatchesRawCoreComparisonAndTimeline(t *testing.T) 
 	}
 	raw.GeneratedAtMS = rolled.GeneratedAtMS
 	if !reflect.DeepEqual(rolled, raw) {
-		t.Fatalf("analytics mismatch\nrollup=%#v\nraw=%#v", rolled, raw)
+		t.Fatalf("analytics mismatch\nrollup summary=%+v\nraw summary=%+v\nrollup=%#v\nraw=%#v", rolled.Summary, raw.Summary, rolled, raw)
 	}
 	if err := db.SaveModelPrices(ctx, map[string]store.ModelPrice{
 		"resolved-a": {Prompt: 4, Completion: 8},

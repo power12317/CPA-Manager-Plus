@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { setAggregateCredentialInstance } from '@/utils/aggregateScope';
 import type {
   KeyboardEvent,
   MouseEvent as ReactMouseEvent,
@@ -4208,6 +4209,10 @@ export function AccountsPage() {
     () => rows.find((row) => row.selectionKey === selectedRowKey) ?? null,
     [rows, selectedRowKey]
   );
+  useEffect(() => {
+    setAggregateCredentialInstance(String(selectedRow?.raw.instanceId || ''));
+    return () => setAggregateCredentialInstance('');
+  }, [selectedRow]);
   const accountHistoryTargets = useMemo(() => buildAccountHistoryTargetEntries(rows), [rows]);
   const accountHistoryAutoContextKey = useMemo(
     () =>

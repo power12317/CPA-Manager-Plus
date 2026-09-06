@@ -34,6 +34,7 @@ import { useDashboardUsageSummary } from './hooks/useDashboardUsageSummary';
 import { getDashboardModelCountDisplay } from './modelCountDisplay';
 import { resolveProviderCount } from './providerStats';
 import styles from './DashboardPage.module.scss';
+import { instanceIdFromBase } from '@/utils/instanceScope';
 
 interface QuickStat {
   label: string;
@@ -66,8 +67,14 @@ export function DashboardPage() {
   const serverVersion = useAuthStore((state) => state.serverVersion);
   const serverBuildDate = useAuthStore((state) => state.serverBuildDate);
   const apiBase = useAuthStore((state) => state.apiBase);
+  const sessionMode = useAuthStore((state) => state.sessionMode);
+  const aggregate = sessionMode === 'manager_embedded' && !instanceIdFromBase(apiBase);
   const managementKey = useAuthStore((state) => state.managementKey);
   const config = useConfigStore((state) => state.config);
+  const mixedFields = Array.isArray(config?.raw?._cpampMixedFields)
+    ? config.raw._cpampMixedFields
+    : [];
+  const isMixed = (field: string) => aggregate && mixedFields.includes(field);
   const usageSummary = useDashboardUsageSummary();
   const refreshUsageSummary = usageSummary.refresh;
 
@@ -499,7 +506,7 @@ export function DashboardPage() {
         <VersionCard
           appVersion={__APP_VERSION__ || t('dashboard.version_unknown')}
           apiVersion={serverVersion || t('dashboard.version_unknown')}
-          cpaBase={managerCpaBase || apiBase || ''}
+          cpaBase={aggregate ? t('cluster.all') : managerCpaBase || apiBase || ''}
           serverBuildDate={serverBuildDate || undefined}
           connectionStatus={connectionStatus}
           refreshSignal={cardRefreshSignal}
@@ -611,7 +618,11 @@ export function DashboardPage() {
               <div className={styles.configItem}>
                 <span className={styles.configLabel}>Debug</span>
                 <span className={`${styles.configValue} ${config.debug ? styles.on : styles.off}`}>
-                  {config.debug ? t('common.enabled') : t('common.disabled')}
+                  {isMixed('debug')
+                    ? t('cluster.mixed')
+                    : config.debug
+                      ? t('common.enabled')
+                      : t('common.disabled')}
                 </span>
               </div>
               <div className={styles.configItem}>
@@ -621,29 +632,41 @@ export function DashboardPage() {
                 <span
                   className={`${styles.configValue} ${config.loggingToFile ? styles.on : styles.off}`}
                 >
-                  {config.loggingToFile ? t('common.enabled') : t('common.disabled')}
+                  {isMixed('logging-to-file')
+                    ? t('cluster.mixed')
+                    : config.loggingToFile
+                      ? t('common.enabled')
+                      : t('common.disabled')}
                 </span>
               </div>
               <div className={styles.configItem}>
                 <span className={styles.configLabel}>{t('basic_settings.retry_count_label')}</span>
-                <span className={styles.configValue}>{config.requestRetry ?? 0}</span>
+                <span className={styles.configValue}>
+                  {isMixed('request-retry') ? t('cluster.mixed') : (config.requestRetry ?? 0)}
+                </span>
               </div>
               <div className={styles.configItem}>
                 <span className={styles.configLabel}>{t('basic_settings.ws_auth_enable')}</span>
                 <span className={`${styles.configValue} ${config.wsAuth ? styles.on : styles.off}`}>
-                  {config.wsAuth ? t('common.enabled') : t('common.disabled')}
+                  {isMixed('ws-auth')
+                    ? t('cluster.mixed')
+                    : config.wsAuth
+                      ? t('common.enabled')
+                      : t('common.disabled')}
                 </span>
               </div>
               <div className={styles.configItem}>
                 <span className={styles.configLabel}>{t('dashboard.routing_strategy')}</span>
                 <span className={`${styles.configBadge} ${routingStrategyBadgeClass}`}>
-                  {routingStrategyDisplay}
+                  {isMixed('routing') ? t('cluster.mixed') : routingStrategyDisplay}
                 </span>
               </div>
               {config.proxyUrl && (
                 <div className={`${styles.configItem} ${styles.fullWidth}`}>
                   <span className={styles.configLabel}>Proxy URL</span>
-                  <span className={styles.configValueMono}>{config.proxyUrl}</span>
+                  <span className={styles.configValueMono}>
+                    {isMixed('proxy-url') ? t('cluster.mixed') : config.proxyUrl}
+                  </span>
                 </div>
               )}
             </div>

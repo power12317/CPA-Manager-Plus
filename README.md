@@ -115,22 +115,28 @@ CPAMP manages and observes traffic through CPA / CLIProxyAPI. It is not a replac
 
 ## Quick Start
 
-### Installer
+### Deploy CPA Manager Plus
 
-For a guided full-stack or CPAMP-only deployment:
-
-```bash
-curl -fsSLO https://raw.githubusercontent.com/seakee/CPA-Manager-Plus/main/bin/install-cpamp.sh
-bash install-cpamp.sh
-```
-
-Preview without deploying:
+Build this repository's Manager and panel, including multi-instance aggregation,
+in-page switching and deployment prefixes:
 
 ```bash
-CPAMP_DRY_RUN=1 bash install-cpamp.sh
+git clone https://github.com/power12317/CPA-Manager-Plus.git
+cd CPA-Manager-Plus
+docker compose up -d --build
+docker compose logs cpa-manager-plus
 ```
 
-See [One-Click Installer](https://seakee.github.io/CPA-Manager-Plus/docs/en/deployment/installer.html) for upgrade, repair, and admin-key recovery behavior.
+Requires Docker Compose v2.20+. After pushing to this repository's `main` branch and
+waiting for **Publish Docker image** to succeed, you can deploy its GHCR image:
+
+```bash
+docker compose -f docker-compose.image.yml up -d --pull always
+```
+
+See [Docker Deployment](docs/docker-deployment.md) for configuration, credentials,
+image access and updates. The upstream installer and `seakee/cpa-manager-plus` images
+do not contain this fork's changes.
 
 ### CPA + CPAMP Together
 
@@ -145,7 +151,7 @@ services:
       - cpa-data:/app/data
 
   cpa-manager-plus:
-    image: seakee/cpa-manager-plus:latest
+    image: ghcr.io/power12317/cpa-manager-plus:latest
     restart: unless-stopped
     ports:
       - '18317:18317'
@@ -173,7 +179,7 @@ docker run -d \
   --restart unless-stopped \
   -p 18317:18317 \
   -v cpa-manager-plus-data:/data \
-  seakee/cpa-manager-plus:latest
+  ghcr.io/power12317/cpa-manager-plus:latest
 ```
 
 Recommended CPA version: `v7.1.39+`. The HTTP usage queue needs `v6.10.8+`.

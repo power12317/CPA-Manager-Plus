@@ -1,0 +1,36 @@
+# Published repository image. Use after the "Publish Docker image" workflow succeeds:
+# docker compose -f docker-compose.image.yml up -d --pull always
+services:
+  cpa-manager-plus:
+    image: ${CPAMP_IMAGE:-ghcr.io/power12317/cpa-manager-plus:latest}
+    pull_policy: always
+    restart: unless-stopped
+    ports:
+      - "${CPAMP_BIND_ADDRESS:-0.0.0.0}:${CPAMP_PORT:-18317}:18317"
+    environment:
+      HTTP_ADDR: "0.0.0.0:18317"
+      USAGE_DATA_DIR: "/data"
+      USAGE_DB_PATH: "/data/usage.sqlite"
+      CPA_MANAGER_DATA_KEY_PATH: "/data/data.key"
+      # Empty on first boot: generate an admin key and print it once in the log.
+      CPA_MANAGER_ADMIN_KEY: "${CPA_MANAGER_ADMIN_KEY:-}"
+      CPA_MANAGER_BASE_PATH: "${CPA_MANAGER_BASE_PATH:-}"
+      USAGE_COLLECTOR_MODE: "${USAGE_COLLECTOR_MODE:-auto}"
+      USAGE_RESP_QUEUE: "usage"
+      USAGE_RESP_POP_SIDE: "right"
+      USAGE_BATCH_SIZE: "100"
+      USAGE_POLL_INTERVAL_MS: "500"
+      USAGE_QUERY_LIMIT: "50000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - cpa-manager-plus-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:18317/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  cpa-manager-plus-data:

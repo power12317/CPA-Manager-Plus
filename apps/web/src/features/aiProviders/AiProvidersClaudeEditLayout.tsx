@@ -165,6 +165,7 @@ export function AiProvidersClaudeEditLayout() {
   const invalidIndexParam = hasIndexParam && editIndex === null;
 
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
+  const apiBase = useAuthStore((state) => state.apiBase);
   const disableControls = connectionStatus !== 'connected';
 
   const config = useConfigStore((state) => state.config);
@@ -178,8 +179,8 @@ export function AiProvidersClaudeEditLayout() {
   const [saving, setSaving] = useState(false);
 
   const draftKey = useMemo(() => {
-    return buildProviderDraftKey('claude', editIndex, invalidIndexParam, params.index);
-  }, [editIndex, invalidIndexParam, params.index]);
+    return `${apiBase}\u0000${buildProviderDraftKey('claude', editIndex, invalidIndexParam, params.index)}`;
+  }, [apiBase, editIndex, invalidIndexParam, params.index]);
 
   const draft = useClaudeEditDraftStore((state) => state.drafts[draftKey]);
   const acquireDraft = useClaudeEditDraftStore((state) => state.acquireDraft);

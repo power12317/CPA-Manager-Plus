@@ -12,6 +12,7 @@ import (
 )
 
 type Repository interface {
+	LatencyObservations(context.Context, AnalyticsFilter) ([]LatencyObservation, error)
 	InsertBatch(ctx context.Context, events []model.UsageEvent) (model.InsertResult, error)
 	ResolveCodexLegacyAccountKey(ctx context.Context, fields usageidentity.Fields) (string, bool, error)
 	ListRecent(ctx context.Context, limit int) ([]model.UsageEvent, error)

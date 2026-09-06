@@ -11,6 +11,7 @@ const { mocks } = vi.hoisted(() => ({
   mocks: {
     get: vi.fn(),
     put: vi.fn(),
+    scopeController: new AbortController(),
   },
 }));
 
@@ -18,6 +19,7 @@ vi.mock('./client', () => ({
   apiClient: {
     get: mocks.get,
     put: mocks.put,
+    getScopeSignal: () => mocks.scopeController.signal,
   },
 }));
 
@@ -26,9 +28,28 @@ import { providersApi, verifyClaudeFingerprintInRawConfig } from './providers';
 beforeEach(() => {
   mocks.get.mockReset();
   mocks.put.mockReset();
+  mocks.scopeController = new AbortController();
 });
 
 describe('providersApi auth-index preservation', () => {
+  it('does not start a queued write after its instance scope is abandoned', async () => {
+    let resolveRead!: (value: unknown) => void;
+    mocks.get.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRead = resolve;
+        })
+    );
+    const first = providersApi.createCodexConfig({ apiKey: 'first' });
+    const queued = providersApi.createCodexConfig({ apiKey: 'queued' });
+    const results = Promise.allSettled([first, queued]);
+    await Promise.resolve();
+    mocks.scopeController.abort();
+    resolveRead({ 'codex-api-key': [] });
+    expect((await results).map((result) => result.status)).toEqual(['rejected', 'rejected']);
+    expect(mocks.get).toHaveBeenCalledTimes(1);
+    expect(mocks.put).not.toHaveBeenCalled();
+  });
   it('normalizes credential weights without collapsing explicit zero into omission', async () => {
     mocks.get.mockResolvedValueOnce({
       'codex-api-key': [

@@ -33,6 +33,7 @@ type RequestConfig = {
   url?: string;
   headers: Record<string, string>;
   cpampScopedRequest?: true;
+  signal?: AbortSignal;
 };
 
 const applyRequestInterceptor = (config: RequestConfig): RequestConfig => {
@@ -86,6 +87,22 @@ describe('ApiClient request scoping', () => {
       baseURL: 'http://new-cpa.local:8317/v0/management',
       headers: { Authorization: 'Bearer new-cpa-key' },
     });
+  });
+
+  it('cancels old requests and discards their responses even after switching back', () => {
+    const old = applyRequestInterceptor({ url: '/config', headers: {} });
+    apiClient.setConfig({ apiBase: 'http://other-cpa.local:8317', managementKey: 'other-key' });
+    expect(old.signal?.aborted).toBe(true);
+    apiClient.setConfig({ apiBase: 'http://new-cpa.local:8317', managementKey: 'new-cpa-key' });
+    expect(() => applyResponseSuccessInterceptor({ config: old, headers: {}, data: {} })).toThrow(
+      'Instance scope changed'
+    );
+    expect(dispatchEvent).not.toHaveBeenCalled();
+    const current = applyRequestInterceptor({ url: '/config', headers: {} });
+    expect(current.signal?.aborted).toBe(false);
+    expect(() =>
+      applyResponseSuccessInterceptor({ config: current, headers: {}, data: {} })
+    ).not.toThrow();
   });
 
   it('does not let a stale scoped 401 log out the current connection', async () => {

@@ -392,6 +392,7 @@ type AccountWindowUsageItem struct {
 }
 
 type Summary struct {
+	LatencySamples        int64    `json:"latency_samples,omitempty"`
 	TotalCalls            int64    `json:"total_calls"`
 	SuccessCalls          int64    `json:"success_calls"`
 	FailureCalls          int64    `json:"failure_calls"`
@@ -436,6 +437,7 @@ type SummaryComparison struct {
 }
 
 type TimelinePoint struct {
+	LatencySamples      int64    `json:"latency_samples,omitempty"`
 	BucketMS            int64    `json:"bucket_ms"`
 	Label               string   `json:"label"`
 	Calls               int64    `json:"calls"`
@@ -644,6 +646,7 @@ type CredentialTimelinePoint struct {
 }
 
 type APIKeyTimelinePoint struct {
+	LatencySamples      int64    `json:"latency_samples,omitempty"`
 	APIKeyHash          string   `json:"api_key_hash"`
 	BucketMS            int64    `json:"bucket_ms"`
 	BucketLabel         string   `json:"bucket_label"`
@@ -684,6 +687,7 @@ type AccountModelStatRow struct {
 }
 
 type APIKeyStatRow struct {
+	LatencySamples       int64                 `json:"latency_samples,omitempty"`
 	ID                   string                `json:"id"`
 	APIKeyHash           string                `json:"api_key_hash"`
 	AccountSnapshot      string                `json:"account_snapshot,omitempty"`
@@ -829,6 +833,7 @@ type EventsResponse struct {
 }
 
 type EventRow struct {
+	ID                     int64                         `json:"id"`
 	RequestID              string                        `json:"request_id,omitempty"`
 	EventHash              string                        `json:"event_hash"`
 	TimestampMS            int64                         `json:"timestamp_ms"`
@@ -959,7 +964,7 @@ func (s *Service) analytics(ctx context.Context, req Request) (Response, error) 
 	defer queries.Close()
 
 	var latencyPercentiles []store.LatencyPercentiles
-	if req.Include.Timeline || req.Include.AnomalyPoints {
+	if (req.Include.Timeline || req.Include.AnomalyPoints) && !federatedPercentiles(ctx) {
 		queries.Go(func(queryCtx context.Context) error {
 			var queryErr error
 			latencyPercentiles, queryErr = s.store.LatencyPercentilesWithFilter(queryCtx, filter, granularity, location)
@@ -1124,7 +1129,7 @@ func (s *Service) analytics(ctx context.Context, req Request) (Response, error) 
 			}
 		}
 		var latencySummary store.LatencySummary
-		if !compactSummary || req.Include.SummaryPercentiles {
+		if (!compactSummary || req.Include.SummaryPercentiles) && !federatedPercentiles(ctx) {
 			latencySummary, err = s.store.LatencySummaryWithFilter(ctx, filter)
 			if err != nil {
 				return Response{}, err
@@ -2206,6 +2211,7 @@ func buildSummary(agg store.Aggregate, latencySummary store.LatencySummary, roll
 		TotalCost:             totalCost,
 		AverageCostPerCall:    ratioFloat(totalCost, agg.TotalCalls),
 		AverageLatencyMS:      nullableFloat(agg.AvgLatencyMS.Valid, agg.AvgLatencyMS.Float64),
+		LatencySamples:        agg.LatencySamples,
 		P95LatencyMS:          nullableFloat(latencySummary.P95LatencyMS.Valid, latencySummary.P95LatencyMS.Float64),
 		P95TTFTMS:             nullableFloat(latencySummary.P95TTFTMS.Valid, latencySummary.P95TTFTMS.Float64),
 		ZeroTokenCalls:        agg.ZeroTokenCalls,
@@ -2303,6 +2309,7 @@ func buildTimeline(points []store.TimelinePoint, percentiles []store.LatencyPerc
 	result := make([]TimelinePoint, 0, len(order))
 	for _, bucketMS := range order {
 		bucket := buckets[bucketMS]
+		bucket.point.LatencySamples = bucket.latencySample
 		if bucket.latencySample > 0 {
 			value := bucket.latencyTotal / float64(bucket.latencySample)
 			bucket.point.AvgLatencyMS = &value
@@ -2994,6 +3001,7 @@ func buildAPIKeyTimeline(points []store.APIKeyTimelinePoint, granularity string,
 	result := make([]APIKeyTimelinePoint, 0, len(order))
 	for _, mapKey := range order {
 		entry := grouped[mapKey]
+		entry.point.LatencySamples = entry.latencySamples
 		if entry.latencySamples > 0 {
 			value := entry.latencySum / float64(entry.latencySamples)
 			entry.point.AvgLatencyMS = &value
@@ -3073,6 +3081,7 @@ func buildAPIKeyStats(stats []store.APIKeyModelStat, prices map[string]store.Mod
 		entry.row.SourceHashes = sortedSetValues(entry.sourceHashes)
 		entry.row.Models = sortedAccountModelStats(entry.models)
 		entry.row.Contexts = sortedAPIKeyContextStats(entry.contexts)
+		entry.row.LatencySamples = entry.latencySamples
 		if entry.latencySamples > 0 {
 			value := entry.latencySum / float64(entry.latencySamples)
 			entry.row.AvgLatencyMS = &value
@@ -3549,6 +3558,7 @@ func buildEvents(page store.EventsPage, totalCount int64) *EventsResponse {
 	items := make([]EventRow, 0, len(page.Items))
 	for _, item := range page.Items {
 		items = append(items, EventRow{
+			ID:                     item.ID,
 			RequestID:              item.RequestID,
 			EventHash:              item.EventHash,
 			TimestampMS:            item.TimestampMS,

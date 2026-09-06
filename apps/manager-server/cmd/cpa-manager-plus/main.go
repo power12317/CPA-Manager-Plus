@@ -154,6 +154,7 @@ func runServer() {
 	}
 
 	serverApp := httpapi.New(cfg, db, manager)
+	clusterService := serverApp.EnableCluster(protector)
 	serverApp.AppContext().DatabaseMaintenance = walMaintenance
 	recoveryCtx, cancelRecovery := context.WithTimeout(context.Background(), 10*time.Second)
 	if err := serverApp.AppContext().CodexInspectionService.Recover(recoveryCtx); err != nil {
@@ -232,6 +233,7 @@ func runServer() {
 	codexInspectionWorker := worker.NewCodexInspectionWorker(serverApp.AppContext().Store, serverApp.AppContext().CodexInspectionService)
 	serverResult := make(chan error, 1)
 	go serveHTTPServer(server, listener, stop, serverResult)
+	clusterService.Start(ctx)
 
 	if err := db.RunDerivedStartupMaintenance(ctx); err != nil && ctx.Err() == nil {
 		log.Printf("[startup] post-listen index preparation failed; continuing without blocking background workers: %v", err)
@@ -290,6 +292,9 @@ func runServer() {
 	}
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Printf("shutdown: %v", err)
+	}
+	if err := clusterService.Close(shutdownCtx); err != nil {
+		log.Printf("shutdown instances: %v", err)
 	}
 }
 

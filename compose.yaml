@@ -1,0 +1,4 @@
+# Default deployment builds CPA Manager Plus from this checkout.
+# Requires Docker Compose v2.20+ (include support).
+include:
+  - docker-compose.manager.yml

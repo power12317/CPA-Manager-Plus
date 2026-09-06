@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { aggregateServiceBase } from '@/utils/aggregateScope';
 import type { UsagePayload } from '@/features/monitoring/hooks/useUsageData';
 import {
   getDemoAccountActionCandidates,
@@ -1913,7 +1914,11 @@ export const normalizeUsageServiceBase = (input: string): string => normalizeApi
 
 const buildUrl = (base: string, path: string): string => {
   const normalized = normalizeUsageServiceBase(base).replace(/\/+$/, '');
-  return `${normalized}${path}`;
+  const target =
+    path.startsWith('/usage-service/') || path === '/setup'
+      ? normalized
+      : aggregateServiceBase(normalized);
+  return `${target}${path}`;
 };
 
 const authHeaders = (managementKey?: string) =>

@@ -21,8 +21,15 @@ import { useConfigStore } from './useConfigStore';
 import { useModelsStore } from './useModelsStore';
 import { useQuotaStore } from './useQuotaStore';
 import { useUsageServiceStore } from './useUsageServiceStore';
+import { useUsageHeaderSnapshotStore } from './useUsageHeaderSnapshotStore';
 import { detectApiBaseFromLocation, normalizeApiBase } from '@/utils/connection';
 import { sha256Hex } from '@/utils/apiKeyHash';
+import { activateAggregateScope } from '@/utils/aggregateScope';
+import {
+  clearInstanceNavigation,
+  managerRootBase,
+  takeInstanceNavigation,
+} from '@/utils/instanceScope';
 
 interface AuthStoreState extends AuthState {
   sessionMode: AuthSessionMode | '';
@@ -32,6 +39,7 @@ interface AuthStoreState extends AuthState {
 
   // 操作
   login: (credentials: LoginCredentials) => Promise<LoginResult>;
+  switchInstanceScope: (base: string) => void;
   logout: () => void;
   checkAuth: () => Promise<boolean>;
   restoreSession: (options?: RestoreSessionOptions) => Promise<RestoreSessionResult>;
@@ -105,10 +113,19 @@ export const useAuthStore = create<AuthStoreState>()(
           const legacyKey = obfuscatedStorage.getItem<string>('managementKey');
 
           const { apiBase, managementKey, rememberPassword, sessionMode } = get();
-          const resolvedBase = normalizeApiBase(
-            apiBase || legacyBase || detectApiBaseFromLocation()
-          );
-          const resolvedKey = managementKey || legacyKey || '';
+          let resolvedBase = normalizeApiBase(apiBase || legacyBase || detectApiBaseFromLocation());
+          const expectedBase = normalizeApiBase(options?.expectedPanelBase || '');
+          const navigationKey = expectedBase ? takeInstanceNavigation(expectedBase) : '';
+          if (
+            options?.expectedMode === 'manager_embedded' &&
+            expectedBase &&
+            (navigationKey ||
+              (sessionMode === 'manager_embedded' &&
+                managerRootBase(resolvedBase) === managerRootBase(expectedBase)))
+          ) {
+            resolvedBase = expectedBase;
+          }
+          const resolvedKey = navigationKey || managementKey || legacyKey || '';
           const resolvedRememberPassword =
             rememberPassword || Boolean(managementKey) || Boolean(legacyKey);
 
@@ -146,7 +163,7 @@ export const useAuthStore = create<AuthStoreState>()(
           });
           apiClient.setConfig({ apiBase: resolvedBase, managementKey: resolvedKey });
 
-          if (wasLoggedIn && resolvedBase && resolvedKey) {
+          if ((wasLoggedIn || navigationKey) && resolvedBase && resolvedKey) {
             try {
               const restoredSessionMode = options?.expectedMode ?? (sessionMode || undefined);
               const result = await get().login({
@@ -175,6 +192,9 @@ export const useAuthStore = create<AuthStoreState>()(
         const managementKey = credentials.managementKey.trim();
         const rememberPassword = credentials.rememberPassword ?? get().rememberPassword ?? false;
         const sessionMode = credentials.sessionMode ?? get().sessionMode;
+        activateAggregateScope(
+          sessionMode === 'manager_embedded' ? managerRootBase(apiBase) : ''
+        );
         const sessionPanelBase = normalizeApiBase(
           credentials.sessionPanelBase || get().sessionPanelBase
         );
@@ -257,8 +277,48 @@ export const useAuthStore = create<AuthStoreState>()(
         }
       },
 
+      // Switching a Manager scope keeps the authenticated shell mounted. Request
+      // generations and scoped caches isolate data without reloading the document.
+      switchInstanceScope: (base) => {
+        const state = get();
+        const apiBase = normalizeApiBase(base);
+        if (
+          state.sessionMode !== 'manager_embedded' ||
+          !state.isAuthenticated ||
+          apiBase === state.apiBase ||
+          managerRootBase(apiBase) !== managerRootBase(state.apiBase)
+        )
+          return;
+        activateAggregateScope(managerRootBase(apiBase));
+        apiClient.setConfig({ apiBase, managementKey: state.managementKey });
+        useConfigStore.getState().clearCache();
+        useModelsStore.getState().clearCache();
+        useQuotaStore
+          .getState()
+          .activateQuotaCacheScope(sha256Hex(`${apiBase}\u0000${state.managementKey}`));
+        useUsageHeaderSnapshotStore.getState().activateScope('');
+        useUsageServiceStore
+          .getState()
+          .setUsageServiceConfig(
+            { enabled: true, serviceBase: apiBase },
+            { panelBase: apiBase, panelHostMode: 'manager_embedded' }
+          );
+        set({
+          apiBase,
+          sessionPanelBase: apiBase,
+          serverVersion: null,
+          serverBuildDate: null,
+          serverCommit: null,
+          supportsPlugin: false,
+          connectionError: null,
+          connectionStatus: 'connected',
+        });
+      },
+
       // 登出
       logout: () => {
+        activateAggregateScope('');
+        clearInstanceNavigation();
         restoreSessionPromise = null;
         useConfigStore.getState().clearCache();
         useModelsStore.getState().clearCache();

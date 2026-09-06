@@ -235,6 +235,7 @@ func scanAggregateContribution(row *sql.Row, accumulator *dailyAggregateAccumula
 }
 
 func (accumulator dailyAggregateAccumulator) result() Aggregate {
+	accumulator.value.LatencySamples = accumulator.latencySamples
 	if accumulator.latencySamples > 0 {
 		accumulator.value.AvgLatencyMS.Valid = true
 		accumulator.value.AvgLatencyMS.Float64 = float64(accumulator.latencySumMS) / float64(accumulator.latencySamples)

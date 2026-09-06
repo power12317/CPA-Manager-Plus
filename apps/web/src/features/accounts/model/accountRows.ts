@@ -496,7 +496,9 @@ export const buildAccountRows = (
       key: file.name,
       selectionKey,
       fileName: file.name,
-      accountLabel: resolveAccountLabel(file),
+      accountLabel: file.instanceName
+        ? `${String(file.instanceName)} · ${resolveAccountLabel(file)}`
+        : resolveAccountLabel(file),
       provider,
       planType: quota.planType ?? readPlanType(file),
       canonicalPlanType: getCanonicalPlanType(provider, quota.planType ?? readPlanType(file)),
@@ -722,14 +724,7 @@ export const filterAccountRows = (rows: AccountRow[], filters: AccountRowFilters
     if (filters.plan !== 'all' && rowPlan !== filters.plan) {
       return false;
     }
-    if (
-      !matchesStatusFilter(
-        row,
-        filters.status,
-        filters.codexStatusBySelectionKey,
-        filters
-      )
-    ) {
+    if (!matchesStatusFilter(row, filters.status, filters.codexStatusBySelectionKey, filters)) {
       return false;
     }
     if (!matchesQuotaBand(row, filters.quotaBand)) return false;
@@ -840,11 +835,7 @@ export const getPlanOptions = (rows: AccountRow[], t?: TFunction): AccountPlanOp
       return;
     }
     const presentation = getPlanPresentation({ provider: row.provider, planType: row.planType, t });
-    const label = getCanonicalPlanFilterLabel(
-      plan,
-      t,
-      presentation?.shortLabel ?? plan
-    );
+    const label = getCanonicalPlanFilterLabel(plan, t, presentation?.shortLabel ?? plan);
     const previousLabel = labels.get(plan);
     if (!previousLabel || label < previousLabel) labels.set(plan, label);
   });

@@ -7,3 +7,14 @@ npm-debug.log*
 apps/manager-server/*.sqlite
 apps/manager-server/*.sqlite-shm
 apps/manager-server/*.sqlite-wal
+**/dist
+**/dist-demo
+**/data
+**/*.sqlite
+**/*.sqlite-shm
+**/*.sqlite-wal
+**/data.key
+.env
+.env.*
+docs/plan
+bin/tmp

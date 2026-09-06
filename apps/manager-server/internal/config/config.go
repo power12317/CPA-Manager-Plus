@@ -27,6 +27,7 @@ const (
 
 type Config struct {
 	HTTPAddr                     string
+	BasePath                     string
 	DataDir                      string
 	DBPath                       string
 	CPAUpstreamURL               string
@@ -63,6 +64,7 @@ type LoadOptions struct {
 
 type fileConfig struct {
 	HTTPAddr                  string   `json:"httpAddr,omitempty"`
+	BasePath                  string   `json:"basePath,omitempty"`
 	DataDir                   string   `json:"dataDir,omitempty"`
 	DBPath                    string   `json:"dbPath,omitempty"`
 	CPAUpstreamURL            string   `json:"cpaUpstreamUrl,omitempty"`
@@ -135,8 +137,13 @@ func LoadWithOptions(options LoadOptions) (Config, error) {
 		dataKeyPath = filepath.Join(dataDir, "data.key")
 	}
 
+	basePath := strings.TrimRight(strings.TrimSpace(env("CPA_MANAGER_BASE_PATH", cfgFile.BasePath)), "/")
+	if basePath != "" && (!strings.HasPrefix(basePath, "/") || strings.ContainsAny(basePath, "?#\\\r\n") || strings.Contains(basePath, "..") || strings.Contains(basePath, "//")) {
+		return Config{}, fmt.Errorf("basePath must be an absolute URL path without query, fragment or dot segments")
+	}
 	return Config{
 		HTTPAddr:                     env("HTTP_ADDR", stringFallback(cfgFile.HTTPAddr, "0.0.0.0:18317")),
+		BasePath:                     basePath,
 		DataDir:                      dataDir,
 		DBPath:                       env("USAGE_DB_PATH", dbPathFallback),
 		CPAUpstreamURL:               env("CPA_UPSTREAM_URL", cfgFile.CPAUpstreamURL),

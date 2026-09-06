@@ -1,4 +1,5 @@
 import { DEFAULT_API_PORT, MANAGEMENT_API_PREFIX } from './constants';
+import { aggregateServiceBase } from './aggregateScope';
 
 export const DEFAULT_DOCKER_CPA_BASE_URL = 'http://host.docker.internal:8317';
 
@@ -16,7 +17,7 @@ export const normalizeApiBase = (input: string): string => {
 export const computeApiUrl = (base: string): string => {
   const normalized = normalizeApiBase(base);
   if (!normalized) return '';
-  return `${normalized}${MANAGEMENT_API_PREFIX}`;
+  return `${aggregateServiceBase(normalized)}${MANAGEMENT_API_PREFIX}`;
 };
 
 const readEnvDefaultCPAConnectionBase = (): string => {
@@ -46,9 +47,11 @@ export const resolveDefaultCPAConnectionBase = (options?: {
 
 export const detectApiBaseFromLocation = (): string => {
   try {
-    const { protocol, hostname, port } = window.location;
+    const { protocol, hostname, port, pathname } = window.location;
     const normalizedPort = port ? `:${port}` : '';
-    return normalizeApiBase(`${protocol}//${hostname}${normalizedPort}`);
+    const path = pathname || '/';
+    const directory = path.replace(/\/[^/]*\.html?$/i, '').replace(/\/+$/, '');
+    return normalizeApiBase(`${protocol}//${hostname}${normalizedPort}${directory}`);
   } catch (error) {
     console.warn('Failed to detect api base from location, fallback to default', error);
     return normalizeApiBase(`http://localhost:${DEFAULT_API_PORT}`);

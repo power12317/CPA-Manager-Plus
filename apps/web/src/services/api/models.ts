@@ -3,6 +3,8 @@
  */
 
 import axios from 'axios';
+import { aggregateServiceBase } from '@/utils/aggregateScope';
+import { apiClient } from './client';
 import { normalizeModelList } from '@/utils/models';
 import { normalizeApiBase } from '@/utils/connection';
 import { getDemoProviderModels } from '@/features/demo/demoFixtures';
@@ -94,6 +96,12 @@ export const modelsApi = {
     if (__DEMO_SITE__ && isDemoMode()) {
       return getDemoProviderModels();
     }
+    if (aggregateServiceBase(baseUrl) !== baseUrl) {
+      const response = await apiClient.get<{ data?: unknown; models?: unknown }>(
+        '/available-models'
+      );
+      return normalizeModelList(response.data ?? response.models ?? response, { dedupe: true });
+    }
 
     const endpoint = buildV1ModelsEndpoint(baseUrl);
     if (!endpoint) {
@@ -106,7 +114,7 @@ export const modelsApi = {
     }
 
     const response = await axios.get(endpoint, {
-      headers: Object.keys(resolvedHeaders).length ? resolvedHeaders : undefined
+      headers: Object.keys(resolvedHeaders).length ? resolvedHeaders : undefined,
     });
     const payload = response.data?.data ?? response.data?.models ?? response.data;
     return normalizeModelList(payload, { dedupe: true });
@@ -142,7 +150,7 @@ export const modelsApi = {
       proxyUrl: trimmedProxyUrl,
       method: 'GET',
       url: endpoint,
-      header: Object.keys(resolvedHeaders).length ? resolvedHeaders : undefined
+      header: Object.keys(resolvedHeaders).length ? resolvedHeaders : undefined,
     });
 
     if (result.statusCode < 200 || result.statusCode >= 300) {
@@ -182,7 +190,7 @@ export const modelsApi = {
       proxyUrl: trimmedProxyUrl,
       method: 'GET',
       url: endpoint,
-      header: Object.keys(resolvedHeaders).length ? resolvedHeaders : undefined
+      header: Object.keys(resolvedHeaders).length ? resolvedHeaders : undefined,
     });
 
     if (result.statusCode < 200 || result.statusCode >= 300) {
@@ -253,7 +261,7 @@ export const modelsApi = {
         proxyUrl: trimmedProxyUrl,
         method: 'GET',
         url: endpoint,
-        header: Object.keys(resolvedHeaders).length ? resolvedHeaders : undefined
+        header: Object.keys(resolvedHeaders).length ? resolvedHeaders : undefined,
       });
 
       if (result.statusCode < 200 || result.statusCode >= 300) {
@@ -323,7 +331,7 @@ export const modelsApi = {
           proxyUrl: trimmedProxyUrl,
           method: 'GET',
           url: url.toString(),
-          header: Object.keys(resolvedHeaders).length ? resolvedHeaders : undefined
+          header: Object.keys(resolvedHeaders).length ? resolvedHeaders : undefined,
         });
 
         if (result.statusCode < 200 || result.statusCode >= 300) {
@@ -345,7 +353,9 @@ export const modelsApi = {
         });
 
         const nextToken =
-          isRecord(payload) && typeof payload.nextPageToken === 'string' ? payload.nextPageToken : '';
+          isRecord(payload) && typeof payload.nextPageToken === 'string'
+            ? payload.nextPageToken
+            : '';
         if (!nextToken) {
           break;
         }

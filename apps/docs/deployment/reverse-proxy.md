@@ -1,5 +1,28 @@
 # 反向代理
 
+## 多实例与子路径部署
+
+Manager Server 可以通过一个控制台登记和管理多个 CPA。仪表盘与凭证列表
+默认聚合，日志、配置和 OAuth 按实例访问。完整配置与数据备份说明见仓库
+`docs/multi-instance.md`。
+
+如果域名根路径属于其他服务，可以把整个控制台代理到一个子路径：
+
+```nginx
+location = /cpamp { return 308 /cpamp/; }
+location ^~ /cpamp/ {
+    proxy_pass http://127.0.0.1:18317/;
+    proxy_set_header Host $host;
+    proxy_read_timeout 120s;
+    client_max_body_size 64m;
+    proxy_buffering off;
+}
+```
+
+`proxy_pass` 末尾的 `/` 会去掉外部前缀。页面、管理 API 与实例路由都在
+`/cpamp/` 下，域名根路径无需交给 CPAMP。若代理保留前缀，设置
+`CPA_MANAGER_BASE_PATH=/cpamp`。下文的根路径分流方式仍可使用。
+
 如果你想用同一个域名访问 CPAMP 面板和 CPA API，就需要明确分流规则。HTTP 面板和 HTTP API 可以走反向代理；RESP Pub/Sub / RESP pop 不能走普通 HTTP 反向代理。
 
 本文按同域名部署来说明：

@@ -129,6 +129,39 @@ describe('useAuthStore logout', () => {
     });
     expect(storage.getItem('isLoggedIn')).toBeNull();
   });
+
+  it('switches Manager scope without logging in again and resets only connection data', async () => {
+    const { useAuthStore } = await import('./useAuthStore');
+    const { useUsageServiceStore } = await import('./useUsageServiceStore');
+    const { aggregateServiceBase } = await import('@/utils/aggregateScope');
+    const root = 'https://manager.local/cpamp';
+    useAuthStore.setState({
+      isAuthenticated: true,
+      apiBase: root,
+      managementKey: 'admin',
+      sessionMode: 'manager_embedded',
+      connectionStatus: 'connected',
+    });
+    const target = `${root}/api/instances/default`;
+    useAuthStore.getState().switchInstanceScope(target);
+    expect(useAuthStore.getState()).toMatchObject({
+      isAuthenticated: true,
+      apiBase: target,
+      managementKey: 'admin',
+      sessionMode: 'manager_embedded',
+      connectionStatus: 'connected',
+    });
+    expect(fetchConfigMock).not.toHaveBeenCalled();
+    expect(clearConfigCacheMock).toHaveBeenCalled();
+    expect(clearModelsCacheMock).toHaveBeenCalled();
+    expect(useUsageServiceStore.getState().serviceBase).toBe(target);
+    expect(aggregateServiceBase(target)).toBe(target);
+    expect(aggregateServiceBase(root)).toBe(`${root}/api/aggregate`);
+    useAuthStore.getState().switchInstanceScope(root);
+    expect(aggregateServiceBase(root)).toBe(`${root}/api/aggregate`);
+    useAuthStore.getState().switchInstanceScope('https://another-manager.local/cpamp');
+    expect(useAuthStore.getState().apiBase).toBe(root);
+  });
 });
 
 describe('useAuthStore manager embedded login recovery', () => {
@@ -143,11 +176,59 @@ describe('useAuthStore manager embedded login recovery', () => {
     usageServiceGetManagerConfigMock.mockReset();
     storage = createMemoryStorage();
     vi.stubGlobal('localStorage', storage);
+    vi.stubGlobal('sessionStorage', createMemoryStorage());
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.clearAllMocks();
+  });
+
+  it('restores an unremembered login into exactly the selected instance scope', async () => {
+    fetchConfigMock.mockResolvedValue({});
+    const { useAuthStore } = await import('./useAuthStore');
+    const { saveInstanceNavigation } = await import('@/utils/instanceScope');
+    const root = 'https://manager.example/cpamp';
+    const target = `${root}/api/instances/default`;
+    useAuthStore.setState({
+      apiBase: root,
+      managementKey: '',
+      rememberPassword: false,
+      sessionMode: 'manager_embedded',
+    });
+    saveInstanceNavigation(target, 'admin-navigation-key');
+    await useAuthStore
+      .getState()
+      .restoreSession({ expectedMode: 'manager_embedded', expectedPanelBase: target });
+    expect(useAuthStore.getState()).toMatchObject({
+      isAuthenticated: true,
+      apiBase: target,
+      managementKey: 'admin-navigation-key',
+      rememberPassword: false,
+    });
+    expect(apiClientSetConfig).toHaveBeenLastCalledWith({
+      apiBase: target,
+      managementKey: 'admin-navigation-key',
+    });
+    expect(sessionStorage.getItem('cpamp-instance-navigation')).toBeNull();
+  });
+
+  it('does not reuse a saved login for a different Manager deployment prefix', async () => {
+    const { useAuthStore } = await import('./useAuthStore');
+    useAuthStore.setState({
+      apiBase: 'https://manager.example/cpamc1',
+      managementKey: 'first-manager-key',
+      rememberPassword: true,
+      sessionMode: 'manager_embedded',
+    });
+    storage.setItem('isLoggedIn', 'true');
+    const result = await useAuthStore.getState().restoreSession({
+      expectedMode: 'manager_embedded',
+      expectedPanelBase: 'https://manager.example/cpamc2',
+    });
+    expect(result).toBe(false);
+    expect(fetchConfigMock).not.toHaveBeenCalled();
+    expect(useAuthStore.getState().managementKey).toBe('');
   });
 
   it('allows Manager Server admin login to recover when the saved CPA key can no longer fetch CPA config', async () => {

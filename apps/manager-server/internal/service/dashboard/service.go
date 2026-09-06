@@ -54,6 +54,7 @@ type Window struct {
 }
 
 type TodaySummary struct {
+	LatencySamples      int64    `json:"latency_samples,omitempty"`
 	TotalCalls          int64    `json:"total_calls"`
 	SuccessCalls        int64    `json:"success_calls"`
 	FailureCalls        int64    `json:"failure_calls"`
@@ -421,6 +422,7 @@ func selectTopModelStats(stats []store.ModelStat, limit int) []store.ModelStat {
 
 func buildTodaySummary(agg store.Aggregate, modelStats []store.ModelStat, prices map[string]store.ModelPrice) TodaySummary {
 	return TodaySummary{
+		LatencySamples:      agg.LatencySamples,
 		TotalCalls:          agg.TotalCalls,
 		SuccessCalls:        agg.SuccessCalls,
 		FailureCalls:        agg.FailureCalls,

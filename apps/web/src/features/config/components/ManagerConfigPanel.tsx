@@ -5,6 +5,8 @@ import { Select } from '@/components/ui/Select';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { IconEye, IconEyeOff, IconX } from '@/components/ui/icons';
 import { AccountProcessingPolicySection } from './AccountProcessingPolicySection';
+import { Instances } from '@/features/cluster/Instances';
+import { managerRootBase } from '@/utils/instanceScope';
 import styles from '../ConfigPage.module.scss';
 
 type ManagerConfigPanelProps = {
@@ -80,6 +82,7 @@ export function ManagerConfigPanel({
 
   return (
     <div className={styles.managerConfigPanel}>
+      {panelHostedByUsageService === true && <Instances embedded />}
       <div className={styles.managerConfigHeader}>
         <div>
           <h2>{t('config_management.manager.title')}</h2>
@@ -112,104 +115,109 @@ export function ManagerConfigPanel({
         <div className={styles.managerReadonlyGrid}>
           <div>
             <span>{t('config_management.manager.service_base')}</span>
-            <strong>{detectedPanelBase}</strong>
+            <strong>
+              {panelHostedByUsageService === true
+                ? managerRootBase(detectedPanelBase)
+                : detectedPanelBase}
+            </strong>
           </div>
         </div>
       </section>
 
-      <section className={styles.managerSection}>
-        <div className={styles.managerSectionHeader}>
-          <div>
-            <h3>{t('config_management.manager.cpa_connection_section_title')}</h3>
-            <p>{t('config_management.manager.cpa_connection_section_hint')}</p>
+      {panelHostedByUsageService !== true && (
+        <section className={styles.managerSection}>
+          <div className={styles.managerSectionHeader}>
+            <div>
+              <h3>{t('config_management.manager.cpa_connection_section_title')}</h3>
+              <p>{t('config_management.manager.cpa_connection_section_hint')}</p>
+            </div>
+            <span
+              className={`${styles.managerKeyBindingBadge} ${
+                managerHasBoundCPAManagementKey
+                  ? styles.managerKeyBindingBadgeBound
+                  : styles.managerKeyBindingBadgeUnbound
+              }`}
+            >
+              {managerHasBoundCPAManagementKey
+                ? t('config_management.manager.cpa_management_key_binding_bound')
+                : t('config_management.manager.cpa_management_key_binding_unbound')}
+            </span>
           </div>
-          <span
-            className={`${styles.managerKeyBindingBadge} ${
-              managerHasBoundCPAManagementKey
-                ? styles.managerKeyBindingBadgeBound
-                : styles.managerKeyBindingBadgeUnbound
-            }`}
-          >
-            {managerHasBoundCPAManagementKey
-              ? t('config_management.manager.cpa_management_key_binding_bound')
-              : t('config_management.manager.cpa_management_key_binding_unbound')}
-          </span>
-        </div>
-        <div className={styles.managerConnectionGrid}>
-          <Input
-            label={t('config_management.manager.cpa_base_url_label')}
-            value={managerCPABaseInput}
-            placeholder={t('config_management.manager.cpa_base_url_placeholder')}
-            onChange={(event) => onCPABaseInputChange(event.target.value)}
-            disabled={connectionInputDisabled}
-            hint={t('config_management.manager.cpa_base_url_hint', {
-              boundBase: managerBoundCPABase || t('config_management.manager.not_bound'),
-            })}
-          />
-          <Input
-            label={t('config_management.manager.cpa_management_key_label')}
-            name="manager-cpa-management-key-rotation"
-            type={managerCPAManagementKeyVisible ? 'text' : 'password'}
-            value={managerCPAManagementKeyInput}
-            placeholder={t('config_management.manager.cpa_management_key_placeholder')}
-            onChange={(event) => onCPAManagementKeyInputChange(event.target.value)}
-            disabled={connectionInputDisabled}
-            autoComplete="new-password"
-            autoCorrect="off"
-            autoCapitalize="none"
-            spellCheck={false}
-            data-lpignore="true"
-            data-1p-ignore="true"
-            className={styles.managerCpaKeyInput}
-            hint={t('config_management.manager.cpa_management_key_section_hint')}
-            rightElement={
-              <div className={styles.managerKeyInputActions}>
-                <button
-                  type="button"
-                  className={styles.managerKeyIconButton}
-                  onClick={onCPAManagementKeyVisibilityToggle}
-                  disabled={connectionInputDisabled}
-                  title={t(
-                    managerCPAManagementKeyVisible
-                      ? 'config_management.manager.cpa_management_key_hide'
-                      : 'config_management.manager.cpa_management_key_reveal'
-                  )}
-                  aria-label={t(
-                    managerCPAManagementKeyVisible
-                      ? 'config_management.manager.cpa_management_key_hide'
-                      : 'config_management.manager.cpa_management_key_reveal'
-                  )}
-                >
-                  {managerCPAManagementKeyVisible ? (
-                    <IconEyeOff size={16} />
-                  ) : (
-                    <IconEye size={16} />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className={styles.managerKeyIconButton}
-                  onClick={onCPAManagementKeyClear}
-                  disabled={connectionInputDisabled || !managerCPAManagementKeyInput}
-                  title={t('config_management.manager.cpa_management_key_clear')}
-                  aria-label={t('config_management.manager.cpa_management_key_clear')}
-                >
-                  <IconX size={16} />
-                </button>
-              </div>
-            }
-          />
-        </div>
-        <div className={styles.managerConnectionRiskNote}>
-          {t('config_management.manager.cpa_connection_risk_inline')}
-        </div>
-        {managerSaving && managerCPAManagementKeyInput.trim() ? (
-          <div className={styles.managerKeySavingHint}>
-            {t('config_management.manager.cpa_management_key_saving')}
+          <div className={styles.managerConnectionGrid}>
+            <Input
+              label={t('config_management.manager.cpa_base_url_label')}
+              value={managerCPABaseInput}
+              placeholder={t('config_management.manager.cpa_base_url_placeholder')}
+              onChange={(event) => onCPABaseInputChange(event.target.value)}
+              disabled={connectionInputDisabled}
+              hint={t('config_management.manager.cpa_base_url_hint', {
+                boundBase: managerBoundCPABase || t('config_management.manager.not_bound'),
+              })}
+            />
+            <Input
+              label={t('config_management.manager.cpa_management_key_label')}
+              name="manager-cpa-management-key-rotation"
+              type={managerCPAManagementKeyVisible ? 'text' : 'password'}
+              value={managerCPAManagementKeyInput}
+              placeholder={t('config_management.manager.cpa_management_key_placeholder')}
+              onChange={(event) => onCPAManagementKeyInputChange(event.target.value)}
+              disabled={connectionInputDisabled}
+              autoComplete="new-password"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
+              className={styles.managerCpaKeyInput}
+              hint={t('config_management.manager.cpa_management_key_section_hint')}
+              rightElement={
+                <div className={styles.managerKeyInputActions}>
+                  <button
+                    type="button"
+                    className={styles.managerKeyIconButton}
+                    onClick={onCPAManagementKeyVisibilityToggle}
+                    disabled={connectionInputDisabled}
+                    title={t(
+                      managerCPAManagementKeyVisible
+                        ? 'config_management.manager.cpa_management_key_hide'
+                        : 'config_management.manager.cpa_management_key_reveal'
+                    )}
+                    aria-label={t(
+                      managerCPAManagementKeyVisible
+                        ? 'config_management.manager.cpa_management_key_hide'
+                        : 'config_management.manager.cpa_management_key_reveal'
+                    )}
+                  >
+                    {managerCPAManagementKeyVisible ? (
+                      <IconEyeOff size={16} />
+                    ) : (
+                      <IconEye size={16} />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.managerKeyIconButton}
+                    onClick={onCPAManagementKeyClear}
+                    disabled={connectionInputDisabled || !managerCPAManagementKeyInput}
+                    title={t('config_management.manager.cpa_management_key_clear')}
+                    aria-label={t('config_management.manager.cpa_management_key_clear')}
+                  >
+                    <IconX size={16} />
+                  </button>
+                </div>
+              }
+            />
           </div>
-        ) : null}
-      </section>
-
+          <div className={styles.managerConnectionRiskNote}>
+            {t('config_management.manager.cpa_connection_risk_inline')}
+          </div>
+          {managerSaving && managerCPAManagementKeyInput.trim() ? (
+            <div className={styles.managerKeySavingHint}>
+              {t('config_management.manager.cpa_management_key_saving')}
+            </div>
+          ) : null}
+        </section>
+      )}
       <section className={styles.managerSection}>
         <div className={styles.managerSectionHeader}>
           <div>
@@ -313,7 +321,9 @@ export function ManagerConfigPanel({
         </div>
         <div>
           <span>{t('config_management.manager.cpa_usage_enabled')}</span>
-          <strong>{managerUsageStatisticsEnabled ? t('common.enabled') : t('common.disabled')}</strong>
+          <strong>
+            {managerUsageStatisticsEnabled ? t('common.enabled') : t('common.disabled')}
+          </strong>
         </div>
         <div>
           <span>{t('config_management.manager.cpa_retention')}</span>

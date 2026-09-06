@@ -129,7 +129,9 @@ func rootHandler(
 			return
 		}
 		if r.URL.Path == "/" {
-			http.Redirect(w, r, "/management.html", http.StatusTemporaryRedirect)
+			// A relative Location preserves prefixes stripped by an HTTP reverse proxy.
+			w.Header().Set("Location", "management.html")
+			w.WriteHeader(http.StatusTemporaryRedirect)
 			return
 		}
 		http.NotFound(w, r)

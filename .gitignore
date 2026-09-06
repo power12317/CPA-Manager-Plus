@@ -49,3 +49,9 @@ TODO.md
 
 # Local temp scratch files
 .tmp-*
+
+# Local deployment credentials and instance databases
+.env
+.env.*
+!.env.example
+/data/

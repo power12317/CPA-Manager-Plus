@@ -95,7 +95,7 @@ func TestServerCompatHealthInfoAndPanel(t *testing.T) {
 
 	rootRR := testutil.Request(t, handler, http.MethodGet, "/", "", "")
 	testutil.RequireStatus(t, rootRR, http.StatusTemporaryRedirect)
-	if rootRR.Header().Get("Location") != "/management.html" {
+	if rootRR.Header().Get("Location") != "management.html" {
 		t.Fatalf("root location = %q", rootRR.Header().Get("Location"))
 	}
 

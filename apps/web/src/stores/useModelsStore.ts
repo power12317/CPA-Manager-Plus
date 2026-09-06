@@ -25,6 +25,8 @@ interface ModelsState {
   isCacheValid: (apiBase: string, apiKey?: string) => boolean;
 }
 
+let requestGeneration = 0;
+
 export const useModelsStore = create<ModelsState>((set, get) => ({
   models: [],
   loading: false,
@@ -41,33 +43,41 @@ export const useModelsStore = create<ModelsState>((set, get) => ({
       return cache.data;
     }
 
+    const generation = ++requestGeneration;
     set({ loading: true, error: null });
 
     try {
       const list = await modelsApi.fetchModels(apiBase, apiKeyScope || undefined);
+      if (generation !== requestGeneration) return list;
       const now = Date.now();
 
       set({
         models: list,
         loading: false,
-        cache: { data: list, timestamp: now, apiBase, apiKey: apiKeyScope }
+        cache: { data: list, timestamp: now, apiBase, apiKey: apiKeyScope },
       });
 
       return list;
     } catch (error: unknown) {
+      if (generation !== requestGeneration) throw error;
       const message =
-        error instanceof Error ? error.message : typeof error === 'string' ? error : 'Failed to fetch models';
+        error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : 'Failed to fetch models';
       set({
         error: message,
         loading: false,
-        models: []
+        models: [],
       });
       throw error;
     }
   },
 
   clearCache: () => {
-    set({ cache: null, models: [] });
+    requestGeneration += 1;
+    set({ cache: null, models: [], loading: false, error: null });
   },
 
   isCacheValid: (apiBase, apiKey) => {
@@ -77,5 +87,5 @@ export const useModelsStore = create<ModelsState>((set, get) => ({
     const apiKeyScope = apiKey?.trim() || '';
     if ((cache.apiKey || '') !== apiKeyScope) return false;
     return Date.now() - cache.timestamp < CACHE_EXPIRY_MS;
-  }
+  },
 }));

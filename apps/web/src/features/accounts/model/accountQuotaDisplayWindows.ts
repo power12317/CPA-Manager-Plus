@@ -22,7 +22,10 @@ import {
   isCodexMainQuotaModelScope,
 } from '@/utils/quota/codexQuota';
 import type { AccountRow } from './accountRows';
-import type { AccountQuotaStores } from './accountQuotaSummary';
+import {
+  hasConfirmedXaiBillingEntitlement,
+  type AccountQuotaStores,
+} from './accountQuotaSummary';
 
 export type AccountQuotaWindowKind =
   | 'five_hour'
@@ -128,6 +131,39 @@ export const isStandardAccountQuotaListWindow = (
   window.kind !== 'payg' &&
   window.kind !== 'product' &&
   window.kind !== 'summary';
+
+export type AccountQuotaSemanticGroup = 'standard' | 'model' | 'other';
+
+export const getAccountQuotaSemanticGroup = (
+  window: Pick<AccountQuotaDisplayWindow, 'kind' | 'windowMode' | 'modelScope' | 'source'>
+): AccountQuotaSemanticGroup => {
+  const { kind, windowMode } = window;
+
+  if (
+    windowMode === 'non_window' ||
+    kind === 'billing' ||
+    kind === 'payg' ||
+    kind === 'product' ||
+    kind === 'summary'
+  ) {
+    return 'other';
+  }
+
+  if (
+    kind === 'five_hour' ||
+    kind === 'daily' ||
+    kind === 'weekly' ||
+    kind === 'monthly'
+  ) {
+    return isModelScopedAccountQuotaWindow(window) ? 'model' : 'standard';
+  }
+
+  if ((kind === undefined || kind === 'unknown') && isIntervalAccountQuotaWindow(window)) {
+    return isModelScopedAccountQuotaWindow(window) ? 'model' : 'standard';
+  }
+
+  return 'other';
+};
 
 const normalizeText = (value: string): string => value.trim().toLowerCase().replace(/\s+/g, ' ');
 
@@ -498,12 +534,13 @@ const buildClaudeQuotaDisplayWindows = (
       buildAccountQuotaDisplayWindow({
         key: 'extra-usage',
         label: options.t('claude_quota.extra_usage_label'),
-        kind: 'monthly',
+        kind: 'billing',
         remainingPercent: remainingPercentFromUsed(usedPercent),
         usedPercent,
         resetLabel: '-',
         amountLabel: formatClaudeExtraUsageAmount(quota.extraUsage),
         source: 'claude',
+        observedAtMs: quota.fetchedAtMs ?? null,
         nowMs: options.nowMs,
       })
     );
@@ -609,7 +646,13 @@ const buildXaiQuotaDisplayWindows = (
 ): AccountQuotaDisplayWindow[] => {
   const quota = getCredentialScopedQuotaState(options.stores.xaiQuota, row.raw);
   const billing = quota?.billing;
-  if (!billing || billing.officialApiHealth) return [];
+  if (
+    !billing ||
+    billing.officialApiHealth ||
+    !hasConfirmedXaiBillingEntitlement(billing, row.planType)
+  ) {
+    return [];
+  }
 
   const resetLabel = billing.billingPeriodEnd
     ? formatDisplayResetTime(billing.billingPeriodEnd)
@@ -628,6 +671,12 @@ const buildXaiQuotaDisplayWindows = (
     typeof billing.usagePercent === 'number' && Number.isFinite(billing.usagePercent)
       ? clampDisplayPercent(billing.usagePercent)
       : null;
+
+  const monthlyUsedPercent =
+    typeof billing.usedPercent === 'number' && Number.isFinite(billing.usedPercent)
+      ? clampDisplayPercent(billing.usedPercent)
+      : null;
+  const hasLegacyMonthlyWindow = monthlyUsedPercent !== null || billing.monthlyLimitCents !== null;
 
   if (billing.periodType === 'weekly' || (billing.productUsage?.length ?? 0) > 0) {
     windows.push(
@@ -651,12 +700,7 @@ const buildXaiQuotaDisplayWindows = (
     );
   }
 
-  const monthlyUsedPercent =
-    typeof billing.usedPercent === 'number' && Number.isFinite(billing.usedPercent)
-      ? clampDisplayPercent(billing.usedPercent)
-      : null;
-
-  if (monthlyUsedPercent !== null || billing.monthlyLimitCents !== null) {
+  if (hasLegacyMonthlyWindow) {
     windows.push(
       buildAccountQuotaDisplayWindow({
         key: 'billing',

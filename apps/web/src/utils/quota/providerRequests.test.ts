@@ -49,6 +49,8 @@ import {
   fetchAntigravityQuota,
   fetchClaudeQuota,
   fetchCodexQuota,
+  fetchCodexQuotaSummary,
+  fetchCodexResetCredits,
   fetchKimiQuota,
   mergeXaiBillingSummaries,
   probeXaiBilling,
@@ -101,6 +103,117 @@ describe('buildCodexQuotaWindows', () => {
       observedAtMs: 1_000,
       quotaProgressObservedAtMs: null,
     });
+  });
+});
+
+describe('fetchCodexQuotaSummary', () => {
+  it('fetches only usage summary and does not call rate limit reset credits endpoint', async () => {
+    mocks.request.mockResolvedValueOnce({
+      statusCode: 200,
+      hasStatusCode: true,
+      header: {},
+      bodyText: '',
+      body: {
+        plan_type: 'team',
+        rate_limit: {
+          primary_window: { used_percent: 45, limit_window_seconds: 18_000 },
+        },
+      },
+    });
+
+    const result = await fetchCodexQuotaSummary(
+      {
+        name: 'codex.json',
+        type: 'codex',
+        authIndex: 'auth-1',
+      },
+      t
+    );
+
+    expect(mocks.request).toHaveBeenCalledTimes(1);
+    expect(mocks.request.mock.calls[0][0].url).toBe(CODEX_USAGE_URL);
+    expect(result.planType).toBe('team');
+    expect(result.rateLimitResetCreditsAvailableCount).toBeNull();
+    expect(result.rateLimitResetCredits).toEqual([]);
+    expect(result.rateLimitResetCreditsError).toBeNull();
+    expect(result.resetCreditsEvidenceAtMs).toBeNull();
+    expect(result.windows).toHaveLength(1);
+    expect(result.windows[0].usedPercent).toBe(45);
+  });
+});
+
+describe('fetchCodexResetCredits', () => {
+  it('fetches rate limit reset credits successfully and records evidence timestamp', async () => {
+    mocks.request.mockResolvedValueOnce({
+      statusCode: 200,
+      hasStatusCode: true,
+      header: {},
+      bodyText: '',
+      body: {
+        available_count: 2,
+        credits: [
+          {
+            id: 'credit-1',
+            reset_type: 'codex_rate_limits',
+            status: 'available',
+            granted_at: '2026-06-01T00:00:00Z',
+            expires_at: '2026-06-30T00:00:00Z',
+          },
+        ],
+      },
+    });
+
+    const result = await fetchCodexResetCredits(
+      {
+        name: 'codex.json',
+        type: 'codex',
+        authIndex: 'auth-1',
+        id_token: { account_id: 'acct-1' },
+      },
+      t
+    );
+
+    expect(mocks.request).toHaveBeenCalledTimes(1);
+    expect(mocks.request.mock.calls[0][0]).toMatchObject({
+      authIndex: 'auth-1',
+      method: 'GET',
+      url: CODEX_RATE_LIMIT_RESET_CREDITS_URL,
+    });
+    expect(result.availableCount).toBe(2);
+    expect(result.credits).toHaveLength(1);
+    expect(result.error).toBeNull();
+    expect(result.observedAtMs).toBeTypeOf('number');
+    expect(result.resetCreditsEvidenceAtMs).toBeTypeOf('number');
+  });
+
+  it('returns graceful error when reset credit endpoint returns 502', async () => {
+    mocks.request.mockResolvedValueOnce({
+      statusCode: 502,
+      hasStatusCode: true,
+      header: {},
+      bodyText: 'Bad Gateway',
+      body: null,
+    });
+
+    const result = await fetchCodexResetCredits(
+      {
+        name: 'codex.json',
+        type: 'codex',
+        authIndex: 'auth-1',
+      },
+      t
+    );
+
+    expect(result.availableCount).toBeNull();
+    expect(result.credits).toEqual([]);
+    expect(result.error).toBe('502 Bad Gateway');
+    expect(result.resetCreditsEvidenceAtMs).toBeUndefined();
+  });
+
+  it('throws error when auth index is missing', async () => {
+    await expect(
+      fetchCodexResetCredits({ name: 'codex.json', type: 'codex' }, t)
+    ).rejects.toThrow('codex_quota.missing_auth_index');
   });
 });
 
@@ -450,6 +563,43 @@ describe('fetchClaudeQuota', () => {
       id: 'iguana-necktie',
       labelKey: 'claude_quota.iguana_necktie',
     });
+  });
+
+  it('preserves usage windows and marks rateLimited when profile returns 429', async () => {
+    mocks.request
+      .mockResolvedValueOnce({
+        statusCode: 200,
+        hasStatusCode: true,
+        header: {},
+        bodyText: '',
+        body: {
+          five_hour: {
+            utilization: 25,
+            resets_at: '2026-07-01T10:00:00Z',
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        statusCode: 429,
+        hasStatusCode: true,
+        header: {},
+        bodyText: 'Too Many Requests',
+        body: null,
+      });
+
+    const result = await fetchClaudeQuota(
+      {
+        name: 'claude-429.json',
+        type: 'claude',
+        authIndex: 'claude-429',
+      },
+      t
+    );
+
+    expect(result.windows).toHaveLength(1);
+    expect(result.windows[0].id).toBe('five-hour');
+    expect(result.planType).toBeNull();
+    expect(result.rateLimited).toBe(true);
   });
 
   it('restores base windows from a limits-only response before scoped weekly rows', async () => {
@@ -1961,7 +2111,7 @@ describe('buildXaiBillingSummary', () => {
     });
   });
 
-  it('treats an omitted weekly percentage as zero only for a complete valid period', () => {
+  it('keeps omitted weekly usage unknown even when the period window is valid', () => {
     expect(
       buildXaiBillingSummary({
         currentPeriod: {
@@ -1970,7 +2120,7 @@ describe('buildXaiBillingSummary', () => {
           end: '2026-08-20T00:00:00Z',
         },
       })
-    ).toMatchObject({ periodType: 'weekly', usagePercent: 0 });
+    ).toMatchObject({ periodType: 'weekly', usagePercent: null });
 
     expect(
       buildXaiBillingSummary({
@@ -1980,6 +2130,17 @@ describe('buildXaiBillingSummary', () => {
         },
       })
     ).toMatchObject({ periodType: 'weekly', usagePercent: null });
+
+    expect(
+      buildXaiBillingSummary({
+        currentPeriod: {
+          type: 'USAGE_PERIOD_TYPE_WEEKLY',
+          start: '2026-08-13T00:00:00Z',
+          end: '2026-08-20T00:00:00Z',
+        },
+        creditUsagePercent: 0,
+      })
+    ).toMatchObject({ periodType: 'weekly', usagePercent: 0 });
   });
 
   it('treats nested protobuf zero placeholders as absent billing evidence', () => {
@@ -1999,7 +2160,7 @@ describe('buildXaiBillingSummary', () => {
     });
 
     expect(summary).toMatchObject({
-      usagePercent: 0,
+      usagePercent: null,
       usedCents: null,
       includedUsedCents: null,
       onDemandCapCents: null,
@@ -2106,6 +2267,30 @@ describe('buildXaiBillingSummary', () => {
       billingPeriodEnd: '2026-08-01T00:00:00Z',
     });
   });
+
+  it('does not treat zero on-demand evidence as a billing boundary', () => {
+    const summary = buildXaiBillingSummary({
+      currentPeriod: {
+        type: 'USAGE_PERIOD_TYPE_WEEKLY',
+        start: '2026-09-05T00:00:00Z',
+        end: '2026-09-12T00:00:00Z',
+      },
+      onDemandCap: { val: 0 },
+      onDemandUsed: { val: 0 },
+      billingPeriodStart: '2026-09-05T00:00:00Z',
+      billingPeriodEnd: '2026-09-12T00:00:00Z',
+    });
+
+    expect(summary).toMatchObject({
+      periodType: 'weekly',
+      usagePercent: null,
+      onDemandCapCents: 0,
+      onDemandUsedCents: 0,
+      usedCents: null,
+    });
+    expect(summary?.billingPeriodStart).toBeUndefined();
+    expect(summary?.billingPeriodEnd).toBeUndefined();
+  });
 });
 
 describe('mergeXaiBillingSummaries', () => {
@@ -2162,7 +2347,7 @@ describe('mergeXaiBillingSummaries', () => {
 
     expect(mergeXaiBillingSummaries(weekly, legacy)).toMatchObject({
       periodType: 'weekly',
-      usagePercent: 0,
+      usagePercent: null,
       monthlyLimitCents: 10_000,
       usedCents: 12_500,
       includedUsedCents: 10_000,
@@ -2171,6 +2356,37 @@ describe('mergeXaiBillingSummaries', () => {
       onDemandUsedCents: 2_500,
       onDemandUsedPercent: 50,
       billingPeriodEnd: '2026-09-01T00:00:00Z',
+    });
+  });
+
+  it('keeps weekly and monthly billing reset boundaries separate', () => {
+    const weekly = buildXaiBillingSummary({
+      currentPeriod: {
+        type: 'USAGE_PERIOD_TYPE_WEEKLY',
+        start: '2026-09-05T00:00:00Z',
+        end: '2026-09-12T00:00:00Z',
+      },
+      onDemandCap: { val: 0 },
+      onDemandUsed: { val: 0 },
+      billingPeriodStart: '2026-09-05T00:00:00Z',
+      billingPeriodEnd: '2026-09-12T00:00:00Z',
+    });
+    const monthly = buildXaiBillingSummary({
+      monthlyLimit: { val: 0 },
+      used: { val: 0 },
+      billingPeriodStart: '2026-09-01T00:00:00Z',
+      billingPeriodEnd: '2026-10-01T00:00:00Z',
+    });
+
+    expect(mergeXaiBillingSummaries(weekly, monthly)).toMatchObject({
+      periodType: 'weekly',
+      usagePercent: null,
+      periodStart: '2026-09-05T00:00:00Z',
+      periodEnd: '2026-09-12T00:00:00Z',
+      monthlyLimitCents: 0,
+      billingPeriodStart: '2026-09-01T00:00:00Z',
+      billingPeriodEnd: '2026-10-01T00:00:00Z',
+      usedPercent: null,
     });
   });
 
@@ -2347,6 +2563,138 @@ describe('fetchXaiQuota', () => {
       usedCents: 3000,
       billingPeriodEnd: '2026-08-01T00:00:00Z',
     });
+  });
+
+  it('preserves partial monthly summary and sets rateLimited when weekly billing returns 429', async () => {
+    mocks.request
+      .mockResolvedValueOnce({
+        statusCode: 429,
+        hasStatusCode: true,
+        header: {},
+        bodyText: 'Too Many Requests',
+        body: null,
+      })
+      .mockResolvedValueOnce({
+        statusCode: 200,
+        hasStatusCode: true,
+        header: {},
+        bodyText: '',
+        body: {
+          config: {
+            monthly_limit: 10000,
+            used: 3000,
+            on_demand_cap: 5000,
+            billing_period_end: '2026-08-01T00:00:00Z',
+          },
+        },
+      });
+
+    const result = await fetchXaiQuota(
+      {
+        name: 'xai-429.json',
+        type: 'xai',
+        authIndex: 'xai-429',
+      },
+      t
+    );
+
+    expect(result.partial).toBe(true);
+    expect(result.monthlyLimitCents).toBe(10000);
+    expect(result.rateLimited).toBe(true);
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ statusCode: 429 }),
+      ])
+    );
+  });
+
+  it('preserves the usable weekly summary and marks rateLimited when monthly billing returns 429', async () => {
+    mocks.request
+      .mockResolvedValueOnce({
+        statusCode: 200,
+        hasStatusCode: true,
+        header: {},
+        bodyText: '',
+        body: {
+          config: {
+            current_period: {
+              type: 'weekly',
+              start: '2026-07-01T00:00:00Z',
+              end: '2026-07-08T00:00:00Z',
+            },
+            credit_usage_percent: 40,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        statusCode: 429,
+        hasStatusCode: true,
+        header: {},
+        bodyText: 'Too Many Requests',
+        body: null,
+      });
+
+    const result = await fetchXaiQuota({ name: 'xai-monthly-429.json', type: 'xai', authIndex: 'xai-monthly-429' }, t);
+
+    expect(result).toMatchObject({
+      periodType: 'weekly',
+      usagePercent: 40,
+      partial: false,
+      rateLimited: true,
+    });
+  });
+
+  it('exposes a monthly 429 when weekly billing has no usable summary', async () => {
+    mocks.request
+      .mockResolvedValueOnce({
+        statusCode: 500,
+        hasStatusCode: true,
+        header: {},
+        bodyText: 'weekly unavailable',
+        body: null,
+      })
+      .mockResolvedValueOnce({
+        statusCode: 429,
+        hasStatusCode: true,
+        header: {},
+        bodyText: 'Too Many Requests',
+        body: null,
+      });
+
+    await expect(
+      fetchXaiQuota({ name: 'xai-billing-429.json', type: 'xai', authIndex: 'xai-billing-429' }, t)
+    ).rejects.toMatchObject({ status: 429, envelope: { statusCode: 429 } });
+  });
+
+  it('does not classify an ordinary monthly failure as rateLimited', async () => {
+    mocks.request
+      .mockResolvedValueOnce({
+        statusCode: 200,
+        hasStatusCode: true,
+        header: {},
+        bodyText: '',
+        body: {
+          config: {
+            current_period: {
+              type: 'weekly',
+              start: '2026-07-01T00:00:00Z',
+              end: '2026-07-08T00:00:00Z',
+            },
+            credit_usage_percent: 12,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        statusCode: 500,
+        hasStatusCode: true,
+        header: {},
+        bodyText: 'monthly unavailable',
+        body: null,
+      });
+
+    const result = await fetchXaiQuota({ name: 'xai-monthly-500.json', type: 'xai', authIndex: 'xai-monthly-500' }, t);
+
+    expect(result.rateLimited).not.toBe(true);
   });
 
   it('keeps monthly billing data when weekly billing fails', async () => {
@@ -3246,6 +3594,48 @@ describe('fetchAntigravityQuota', () => {
     expect(result.quotaInventoryObserved).toBe(true);
   });
 
+  it('preserves quota groups and marks rateLimited when subscription returns 429', async () => {
+    const error429 = new Error('Too Many Requests') as Error & { status?: number };
+    error429.status = 429;
+    mocks.getSubscription.mockRejectedValueOnce(error429);
+    mocks.request.mockResolvedValueOnce({
+      statusCode: 200,
+      hasStatusCode: true,
+      header: {},
+      bodyText: '',
+      body: {
+        groups: [
+          {
+            displayName: 'Gemini models',
+            buckets: [
+              {
+                bucketId: 'gemini-weekly',
+                displayName: 'Weekly limit',
+                window: 'weekly',
+                remainingFraction: 0.8,
+                resetTime: '2026-07-02T00:00:00Z',
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const result = await fetchAntigravityQuota(
+      {
+        name: 'antigravity-429.json',
+        type: 'antigravity',
+        authIndex: 'ag-429',
+        project_id: 'project-429',
+      },
+      t
+    );
+
+    expect(result.groups).toHaveLength(1);
+    expect(result.subscription).toBeNull();
+    expect(result.rateLimited).toBe(true);
+  });
+
   it('keeps Antigravity quota and subscription requests on the captured CPA scope', async () => {
     mocks.getSubscription.mockResolvedValue(null);
     mocks.request.mockResolvedValueOnce({
@@ -3361,6 +3751,30 @@ describe('fetchAntigravityQuota', () => {
         'User-Agent': ANTIGRAVITY_USER_AGENT,
       }),
     });
+  });
+
+  it('fails fast on 429 response without retrying other fallback URLs', async () => {
+    mocks.request.mockResolvedValueOnce({
+      statusCode: 429,
+      hasStatusCode: true,
+      header: {},
+      bodyText: 'rate limit exceeded',
+      body: null,
+    });
+
+    await expect(
+      fetchAntigravityQuota(
+        {
+          name: 'antigravity.json',
+          type: 'antigravity',
+          authIndex: 'ag-1',
+          project_id: 'project-1',
+        },
+        t
+      )
+    ).rejects.toThrow();
+
+    expect(mocks.request).toHaveBeenCalledTimes(1);
   });
 
   it('does not treat unrecognized successful endpoint payloads as a complete inventory', async () => {

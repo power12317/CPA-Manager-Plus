@@ -18,6 +18,9 @@ concurrency:
 jobs:
   build:
     name: Build Demo Site
+    # The demo is hosted by the upstream repository's GitHub Pages site.
+    # Forks should not fail because Pages is disabled or unavailable there.
+    if: github.repository == 'seakee/CPA-Manager-Plus'
     runs-on: ubuntu-latest
 
     steps:
@@ -61,6 +64,7 @@ jobs:
     name: Deploy Demo Site
     runs-on: ubuntu-latest
     needs: build
+    if: github.repository == 'seakee/CPA-Manager-Plus'
 
     environment:
       name: github-pages

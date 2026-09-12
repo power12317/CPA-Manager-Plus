@@ -141,7 +141,6 @@ export function LoginPage() {
   const [apiBase, setApiBase] = useState('');
   const [adminKey, setAdminKey] = useState('');
   const [cpaManagementKey, setCPAManagementKey] = useState('');
-  const [showCustomBase, setShowCustomBase] = useState(false);
   const [showAdminKey, setShowAdminKey] = useState(false);
   const [showCPAManagementKey, setShowCPAManagementKey] = useState(false);
   const [rememberCredential, setRememberCredential] = useState(false);
@@ -151,7 +150,6 @@ export function LoginPage() {
   const [autoLoading, setAutoLoading] = useState(true);
   const [autoLoginSuccess, setAutoLoginSuccess] = useState(false);
   const [error, setError] = useState('');
-  const [hostedByUsageService, setHostedByUsageService] = useState(false);
   const [usageServiceNeedsSetup, setUsageServiceNeedsSetup] = useState(false);
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const [hasHistoricalData, setHasHistoricalData] = useState(false);
@@ -159,7 +157,9 @@ export function LoginPage() {
   const [usageSetupStep, setUsageSetupStep] = useState<UsageSetupStep>('admin');
 
   const detectedBase = useMemo(() => detectApiBaseFromLocation(), []);
-  const isManagerServerMode = hostedByUsageService;
+  // The main panel is always Manager-backed. CPA URLs and CPA management keys
+  // are configured after login in Instance Management and are never login inputs.
+  const isManagerServerMode = true;
   const loginCredential = isManagerServerMode ? adminKey : cpaManagementKey;
   const redirectAfterLogin = useMemo(() => resolveRedirectPath(location.state), [location.state]);
   const loginCredentialLabel = isManagerServerMode
@@ -249,25 +249,22 @@ export function LoginPage() {
           const mode = resolveUsageServiceLoginMode(info);
           detectedUsageService = mode.hostedByUsageService;
           detectedUsageServiceConfigured = detectedUsageService && !mode.usageServiceNeedsSetup;
-          setHostedByUsageService(mode.hostedByUsageService);
-          setUsageServiceNeedsSetup(mode.usageServiceNeedsSetup);
+          // Setup belongs to Manager configuration after authentication. Never
+          // expose CPA address/key fields on the primary login screen.
+          setUsageServiceNeedsSetup(false);
           setHasHistoricalData(Boolean(info.hasHistoricalData));
           setMigrationStatus(info.migrationStatus || '');
         } catch {
           detectedUsageService = false;
           detectedUsageServiceConfigured = false;
-          setHostedByUsageService(false);
           setUsageServiceNeedsSetup(false);
           setHasHistoricalData(false);
           setMigrationStatus('');
         }
 
-        const hostedManagementPage =
-          typeof window !== 'undefined' && /\/management\.html$/i.test(window.location.pathname);
-        const autoLoginExpectedPanelBase =
-          detectedUsageService || hostedManagementPage ? detectedBase : undefined;
+        const autoLoginExpectedPanelBase = detectedBase;
         const autoLoggedIn = await restoreSession({
-          expectedMode: detectedUsageService ? 'manager_embedded' : 'external_panel',
+          expectedMode: 'manager_embedded',
           expectedPanelBase: autoLoginExpectedPanelBase,
         });
         if (detectedUsageService) {
@@ -304,13 +301,12 @@ export function LoginPage() {
               : lastCPAForUsageService || defaultCPAConnectionBase
             : storedBase || detectedBase
         );
-        setShowCustomBase(detectedUsageService && !detectedUsageServiceConfigured);
         if (detectedUsageService) {
           setAdminKey(storedKey || '');
           setCPAManagementKey('');
         } else {
-          setAdminKey('');
-          setCPAManagementKey(storedKey || '');
+          setAdminKey(storedKey || '');
+          setCPAManagementKey('');
         }
         setRememberCredential(storedRememberPassword || Boolean(storedKey));
       } finally {
@@ -541,11 +537,7 @@ export function LoginPage() {
             <IconLanguages size={17} />
           </button>
           {languageMenuOpen && (
-            <div
-              className={styles.languagePopover}
-              role="menu"
-              aria-label={t('language.switch')}
-            >
+            <div className={styles.languagePopover} role="menu" aria-label={t('language.switch')}>
               {LANGUAGE_ORDER.map((lang) => (
                 <button
                   key={lang}
@@ -590,7 +582,9 @@ export function LoginPage() {
               usageServiceNeedsSetup ? styles.setupFormContent : ''
             }`}
           >
-            <div className={`${styles.loginCard} ${usageServiceNeedsSetup ? styles.setupCard : ''}`}>
+            <div
+              className={`${styles.loginCard} ${usageServiceNeedsSetup ? styles.setupCard : ''}`}
+            >
               <div className={styles.cardBranding}>
                 <img
                   src={CPAMP_HORIZONTAL_LOGO_PNG_URL}
@@ -840,46 +834,14 @@ export function LoginPage() {
 
               {!usageServiceNeedsSetup && (
                 <div className={styles.loginForm}>
-                  <div className={styles.connectionBox}>
-                    <div className={styles.label}>{t('login.connection_current')}</div>
-                    <div className={styles.value}>{apiBase || detectedBase}</div>
-                    <div className={styles.hint}>
-                      {isManagerServerMode
-                        ? t('login.usage_service_configured_hint')
-                        : t('login.connection_auto_hint')}
-                    </div>
-                  </div>
-
-                  {!isManagerServerMode && (
-                    <>
-                      <div className={styles.toggleAdvanced}>
-                        <SelectionCheckbox
-                          checked={showCustomBase}
-                          onChange={setShowCustomBase}
-                          ariaLabel={t('login.custom_connection_label')}
-                          label={t('login.custom_connection_label')}
-                          labelClassName={styles.toggleLabel}
-                        />
-                      </div>
-
-                      {showCustomBase && (
-                        <Input
-                          label={t('login.custom_connection_label')}
-                          placeholder={t('login.custom_connection_placeholder')}
-                          value={apiBase}
-                          onChange={(event) => setApiBase(event.target.value)}
-                          hint={t('login.custom_connection_hint')}
-                        />
-                      )}
-                    </>
-                  )}
-
                   <Input
                     autoFocus
                     label={loginCredentialLabel}
                     placeholder={loginCredentialPlaceholder}
                     type={
-                      (isManagerServerMode ? showAdminKey : showCPAManagementKey) ? 'text' : 'password'
+                      (isManagerServerMode ? showAdminKey : showCPAManagementKey)
+                        ? 'text'
+                        : 'password'
                     }
                     value={loginCredential}
                     onChange={(event) =>

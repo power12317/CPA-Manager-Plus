@@ -1241,6 +1241,7 @@ export function AccountsPage() {
     () => ({ apiBase, managementKey }),
     [apiBase, managementKey]
   );
+  const authFilesComponentScope = authFilesRequestScope;
   const managerStorageAvailable =
     !featureAvailability.checking &&
     Boolean(featureAvailability.managerServiceBase) &&
@@ -1291,7 +1292,7 @@ export function AccountsPage() {
     batchDelete,
   } = useAuthFilesData({
     connectionFingerprint,
-    requestScope: authFilesRequestScope,
+    requestScope: authFilesComponentScope,
     onCredentialMutation: handleCredentialMutation,
   });
 
@@ -1300,7 +1301,7 @@ export function AccountsPage() {
     viewMode: oauthViewMode,
     files,
     connectionKey: connectionFingerprint,
-    requestScope: authFilesRequestScope,
+    requestScope: authFilesComponentScope,
   });
   const {
     modelsLoading,
@@ -9787,7 +9788,15 @@ export function AccountsPage() {
   const renderAccountsOverview = () => (
     <>
       <AccountMetricsGrid metrics={metrics} />
-      {error ? <div className={styles.errorBox}>{error}</div> : null}
+      {error ? (
+        <div className={styles.errorBox} role="alert">
+          <strong>{t('accounts.cpa_unavailable')}</strong>
+          <span>{error}</span>
+          <button type="button" onClick={() => void loadFiles()}>
+            {t('common.retry')}
+          </button>
+        </div>
+      ) : null}
       {loading ? (
         <div className={styles.loadingPanel}>
           <LoadingSpinner />
@@ -10042,7 +10051,7 @@ export function AccountsPage() {
         files={files}
         excluded={oauthState.excluded}
         modelAlias={oauthState.modelAlias}
-        requestScope={authFilesRequestScope}
+        requestScope={authFilesComponentScope}
         disabled={disableControls}
         unsupported={oauthState.excludedError === 'unsupported'}
         onClose={() => setOauthExcludedEditorProvider(null)}
@@ -10054,7 +10063,7 @@ export function AccountsPage() {
         files={files}
         excluded={oauthState.excluded}
         modelAlias={oauthState.modelAlias}
-        requestScope={authFilesRequestScope}
+        requestScope={authFilesComponentScope}
         disabled={disableControls}
         unsupported={oauthState.modelAliasError === 'unsupported'}
         onClose={() => setOauthModelAliasEditorProvider(null)}

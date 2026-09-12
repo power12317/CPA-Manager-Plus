@@ -662,6 +662,7 @@ textarea {
 }
 
 .modal-body {
+  overscroll-behavior: contain;
   flex: 1 1 auto;
   min-height: 0;
   padding: $spacing-lg;

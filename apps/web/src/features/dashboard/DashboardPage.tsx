@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { InstanceContribution } from '@/features/cluster/InstanceContribution';
 import { useTranslation } from 'react-i18next';
 import {
   IconBot,
@@ -109,6 +110,7 @@ export function DashboardPage() {
   const [errorLogs, setErrorLogs] = useState<ErrorLogFile[]>([]);
   const [errorLogsLoading, setErrorLogsLoading] = useState(false);
   const [managerCpaBase, setManagerCpaBase] = useState('');
+  const [cpaReachability, setCpaReachability] = useState<'connected' | 'disconnected' | 'checking'>('checking');
   const [displayMeta, setDisplayMeta] = useState<DashboardDisplayMeta>({
     authFiles: [],
     channels: [],
@@ -312,6 +314,7 @@ export function DashboardPage() {
         ? managerConfigResult.value.config.cpaConnection?.cpaBaseUrl || apiBase || ''
         : apiBase || ''
     );
+    setCpaReachability(managerConfigResult.status === 'fulfilled' ? 'connected' : 'disconnected');
 
     setDisplayMeta((current) => ({
       authFiles: metaResult.status === 'fulfilled' ? metaResult.value.authFiles : current.authFiles,
@@ -454,29 +457,25 @@ export function DashboardPage() {
           <div className={styles.connectionStatus}>
             <span
               className={`${styles.statusDot} ${
-                connectionStatus === 'connected'
+                cpaReachability === 'connected'
                   ? styles.connected
-                  : connectionStatus === 'connecting'
+                  : cpaReachability === 'checking'
                     ? styles.connecting
                     : styles.disconnected
               }`}
             />
             <div className={styles.statusInfo}>
-              <span className={styles.statusLabel}>{t('common.connection_status')}</span>
+              <span className={styles.statusLabel}>{t('dashboard.manager_service')}</span>
               <span className={styles.statusValue}>
-                {t(
-                  connectionStatus === 'connected'
-                    ? 'common.connected'
-                    : connectionStatus === 'connecting'
-                      ? 'common.connecting'
-                      : 'common.disconnected'
-                )}
+                {t(cpaReachability === 'connected' ? 'common.connected' : cpaReachability === 'checking' ? 'common.connecting' : 'common.disconnected')}
               </span>
             </div>
           </div>
           <div className={styles.apiBaseBlock}>
-            <span className={styles.apiLabel}>{t('dashboard.api_base')}</span>
-            <span className={styles.apiValue}>{apiBase || 'http://localhost:3000'}</span>
+            <span className={styles.apiLabel}>{t('dashboard.cpa_instance')}</span>
+            <span className={styles.apiValue}>
+              {aggregate ? t('cluster.all') : managerCpaBase || t('dashboard.cpa_unknown')}
+            </span>
           </div>
         </div>
 
@@ -537,6 +536,7 @@ export function DashboardPage() {
         </section>
       )}
 
+      {aggregate && <InstanceContribution />}
       {/* 4. Charts Row (Traffic, Activity, Tokens) */}
       {usageSummary.enabled && (
         <section className={styles.chartsRow}>

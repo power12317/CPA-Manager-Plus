@@ -597,13 +597,26 @@ func (s *Service) Federate(r *http.Request, body []byte) (FederatedResult, error
 		result.Data = mergePayload(result.Data, part.data, "", r.URL.Path)
 	}
 	if result.Succeeded == 0 {
-		return result, errors.New("no instance could complete the request")
+		// Keep aggregate read endpoints usable while an instance is offline. The
+		// caller receives an empty, valid payload plus instanceCoverage failures.
+		result.Data = emptyAggregatePayload(r.URL.Path)
+		return result, nil
 	}
 	result.Data = finalizePayload(result.Data, "", r.URL.Path, body)
 	if object, ok := result.Data.(map[string]any); ok {
 		object["instanceCoverage"] = map[string]any{"total": result.Total, "succeeded": result.Succeeded, "failures": result.Failures}
 	}
 	return result, nil
+}
+
+func emptyAggregatePayload(path string) any {
+	if strings.HasSuffix(path, "/auth-files") {
+		return map[string]any{"files": []any{}}
+	}
+	if strings.HasSuffix(path, "/config") {
+		return map[string]any{"config": map[string]any{}}
+	}
+	return map[string]any{}
 }
 
 // Read endpoints exposed through the aggregate base. Unknown GETs are still

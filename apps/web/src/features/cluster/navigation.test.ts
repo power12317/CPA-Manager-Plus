@@ -72,7 +72,7 @@ afterEach(() => vi.unstubAllGlobals());
 it('switches scope and preserves nested paths and filters without document navigation', () => {
   navigateInstance('default', '/monitoring?model=gpt');
   expect(currentURL.href).toBe(
-    'https://example.com/cpamp/api/instances/default/management.html#/monitoring?model=gpt'
+    'https://example.com/cpamp/management.html#/monitoring?model=gpt&scope=default'
   );
   expect(assign).not.toHaveBeenCalled();
   expect(auth.switchInstanceScope).toHaveBeenCalledWith(

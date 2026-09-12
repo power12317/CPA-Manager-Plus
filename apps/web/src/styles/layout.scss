@@ -739,7 +739,7 @@
 
   .main-content {
     min-height: 100vh;
-    padding: calc(var(--header-height) + var(--app-gap)) 12px var(--app-gap);
+    padding: calc(var(--header-height) + var(--app-gap)) max(12px, env(safe-area-inset-right)) max(var(--app-gap), env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
 
     &.main-content-logs {
       height: auto;

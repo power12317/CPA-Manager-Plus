@@ -1,4 +1,9 @@
 export const clusterEN = {
+  searchInstances: 'Search instance name or address',
+  instanceContribution: 'Requests by instance today',
+  instanceSummary: '{{enabled}} / {{total}} instances enabled',
+  noMatches: 'No matching instances',
+  partialTitle: '{{count}} instances have incomplete data',
   partialData: 'Some data is unavailable from {{instances}}.',
   mixed: 'Mixed',
   noAvailableInstance:
@@ -60,6 +65,11 @@ export const clusterEN = {
 };
 
 export const clusterZH: typeof clusterEN = {
+  searchInstances: '搜索实例名称或地址',
+  instanceContribution: '今日各实例请求',
+  instanceSummary: '{{enabled}} / {{total}} 个实例已启用',
+  noMatches: '没有匹配的实例',
+  partialTitle: '{{count}} 个实例的数据不完整',
   partialData: '{{instances}} 的部分数据暂不可用。',
   mixed: '各实例不同',
   noAvailableInstance: '当前没有可用的已启用实例，请检查实例管理，或在顶部切换其他实例。',

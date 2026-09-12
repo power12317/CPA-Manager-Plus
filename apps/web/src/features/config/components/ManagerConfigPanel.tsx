@@ -6,14 +6,12 @@ import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { IconEye, IconEyeOff, IconX } from '@/components/ui/icons';
 import { AccountProcessingPolicySection } from './AccountProcessingPolicySection';
 import { Instances } from '@/features/cluster/Instances';
-import { managerRootBase } from '@/utils/instanceScope';
 import styles from '../ConfigPage.module.scss';
 
 type ManagerConfigPanelProps = {
   managerLoading: boolean;
   managerSaving: boolean;
   panelHostedByUsageService: boolean | null;
-  detectedPanelBase: string;
   managerRuntimeModeLabel: string;
   managerHasBoundCPAManagementKey: boolean;
   managerCPABaseInput: string;
@@ -47,7 +45,6 @@ export function ManagerConfigPanel({
   managerLoading,
   managerSaving,
   panelHostedByUsageService,
-  detectedPanelBase,
   managerRuntimeModeLabel,
   managerHasBoundCPAManagementKey,
   managerCPABaseInput,
@@ -110,17 +107,6 @@ export function ManagerConfigPanel({
             </p>
           </div>
           <span className={styles.managerRuntimeBadge}>{managerRuntimeModeLabel}</span>
-        </div>
-
-        <div className={styles.managerReadonlyGrid}>
-          <div>
-            <span>{t('config_management.manager.service_base')}</span>
-            <strong>
-              {panelHostedByUsageService === true
-                ? managerRootBase(detectedPanelBase)
-                : detectedPanelBase}
-            </strong>
-          </div>
         </div>
       </section>
 

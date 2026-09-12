@@ -11,6 +11,196 @@
   gap: 16px;
   margin-bottom: 16px;
 }
+.scopeSelect {
+  min-width: 180px;
+  max-width: min(42vw, 320px);
+}
+.workspace {
+  position: relative;
+}
+.scopeMeta {
+  color: var(--text-secondary);
+  font-size: 12px;
+  min-width: 0;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.picker {
+  position: relative;
+}
+.picker summary {
+  cursor: pointer;
+  list-style: none;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #8885);
+  border-radius: 6px;
+  background: var(--bg-primary, transparent);
+}
+.pickerPanel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  width: min(360px, calc(100vw - 24px));
+  padding: 10px;
+  border: 1px solid var(--border-color, #8885);
+  border-radius: 10px;
+  background: var(--bg-primary);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+.pickerPanel input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 10px;
+}
+.pickerOptions {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  max-height: 320px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.pickerOptions button {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.pickerOptions button:hover,
+.pickerOptions button:focus-visible,
+.pickerOptions button[aria-pressed='true'] {
+  background: var(--surface-subtle-hover);
+}
+.pickerOptions small {
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.partialMessage summary {
+  cursor: pointer;
+}
+.partialMessage p {
+  margin: 6px 0;
+  white-space: normal;
+}
+.contribution {
+  padding: 16px;
+  border: 1px solid var(--border-color, #8885);
+  border-radius: 10px;
+  background: var(--bg-primary, transparent);
+}
+.contribution h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.contributionRows {
+  display: grid;
+  gap: 8px;
+}
+.contributionRow {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) repeat(3, auto);
+  gap: 16px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--border-color, #8884);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.contributionRow:hover,
+.contributionRow:focus-visible {
+  background: var(--surface-subtle-hover);
+}
+.contributionRow b {
+  font-variant-numeric: tabular-nums;
+}
+.skeleton {
+  height: 88px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--surface-subtle),
+    var(--surface-subtle-hover),
+    var(--surface-subtle)
+  );
+  background-size: 200% 100%;
+  animation: cluster-skeleton 1.2s ease-in-out infinite;
+}
+@keyframes cluster-skeleton {
+  to {
+    background-position: -200% 0;
+  }
+}
+.errorMessage,
+.partialMessage {
+  min-width: 0;
+  max-width: min(48vw, 520px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.errorMessage {
+  color: var(--danger-color, #d44);
+}
+.partialMessage {
+  color: var(--warning-color, #a66b00);
+}
+@media (max-width: 768px) {
+  .toolbar {
+    align-items: stretch;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .toolbar label {
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
+  .scopeSelect {
+    flex: 1;
+    max-width: none;
+    min-height: 40px;
+  }
+  .toolbar > a {
+    align-self: flex-start;
+  }
+  .errorMessage,
+  .partialMessage {
+    flex: 1 1 100%;
+    max-width: none;
+    white-space: normal;
+  }
+  .scopeMeta {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+  .contributionRow {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .contributionRow strong {
+    grid-column: 1 / -1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
 .toolbar label,
 .form label {
   display: flex;

@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { clusterApi, INSTANCES_CHANGED_EVENT, type CPAInstance } from '@/services/api/cluster';
-import { instanceIdFromBase } from '@/utils/instanceScope';
+import { instanceIdFromBase, managerRootBase } from '@/utils/instanceScope';
 import { navigateInstance, synchronizeInstanceHistory } from './navigation';
 import { aggregateRoutes } from './instanceSelection';
 import styles from './cluster.module.scss';
@@ -15,7 +15,11 @@ export function InstanceBar() {
   const key = useAuthStore((s) => s.managementKey);
   const mode = useAuthStore((s) => s.sessionMode);
   const { pathname, search } = useLocation();
-  const api = useMemo(() => clusterApi(base, key), [base, key]);
+  const root = managerRootBase(base);
+  const api = useMemo(() => clusterApi(root, key), [root, key]);
+  const [query, setQuery] = useState('');
+  const pickerRef = useRef<HTMLDetailsElement>(null);
+  const currentId = instanceIdFromBase(base);
   const [items, setItems] = useState<CPAInstance[]>([]);
   const [error, setError] = useState(false);
   const [revision, setRevision] = useState(0);
@@ -65,33 +69,119 @@ export function InstanceBar() {
   }, [api, mode, revision]);
   if (mode !== 'manager_embedded') return null;
   return (
-    <div className={styles.toolbar}>
-      <label>
-        {t('cluster.scope')}
-        <select
-          value={instanceIdFromBase(base)}
-          onChange={(e) => {
-            const id = e.target.value;
-            navigateInstance(id, `${pathname}${search}`);
+    <div className={`${styles.toolbar} ${styles.workspace}`} aria-label={t('cluster.scope')}>
+      {items.length > 5 ? (
+        <details
+          ref={pickerRef}
+          className={styles.picker}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && pickerRef.current) {
+              pickerRef.current.open = false;
+              pickerRef.current.querySelector('summary')?.focus();
+            }
           }}
         >
-          {aggregateRoutes.has(pathname) && <option value="">{t('cluster.all')}</option>}
-          {items.map((item) => (
-            <option key={item.id} value={item.id} disabled={!item.enabled || !item.ready}>
-              {item.name}
-              {!item.enabled ? ` (${t('cluster.disabled')})` : ''}
-            </option>
-          ))}
-        </select>
-      </label>
-      <Link to="/config" onClick={() => localStorage.setItem('config-management:tab', 'manager')}>
+          <summary>
+            {t('cluster.scope')}:{' '}
+            {items.find((item) => item.id === currentId)?.name || t('cluster.all')}
+          </summary>
+          <div className={styles.pickerPanel}>
+            <input
+              type="search"
+              aria-label={t('cluster.searchInstances')}
+              placeholder={t('cluster.searchInstances')}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            <div className={styles.pickerOptions}>
+              {(aggregateRoutes.has(pathname)
+                ? [
+                    { id: '', name: t('cluster.all'), enabled: true, ready: true, baseUrl: '' },
+                    ...items,
+                  ]
+                : items
+              )
+                .filter((item) =>
+                  `${item.name} ${item.baseUrl}`
+                    .toLocaleLowerCase()
+                    .includes(query.toLocaleLowerCase())
+                )
+                .map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    aria-pressed={currentId === item.id}
+                    disabled={!item.enabled || !item.ready}
+                    onClick={() => {
+                      if (pickerRef.current) pickerRef.current.open = false;
+                      setQuery('');
+                      navigateInstance(item.id, `${pathname}${search}`);
+                    }}
+                  >
+                    <strong>{item.name}</strong>
+                    <small>{item.baseUrl}</small>
+                  </button>
+                ))}
+              {query &&
+                !items.some((item) =>
+                  `${item.name} ${item.baseUrl}`
+                    .toLocaleLowerCase()
+                    .includes(query.toLocaleLowerCase())
+                ) && <p>{t('cluster.noMatches')}</p>}
+            </div>
+          </div>
+        </details>
+      ) : (
+        <label>
+          {t('cluster.scope')}
+          <select
+            className={styles.scopeSelect}
+            value={instanceIdFromBase(base)}
+            onChange={(e) => {
+              const id = e.target.value;
+              navigateInstance(id, `${pathname}${search}`);
+            }}
+          >
+            {aggregateRoutes.has(pathname) && <option value="">{t('cluster.all')}</option>}
+            {items.map((item) => (
+              <option key={item.id} value={item.id} disabled={!item.enabled || !item.ready}>
+                {item.name}
+                {!item.enabled ? ` (${t('cluster.disabled')})` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <span className={styles.scopeMeta}>
+        {currentId
+          ? items.find((item) => item.id === currentId)?.baseUrl
+          : t('cluster.instanceSummary', {
+              enabled: items.filter((item) => item.enabled).length,
+              total: items.length,
+            })}
+      </span>
+      <Link
+        to="/config?tab=manager"
+        onClick={() => localStorage.setItem('config-management:tab', 'manager')}
+      >
         {t('cluster.manage')}
       </Link>
-      {error && <span role="alert">{t('cluster.loadError')}</span>}
-      {failedSources.length > 0 && (
-        <span role="status">
-          {t('cluster.partialData', { instances: failedSources.join('、') })}
+      {error && (
+        <span role="alert" className={styles.errorMessage}>
+          {t('cluster.loadError')}{' '}
+          <button type="button" onClick={() => setRevision((value) => value + 1)}>
+            {t('cluster.refresh')}
+          </button>
         </span>
+      )}
+      {failedSources.length > 0 && (
+        <details className={styles.partialMessage}>
+          <summary role="status">
+            {t('cluster.partialTitle', { count: failedSources.length })}
+          </summary>
+          <p>{t('cluster.partialData', { instances: failedSources.join('、') })}</p>
+          <Link to="/config?tab=manager">{t('cluster.manage')}</Link>
+        </details>
       )}
     </div>
   );

@@ -51,7 +51,8 @@ export const detectApiBaseFromLocation = (): string => {
     const normalizedPort = port ? `:${port}` : '';
     const path = pathname || '/';
     const directory = path.replace(/\/[^/]*\.html?$/i, '').replace(/\/+$/, '');
-    return normalizeApiBase(`${protocol}//${hostname}${normalizedPort}${directory}`);
+    const detected = normalizeApiBase(`${protocol}//${hostname}${normalizedPort}${directory}`);
+    return detected.replace(/\/api\/instances\/(?:default|[a-f0-9]{32})\/?$/i, '');
   } catch (error) {
     console.warn('Failed to detect api base from location, fallback to default', error);
     return normalizeApiBase(`http://localhost:${DEFAULT_API_PORT}`);

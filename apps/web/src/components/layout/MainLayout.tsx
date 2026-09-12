@@ -990,7 +990,6 @@ function MainLayoutContent({ routeBase = '', demoMode = false }: MainLayoutProps
             <DatabaseMaintenanceBanner />
             <InstanceBar />
             <PageTransition
-              key={`${routeBase || 'main'}:${apiBase}`}
               render={(location) => <MainRoutes location={location} routeBase={routeBase} />}
               getRouteOrder={(pathname) => getRouteOrder(stripRouteBase(pathname, routeBase))}
               getTransitionVariant={(fromPathname, toPathname) =>

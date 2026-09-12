@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import {
   Navigate,
   useLocation,
@@ -278,16 +278,27 @@ export function MainRoutes({ location, routeBase }: { location?: Location; route
   const path = (location || actualLocation).pathname;
   const currentLocation = location || actualLocation;
   const currentRoute = `${path}${currentLocation.search}`;
+  const isActiveRoute = path === actualLocation.pathname;
+  const scopeFromUrl = new URLSearchParams(currentLocation.search).get('scope') || '';
+  const effectiveInstanceId = scopeFromUrl || instanceIdFromBase(base);
   if (
     mode === 'manager_embedded' &&
-    instanceIdFromBase(base) &&
+    isActiveRoute &&
+    effectiveInstanceId &&
     aggregateRoutes.has(path) &&
     preferredInstanceScope(base) === ''
   ) {
     return <ReturnToAggregate route={currentRoute} />;
   }
-  if (mode === 'manager_embedded' && !instanceIdFromBase(base) && !aggregateRoutes.has(path)) {
+  if (
+    mode === 'manager_embedded' &&
+    isActiveRoute &&
+    !effectiveInstanceId &&
+    !aggregateRoutes.has(path)
+  ) {
     return <InstanceRedirect route={currentRoute} />;
   }
-  return content;
+  // Read-only aggregate pages own scope-aware queries. Editors and OAuth retain
+  // an isolated lifecycle so unsaved content cannot leak into another instance.
+  return <Fragment key={aggregateRoutes.has(path) ? path : base}>{content}</Fragment>;
 }

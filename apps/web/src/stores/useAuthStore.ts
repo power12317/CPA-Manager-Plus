@@ -58,6 +58,28 @@ interface RestoreSessionOptions {
 }
 
 let restoreSessionPromise: Promise<RestoreSessionResult> | null = null;
+let resolveAuthHydration!: () => void;
+const authHydrationPromise = new Promise<void>((resolve) => {
+  resolveAuthHydration = resolve;
+});
+const MANAGER_SESSION_KEY = 'cpamp-manager-session-key';
+
+const readManagerSessionKey = (): string => {
+  try {
+    return sessionStorage.getItem(MANAGER_SESSION_KEY) || '';
+  } catch {
+    return '';
+  }
+};
+
+const writeManagerSessionKey = (value: string): void => {
+  try {
+    if (value) sessionStorage.setItem(MANAGER_SESSION_KEY, value);
+    else sessionStorage.removeItem(MANAGER_SESSION_KEY);
+  } catch {
+    /* Optional tab-scoped persistence. */
+  }
+};
 
 const sessionMatchesExpectedRuntime = ({
   expectedMode,
@@ -104,6 +126,7 @@ export const useAuthStore = create<AuthStoreState>()(
         if (restoreSessionPromise) return restoreSessionPromise;
 
         restoreSessionPromise = (async () => {
+          await authHydrationPromise;
           obfuscatedStorage.migratePlaintextKeys(['apiBase', 'apiUrl', 'managementKey']);
 
           const wasLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
@@ -111,6 +134,7 @@ export const useAuthStore = create<AuthStoreState>()(
             obfuscatedStorage.getItem<string>('apiBase') ||
             obfuscatedStorage.getItem<string>('apiUrl', { encrypt: true });
           const legacyKey = obfuscatedStorage.getItem<string>('managementKey');
+          const tabSessionKey = readManagerSessionKey();
 
           const { apiBase, managementKey, rememberPassword, sessionMode } = get();
           let resolvedBase = normalizeApiBase(apiBase || legacyBase || detectApiBaseFromLocation());
@@ -125,7 +149,7 @@ export const useAuthStore = create<AuthStoreState>()(
           ) {
             resolvedBase = expectedBase;
           }
-          const resolvedKey = navigationKey || managementKey || legacyKey || '';
+          const resolvedKey = navigationKey || managementKey || legacyKey || tabSessionKey || '';
           const resolvedRememberPassword =
             rememberPassword || Boolean(managementKey) || Boolean(legacyKey);
 
@@ -148,6 +172,7 @@ export const useAuthStore = create<AuthStoreState>()(
               sessionPanelBase: normalizeApiBase(options?.expectedPanelBase || ''),
             });
             apiClient.setConfig({ apiBase: fallbackBase, managementKey: '' });
+            writeManagerSessionKey('');
             localStorage.removeItem('isLoggedIn');
             return false;
           }
@@ -163,7 +188,7 @@ export const useAuthStore = create<AuthStoreState>()(
           });
           apiClient.setConfig({ apiBase: resolvedBase, managementKey: resolvedKey });
 
-          if ((wasLoggedIn || navigationKey) && resolvedBase && resolvedKey) {
+          if ((wasLoggedIn || navigationKey || tabSessionKey) && resolvedBase && resolvedKey) {
             try {
               const restoredSessionMode = options?.expectedMode ?? (sessionMode || undefined);
               const result = await get().login({
@@ -192,9 +217,7 @@ export const useAuthStore = create<AuthStoreState>()(
         const managementKey = credentials.managementKey.trim();
         const rememberPassword = credentials.rememberPassword ?? get().rememberPassword ?? false;
         const sessionMode = credentials.sessionMode ?? get().sessionMode;
-        activateAggregateScope(
-          sessionMode === 'manager_embedded' ? managerRootBase(apiBase) : ''
-        );
+        activateAggregateScope(sessionMode === 'manager_embedded' ? managerRootBase(apiBase) : '');
         const sessionPanelBase = normalizeApiBase(
           credentials.sessionPanelBase || get().sessionPanelBase
         );
@@ -203,6 +226,7 @@ export const useAuthStore = create<AuthStoreState>()(
         const markAuthenticated = (result: LoginResult = {}) => {
           useQuotaStore.getState().activateQuotaCacheScope(quotaCacheScope);
           apiClient.setConfig({ apiBase, managementKey });
+          if (sessionMode === 'manager_embedded') writeManagerSessionKey(managementKey);
           set({
             isAuthenticated: true,
             apiBase,
@@ -213,7 +237,7 @@ export const useAuthStore = create<AuthStoreState>()(
             connectionStatus: 'connected',
             connectionError: null,
           });
-          if (rememberPassword) {
+          if (sessionMode === 'manager_embedded' || rememberPassword) {
             localStorage.setItem('isLoggedIn', 'true');
           } else {
             localStorage.removeItem('isLoggedIn');
@@ -319,6 +343,7 @@ export const useAuthStore = create<AuthStoreState>()(
       logout: () => {
         activateAggregateScope('');
         clearInstanceNavigation();
+        writeManagerSessionKey('');
         restoreSessionPromise = null;
         useConfigStore.getState().clearCache();
         useModelsStore.getState().clearCache();
@@ -415,13 +440,18 @@ export const useAuthStore = create<AuthStoreState>()(
       })),
       partialize: (state) => ({
         apiBase: state.apiBase,
-        ...(state.rememberPassword ? { managementKey: state.managementKey } : {}),
+        ...(state.sessionMode === 'manager_embedded' || state.rememberPassword
+          ? { managementKey: state.managementKey }
+          : {}),
         rememberPassword: state.rememberPassword,
         serverVersion: state.serverVersion,
         serverBuildDate: state.serverBuildDate,
         sessionMode: state.sessionMode,
         sessionPanelBase: state.sessionPanelBase,
       }),
+      onRehydrateStorage: () => {
+        resolveAuthHydration();
+      },
     }
   )
 );

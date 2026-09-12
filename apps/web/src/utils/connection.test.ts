@@ -13,7 +13,7 @@ describe('deployment path detection', () => {
     ['/cpamc1/management.html', '/cpamc1'],
     ['/cpamc10/', '/cpamc10'],
     ['/nested/cpamp/management.html', '/nested/cpamp'],
-    ['/cpamp/api/instances/default/management.html', '/cpamp/api/instances/default'],
+    ['/cpamp/api/instances/default/management.html', '/cpamp'],
   ])('keeps the API under %s', (pathname, prefix) => {
     vi.stubGlobal('window', {
       location: { protocol: 'https:', hostname: 'example.com', port: '', pathname },

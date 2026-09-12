@@ -22,7 +22,12 @@ export function navigateInstance(id: string, route: string, automatic = false): 
   else if (preferredInstanceScope(apiBase) === null)
     rememberInstanceScope(apiBase, instanceIdFromBase(apiBase));
   const base = id ? instanceBase(apiBase, id) : managerRootBase(apiBase);
-  const url = `${base}/management.html#${route.startsWith('/') ? route : '/'}`;
+  const root = `${managerRootBase(apiBase)}/management.html`;
+  const [pathname, query = ''] = (route.startsWith('/') ? route : '/').split('?');
+  const params = new URLSearchParams(query);
+  if (id) params.set('scope', id);
+  else params.delete('scope');
+  const url = `${root}#${pathname}${params.toString() ? `?${params.toString()}` : ''}`;
   const state = {
     ...window.history.state,
     cpampScopePreference: preferredInstanceScope(apiBase),
@@ -41,10 +46,13 @@ export function synchronizeInstanceHistory(): void {
   if (sessionMode !== 'manager_embedded') return;
   const target = detectApiBaseFromLocation();
   if (managerRootBase(target) !== managerRootBase(apiBase)) return;
+  const hash = window.location.hash || '';
+  const hashQuery = hash.includes('?') ? hash.slice(hash.indexOf('?') + 1) : '';
+  const scopeFromUrl = new URLSearchParams(hashQuery).get('scope') || '';
+  const scopedTarget = scopeFromUrl
+    ? instanceBase(managerRootBase(apiBase), scopeFromUrl)
+    : managerRootBase(apiBase);
   const preference = window.history.state?.cpampScopePreference;
-  rememberInstanceScope(
-    target,
-    typeof preference === 'string' ? preference : instanceIdFromBase(target)
-  );
-  switchInstanceScope(target);
+  rememberInstanceScope(scopedTarget, typeof preference === 'string' ? preference : scopeFromUrl);
+  switchInstanceScope(scopedTarget);
 }

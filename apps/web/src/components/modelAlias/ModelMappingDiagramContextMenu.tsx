@@ -27,7 +27,7 @@ export function DiagramContextMenu({
   onDeleteAlias,
   onEditProvider,
   onDeleteProvider,
-  onOpenSourceSettings
+  onOpenSourceSettings,
 }: DiagramContextMenuProps) {
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -47,25 +47,29 @@ export function DiagramContextMenu({
   const { type, data } = contextMenu;
 
   const renderBackground = () => (
-    <div className={styles.menuItem} onClick={onAddAlias}>
+    <button type="button" className={styles.menuItem} onClick={onAddAlias}>
       <span>{t('oauth_model_alias.diagram_add_alias')}</span>
-    </div>
+    </button>
   );
 
   const renderAlias = () => {
     if (!data) return null;
     return (
       <>
-        <div className={styles.menuItem} onClick={() => onRenameAlias(data)}>
+        <button type="button" className={styles.menuItem} onClick={() => onRenameAlias(data)}>
           <span>{t('oauth_model_alias.diagram_rename')}</span>
-        </div>
-        <div className={styles.menuItem} onClick={() => onOpenAliasSettings(data)}>
+        </button>
+        <button type="button" className={styles.menuItem} onClick={() => onOpenAliasSettings(data)}>
           <span>{t('oauth_model_alias.diagram_settings')}</span>
-        </div>
+        </button>
         <div className={styles.menuDivider} />
-        <div className={`${styles.menuItem} ${styles.danger}`} onClick={() => onDeleteAlias(data)}>
+        <button
+          type="button"
+          className={`${styles.menuItem} ${styles.danger}`}
+          onClick={() => onDeleteAlias(data)}
+        >
           <span>{t('oauth_model_alias.diagram_delete_alias')}</span>
-        </div>
+        </button>
       </>
     );
   };
@@ -74,13 +78,17 @@ export function DiagramContextMenu({
     if (!data) return null;
     return (
       <>
-        <div className={styles.menuItem} onClick={() => onEditProvider(data)}>
+        <button type="button" className={styles.menuItem} onClick={() => onEditProvider(data)}>
           <span>{t('common.edit')}</span>
-        </div>
+        </button>
         <div className={styles.menuDivider} />
-        <div className={`${styles.menuItem} ${styles.danger}`} onClick={() => onDeleteProvider(data)}>
+        <button
+          type="button"
+          className={`${styles.menuItem} ${styles.danger}`}
+          onClick={() => onDeleteProvider(data)}
+        >
           <span>{t('oauth_model_alias.delete')}</span>
-        </div>
+        </button>
       </>
     );
   };
@@ -88,9 +96,9 @@ export function DiagramContextMenu({
   const renderSource = () => {
     if (!data) return null;
     return (
-      <div className={styles.menuItem} onClick={() => onOpenSourceSettings(data)}>
+      <button type="button" className={styles.menuItem} onClick={() => onOpenSourceSettings(data)}>
         <span>{t('oauth_model_alias.diagram_settings')}</span>
-      </div>
+      </button>
     );
   };
 

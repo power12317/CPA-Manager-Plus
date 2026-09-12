@@ -1651,7 +1651,6 @@ export function ConfigPage() {
               managerLoading={managerLoading}
               managerSaving={managerSaving}
               panelHostedByUsageService={panelHostedByUsageService}
-              detectedPanelBase={detectedPanelBase}
               managerRuntimeModeLabel={managerRuntimeModeLabel}
               managerHasBoundCPAManagementKey={Boolean(
                 managerConfig?.cpaConnection?.managementKeyConfigured

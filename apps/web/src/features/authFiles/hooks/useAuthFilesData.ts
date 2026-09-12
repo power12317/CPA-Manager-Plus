@@ -20,7 +20,6 @@ import { useNotificationStore } from '@/stores';
 import type { AuthFileItem } from '@/types';
 import { formatFileSize } from '@/utils/format';
 import { MAX_AUTH_FILE_SIZE } from '@/utils/constants';
-import { instanceIdFromBase } from '@/utils/instanceScope';
 import { downloadBlob } from '@/utils/download';
 import { parseTimestampMs } from '@/utils/timestamp';
 import {
@@ -733,9 +732,7 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions = {}): UseAuth
   const { t } = useTranslation();
   const { showNotification, showConfirmation } = useNotificationStore();
   const connectionFingerprint = options.connectionFingerprint?.trim() ?? '';
-  const requestScope = options.requestScope && instanceIdFromBase(options.requestScope.apiBase)
-    ? options.requestScope
-    : undefined;
+  const requestScope = options.requestScope;
   const onCredentialMutation = options.onCredentialMutation;
 
   const [files, setFiles] = useState<AuthFileItem[]>([]);

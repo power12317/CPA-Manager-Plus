@@ -487,6 +487,10 @@ func (s *Service) Federate(r *http.Request, body []byte) (FederatedResult, error
 		wg.Add(1)
 		go func(index int, item Instance) {
 			defer wg.Done()
+			if s.cachedOffline(item.ID) {
+				parts[index].err = errors.New("instance is offline")
+				return
+			}
 			select {
 			case sem <- struct{}{}:
 			case <-r.Context().Done():

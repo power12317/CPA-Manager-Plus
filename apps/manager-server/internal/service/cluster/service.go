@@ -118,6 +118,13 @@ func (s *Service) cachedOnline(id string) bool {
 	return s.health[id].online
 }
 
+func (s *Service) cachedOffline(id string) bool {
+	s.healthMu.Lock()
+	defer s.healthMu.Unlock()
+	state, ok := s.health[id]
+	return ok && !state.online && !state.checkedAt.IsZero() && time.Since(state.checkedAt) < onlineCacheTTL
+}
+
 // refreshOnline schedules a bounded, short-lived probe without making the
 // registry endpoint wait on an upstream CPA. Repeated list/aggregate calls
 // share the same cached result and cannot create an unbounded probe storm.
@@ -522,6 +529,12 @@ func aggregate[T any](ctx context.Context, s *Service, read func(context.Context
 		go func(i int, item Instance) {
 			defer wg.Done()
 			result := Result[T]{InstanceID: item.ID, InstanceName: item.Name}
+			if s.cachedOffline(item.ID) {
+				result.Error = "instance is offline"
+				result.FetchedAtMS = time.Now().UnixMilli()
+				out.Instances[i] = result
+				return
+			}
 			if !s.acquireInstanceRequest(ctx) {
 				result.Error = "request cancelled"
 				result.FetchedAtMS = time.Now().UnixMilli()

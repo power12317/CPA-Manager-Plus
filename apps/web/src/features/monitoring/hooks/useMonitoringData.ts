@@ -63,6 +63,7 @@ import type {
 import type { MonitoringMetaPayload } from '../model/types';
 import { loadMonitoringMetaPayload } from '../services/monitoringMetaService';
 import { useMonitoringAnalytics } from './useMonitoringAnalytics';
+import { usePageTransitionLayer } from '@/components/common/PageTransitionLayer';
 
 export type {
   MonitoringAccountModelSpendRow,
@@ -322,6 +323,8 @@ export function useMonitoringData({
   scopeFilters,
   activeDataTab = 'accounts',
 }: UseMonitoringDataParams): UseMonitoringDataReturn {
+  const pageTransitionLayer = usePageTransitionLayer();
+  const isCurrentLayer = pageTransitionLayer ? pageTransitionLayer.isCurrentLayer : true;
   const connectionScopeKeyRef = useRef<string | null>(connectionScopeKey ?? null);
   useLayoutEffect(() => {
     connectionScopeKeyRef.current = connectionScopeKey ?? null;
@@ -354,6 +357,7 @@ export function useMonitoringData({
 
   const refreshMeta = useCallback(
     async (showLoading: boolean = true): Promise<MonitoringMetaPayload | null> => {
+      if (!isCurrentLayer) return null;
       const requestScopeKey = connectionScopeKey ?? null;
       if (connectionScopeKeyRef.current !== requestScopeKey) return null;
       const requestGeneration = ++metaRequestGenerationRef.current;
@@ -385,10 +389,11 @@ export function useMonitoringData({
       setAnalyticsNowMs(Date.now());
       return payload;
     },
-    [config, connectionScopeKey]
+    [config, connectionScopeKey, isCurrentLayer]
   );
 
   useEffect(() => {
+    if (!isCurrentLayer) return;
     let cancelled = false;
     const requestScopeKey = connectionScopeKey ?? null;
     const requestGeneration = ++metaRequestGenerationRef.current;
@@ -412,7 +417,7 @@ export function useMonitoringData({
     return () => {
       cancelled = true;
     };
-  }, [config, connectionScopeKey]);
+  }, [config, connectionScopeKey, isCurrentLayer]);
 
   const authMetaMap = useMemo(() => buildMonitoringAuthMetaMap(authFiles), [authFiles]);
 

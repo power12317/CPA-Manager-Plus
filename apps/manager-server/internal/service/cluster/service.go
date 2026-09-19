@@ -19,6 +19,10 @@ import (
 )
 
 const DefaultID = "default"
+const onlineCacheTTL = 15 * time.Second
+const onlineProbeTimeout = 2 * time.Second
+const onlineProbeConcurrency = 4
+const instanceRequestConcurrency = 8
 
 var ErrNotFound = errors.New("instance not found")
 var ErrDisabled = errors.New("instance is disabled")
@@ -65,22 +69,92 @@ type Input struct {
 }
 
 type Service struct {
-	repo    Repository
-	factory Factory
-	legacy  Runtime
-	mu      sync.RWMutex
-	writeMu sync.Mutex
-	entries map[string]*entry
-	ctx     context.Context
-	cancel  context.CancelFunc
-	ready   chan struct{}
-	loadErr error
+	repo       Repository
+	factory    Factory
+	legacy     Runtime
+	mu         sync.RWMutex
+	writeMu    sync.Mutex
+	entries    map[string]*entry
+	ctx        context.Context
+	cancel     context.CancelFunc
+	ready      chan struct{}
+	loadErr    error
+	healthMu   sync.Mutex
+	health     map[string]onlineHealth
+	probeSem   chan struct{}
+	requestSem chan struct{}
+}
+
+type onlineHealth struct {
+	online    bool
+	checkedAt time.Time
+	checking  bool
 }
 
 func New(repo Repository, factory Factory, legacy Runtime) *Service {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Service{repo: repo, factory: factory, legacy: legacy, ctx: ctx, cancel: cancel,
-		ready: make(chan struct{}), entries: map[string]*entry{}}
+	return &Service{
+		repo: repo, factory: factory, legacy: legacy, ctx: ctx, cancel: cancel,
+		ready: make(chan struct{}), entries: map[string]*entry{}, health: map[string]onlineHealth{},
+		probeSem:   make(chan struct{}, onlineProbeConcurrency),
+		requestSem: make(chan struct{}, instanceRequestConcurrency),
+	}
+}
+
+func (s *Service) acquireInstanceRequest(ctx context.Context) bool {
+	select {
+	case s.requestSem <- struct{}{}:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
+func (s *Service) releaseInstanceRequest() { <-s.requestSem }
+
+func (s *Service) cachedOnline(id string) bool {
+	s.healthMu.Lock()
+	defer s.healthMu.Unlock()
+	return s.health[id].online
+}
+
+// refreshOnline schedules a bounded, short-lived probe without making the
+// registry endpoint wait on an upstream CPA. Repeated list/aggregate calls
+// share the same cached result and cannot create an unbounded probe storm.
+func (s *Service) refreshOnline(id string, runtime Runtime) {
+	if runtime == nil {
+		return
+	}
+	now := time.Now()
+	s.healthMu.Lock()
+	state := s.health[id]
+	if state.checking || (!state.checkedAt.IsZero() && now.Sub(state.checkedAt) < onlineCacheTTL) {
+		s.healthMu.Unlock()
+		return
+	}
+	state.checking = true
+	s.health[id] = state
+	s.healthMu.Unlock()
+
+	go func() {
+		select {
+		case s.probeSem <- struct{}{}:
+		case <-s.ctx.Done():
+			s.healthMu.Lock()
+			state := s.health[id]
+			state.checking = false
+			s.health[id] = state
+			s.healthMu.Unlock()
+			return
+		}
+		defer func() { <-s.probeSem }()
+		ctx, cancel := context.WithTimeout(s.ctx, onlineProbeTimeout)
+		online := runtime.Online(ctx)
+		cancel()
+		s.healthMu.Lock()
+		s.health[id] = onlineHealth{online: online, checkedAt: time.Now()}
+		s.healthMu.Unlock()
+	}()
 }
 
 // Start is called only after the HTTP listener is serving. Existing data files
@@ -195,7 +269,8 @@ func (s *Service) List(ctx context.Context) ([]Instance, error) {
 			} else {
 				item.BaseURL = connection.CPABaseURL
 				item.ManagementKeyConfigured = connection.ManagementKey != ""
-				item.Online = e.runtime.Online(ctx)
+				item.Online = s.cachedOnline(e.ID)
+				s.refreshOnline(e.ID, e.runtime)
 			}
 		} else {
 			item.Error = "instance is initializing or unavailable"
@@ -407,6 +482,9 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	s.mu.Lock()
 	delete(s.entries, id)
 	s.mu.Unlock()
+	s.healthMu.Lock()
+	delete(s.health, id)
+	s.healthMu.Unlock()
 	return nil
 }
 
@@ -444,6 +522,13 @@ func aggregate[T any](ctx context.Context, s *Service, read func(context.Context
 		go func(i int, item Instance) {
 			defer wg.Done()
 			result := Result[T]{InstanceID: item.ID, InstanceName: item.Name}
+			if !s.acquireInstanceRequest(ctx) {
+				result.Error = "request cancelled"
+				result.FetchedAtMS = time.Now().UnixMilli()
+				out.Instances[i] = result
+				return
+			}
+			defer s.releaseInstanceRequest()
 			defer func() { result.FetchedAtMS = time.Now().UnixMilli(); out.Instances[i] = result }()
 			select {
 			case sem <- struct{}{}:
@@ -463,9 +548,7 @@ func aggregate[T any](ctx context.Context, s *Service, read func(context.Context
 			if err != nil {
 				result.Error = "instance query failed or timed out"
 			}
-			checkCtx, cancelCheck := context.WithTimeout(ctx, 2*time.Second)
-			result.Online = rt.Online(checkCtx)
-			cancelCheck()
+			result.Online = s.cachedOnline(item.ID)
 		}(i, item)
 	}
 	wg.Wait()

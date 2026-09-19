@@ -28,6 +28,16 @@ export function navigateInstance(id: string, route: string, automatic = false): 
   if (id) params.set('scope', id);
   else params.delete('scope');
   const url = `${root}#${pathname}${params.toString() ? `?${params.toString()}` : ''}`;
+  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  const target = new URL(url, window.location.href);
+  const targetUrl = `${target.pathname}${target.search}${target.hash}`;
+  if (currentUrl === targetUrl) {
+    // Automatic redirects can run again while the shell settles after a
+    // scope change. Do not create another history entry or dispatch another
+    // popstate when the requested location is already active.
+    switchInstanceScope(base);
+    return;
+  }
   const state = {
     ...window.history.state,
     cpampScopePreference: preferredInstanceScope(apiBase),

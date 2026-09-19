@@ -12,6 +12,7 @@ import {
   type MonitoringAnalyticsResponse,
 } from '@/services/api/usageService';
 import { useAuthStore } from '@/stores';
+import { usePageTransitionLayer } from '@/components/common/PageTransitionLayer';
 
 const DEFAULT_REFRESH_THROTTLE_MS = 5_000;
 
@@ -91,6 +92,8 @@ export function useMonitoringAnalytics({
   throttleMs = DEFAULT_REFRESH_THROTTLE_MS,
 }: UseMonitoringAnalyticsParams): UseMonitoringAnalyticsReturn {
   const managementKey = useAuthStore((state) => state.managementKey);
+  const pageTransitionLayer = usePageTransitionLayer();
+  const isCurrentLayer = pageTransitionLayer ? pageTransitionLayer.isCurrentLayer : true;
   const availability = useRequestMonitoringAvailability();
   const [data, setData] = useState<MonitoringAnalyticsResponse | null>(null);
   const [dataScopeStateKey, setDataScopeStateKey] = useState('');
@@ -158,7 +161,8 @@ export function useMonitoringAnalytics({
   );
   const activeDataScopeKey = dataScopeKey || requestKey;
   const serviceBase = availability.serviceBase;
-  const enabled = availability.available && Boolean(serviceBase) && Boolean(request);
+  const enabled =
+    isCurrentLayer && availability.available && Boolean(serviceBase) && Boolean(request);
 
   const refresh = useCallback(
     async (options: MonitoringAnalyticsRefreshOptions = {}) => {
@@ -242,11 +246,11 @@ export function useMonitoringAnalytics({
   );
 
   useEffect(() => {
-    if (availability.checking) {
+    if (!isCurrentLayer || availability.checking) {
       return;
     }
     void refresh({ force: true });
-  }, [availability.checking, refresh]);
+  }, [availability.checking, isCurrentLayer, refresh]);
 
   useEffect(
     () => () => {

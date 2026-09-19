@@ -161,7 +161,7 @@ describe('panel feature availability', () => {
     ).toBe(false);
   });
 
-  it('marks Manager-only features available while separately gating request monitoring', () => {
+  it('keeps aggregate monitoring available when the root collector is disabled', () => {
     const availability = resolvePanelFeatureAvailability({
       panelHostConfirmed: true,
       panelHostedByUsageService: true,
@@ -180,8 +180,8 @@ describe('panel feature availability', () => {
     expect(availability.managerServiceAvailable).toBe(true);
     expect(availability.modelPricesAvailable).toBe(true);
     expect(availability.serverCodexInspectionAvailable).toBe(true);
-    expect(availability.requestMonitoringAvailable).toBe(false);
-    expect(availability.reason).toBe('monitoring_disabled');
+    expect(availability.requestMonitoringAvailable).toBe(true);
+    expect(availability.reason).toBe('');
   });
 
   it('requires a configured CPA connection for server inspection', () => {
@@ -202,8 +202,8 @@ describe('panel feature availability', () => {
 
     expect(availability.managerServiceAvailable).toBe(true);
     expect(availability.serverCodexInspectionAvailable).toBe(false);
-    expect(availability.requestMonitoringAvailable).toBe(false);
-    expect(availability.reason).toBe('service_not_configured');
+    expect(availability.requestMonitoringAvailable).toBe(true);
+    expect(availability.reason).toBe('');
   });
 
   it('keeps compatibility with older Manager responses that still include the CPA key', () => {
@@ -244,8 +244,8 @@ describe('panel feature availability', () => {
     });
 
     expect(availability.serverCodexInspectionAvailable).toBe(false);
-    expect(availability.requestMonitoringAvailable).toBe(false);
-    expect(availability.reason).toBe('service_not_configured');
+    expect(availability.requestMonitoringAvailable).toBe(true);
+    expect(availability.reason).toBe('');
   });
 
   it('keeps Manager-only features unavailable for CPA-hosted panels even with stale Manager config', () => {

@@ -207,3 +207,78 @@ func TestRegistryListRemainsAvailableWhileAnInstanceOpens(t *testing.T) {
 	waitReady(t, s)
 	_ = s.Close(context.Background())
 }
+
+type delayedOnlineRuntime struct {
+	mu         sync.Mutex
+	connection model.ManagerCPAConnectionConfig
+	calls      atomic.Int32
+}
+
+func (r *delayedOnlineRuntime) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(http.StatusOK)
+}
+func (r *delayedOnlineRuntime) Connection(context.Context) (model.ManagerCPAConnectionConfig, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.connection, nil
+}
+func (r *delayedOnlineRuntime) Configure(_ context.Context, c model.ManagerCPAConnectionConfig) error {
+	r.mu.Lock()
+	r.connection = c
+	r.mu.Unlock()
+	return nil
+}
+func (r *delayedOnlineRuntime) Credentials(context.Context) ([]map[string]any, error) {
+	return nil, nil
+}
+func (r *delayedOnlineRuntime) Online(ctx context.Context) bool {
+	r.calls.Add(1)
+	select {
+	case <-time.After(100 * time.Millisecond):
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+func (r *delayedOnlineRuntime) Summary(context.Context, dashboard.SummaryParams) (dashboard.SummaryResponse, error) {
+	return dashboard.SummaryResponse{}, nil
+}
+func (r *delayedOnlineRuntime) Start(context.Context)      {}
+func (r *delayedOnlineRuntime) Stop(context.Context) error { return nil }
+func (r *delayedOnlineRuntime) Close() error               { return nil }
+
+func TestListDoesNotProbeEveryAggregateRequest(t *testing.T) {
+	id := "0123456789abcdef0123456789abcdef"
+	repo := &memoryRegistry{items: []model.Instance{{ID: id, Name: "cached", Enabled: true}}}
+	runtime := &delayedOnlineRuntime{connection: model.ManagerCPAConnectionConfig{
+		CPABaseURL: "http://cached:8317", ManagementKey: "key",
+	}}
+	s := New(repo, func(context.Context, string) (Runtime, error) { return runtime, nil }, &fakeRuntime{})
+	s.Start(context.Background())
+	waitReady(t, s)
+	defer s.Close(context.Background())
+
+	started := time.Now()
+	if _, err := s.List(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if elapsed := time.Since(started); elapsed >= 80*time.Millisecond {
+		t.Fatalf("registry list waited for remote health probe: %s", elapsed)
+	}
+	if _, err := s.List(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(time.Second)
+	for runtime.calls.Load() == 0 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if got := runtime.calls.Load(); got != 1 {
+		t.Fatalf("expected one shared probe, got %d", got)
+	}
+	if _, err := s.List(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := runtime.calls.Load(); got != 1 {
+		t.Fatalf("cached list scheduled another probe, got %d", got)
+	}
+}

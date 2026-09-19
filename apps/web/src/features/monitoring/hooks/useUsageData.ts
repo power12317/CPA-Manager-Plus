@@ -17,6 +17,7 @@ import {
   uploadUsageImportFile,
   type UsageImportProgress,
 } from '@/features/monitoring/services/usageImportSession';
+import { usePageTransitionLayer } from '@/components/common/PageTransitionLayer';
 
 export interface UsagePayload {
   total_requests?: number;
@@ -57,6 +58,8 @@ export function useUsageData({
   loadUsageEvents = true,
 }: UseUsageDataOptions = {}): UseUsageDataReturn {
   const managementKey = useAuthStore((state) => state.managementKey);
+  const pageTransitionLayer = usePageTransitionLayer();
+  const isCurrentLayer = pageTransitionLayer ? pageTransitionLayer.isCurrentLayer : true;
   const featureAvailability = usePanelFeatureAvailability();
   const [usage, setUsage] = useState<UsagePayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -220,10 +223,11 @@ export function useUsageData({
   }, [loadUsageEvents, managementKey, usageEventsServiceBase]);
 
   useEffect(() => {
+    if (!isCurrentLayer) return;
     void loadModelPricesFromStorage();
     void loadApiKeyAliases();
     void loadUsage();
-  }, [loadApiKeyAliases, loadModelPricesFromStorage, loadUsage]);
+  }, [isCurrentLayer, loadApiKeyAliases, loadModelPricesFromStorage, loadUsage]);
 
   const setModelPrices = useCallback(
     async (prices: Record<string, ModelPrice>) => {

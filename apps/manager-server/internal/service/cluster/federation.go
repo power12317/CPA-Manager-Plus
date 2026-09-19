@@ -494,6 +494,11 @@ func (s *Service) Federate(r *http.Request, body []byte) (FederatedResult, error
 				return
 			}
 			defer func() { <-sem }()
+			if !s.acquireInstanceRequest(r.Context()) {
+				parts[index].err = r.Context().Err()
+				return
+			}
+			defer s.releaseInstanceRequest()
 			rt, err := s.Runtime(item.ID)
 			if err != nil {
 				parts[index].err = err
@@ -597,9 +602,10 @@ func (s *Service) Federate(r *http.Request, body []byte) (FederatedResult, error
 		result.Data = mergePayload(result.Data, part.data, "", r.URL.Path)
 	}
 	if result.Succeeded == 0 {
-		// Keep the read-only credential/config endpoints usable while an
-		// instance is offline. Other operations retain their failure semantics.
-		if r.Method == http.MethodGet && (strings.HasSuffix(r.URL.Path, "/auth-files") || strings.HasSuffix(r.URL.Path, "/config")) {
+		// Read-only aggregate views remain usable while every CPA is offline or
+		// the registry is empty. An empty result is a valid business state; it is
+		// not an upstream gateway failure and must not turn into HTTP 502.
+		if readOnlyRequest(r) {
 			result.Data = emptyAggregatePayload(r.URL.Path)
 			return result, nil
 		}

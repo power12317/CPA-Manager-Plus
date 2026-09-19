@@ -90,8 +90,13 @@ export function resolvePanelFeatureAvailability(
     (input.managerConfig.cpaConnection?.managementKeyConfigured ||
       input.managerConfig.cpaConnection?.managementKey)
   );
-  const collectorEnabled = input.managerConfig.collector?.enabled !== false;
-  const requestMonitoringAvailable = hasCPAConnection && collectorEnabled;
+  // The Manager service owns the aggregate monitoring data.  Its ability to
+  // serve the page must not depend on the legacy/root CPA connection: in a
+  // multi-instance deployment the root config can be empty while child CPAs
+  // still have usable history.  Offline or disabled collectors are reflected
+  // by the page data and instance coverage, not by redirecting the user to
+  // the single-instance config screen.
+  const requestMonitoringAvailable = true;
 
   return {
     checking: input.checking === true,
@@ -105,11 +110,7 @@ export function resolvePanelFeatureAvailability(
     serverCodexInspectionAvailable: hasCPAConnection,
     dockerSetupAvailable: input.panelHostedByUsageService,
     externalManagerConfigAvailable: false,
-    reason: requestMonitoringAvailable
-      ? ''
-      : !hasCPAConnection
-        ? 'service_not_configured'
-        : 'monitoring_disabled',
+    reason: '',
   };
 }
 
@@ -243,8 +244,6 @@ async function detectPanelFeatureAvailability({
 
   for (const candidate of candidates) {
     try {
-      const info = await usageServiceApi.getInfo(candidate);
-      if (!isUsageServiceId(info.service)) continue;
       const response = await usageServiceApi.getManagerConfig(candidate, managementKey);
       if (
         !managerConfigMatchesPanel({

@@ -19,10 +19,17 @@ const mocks = vi.hoisted(() => ({
   updateVertexConfig: vi.fn(),
   getVertexConfigs: vi.fn(),
   getOpenAIProviders: vi.fn(),
+  getCodexCapabilities: vi.fn(),
   showNotification: vi.fn(),
   showConfirmation: vi.fn(),
   cacheValid: true,
   transitionLayer: null as { status: string } | null,
+  apiBase: 'http://cpa.local:8317',
+  managementKey: 'manager-key',
+  providerToolbarProps: null as {
+    codexSystemScopedOAuth?: boolean;
+    onAddCodexOAuth?: (system: 'mac' | 'windows') => void;
+  } | null,
 }));
 
 vi.mock('react-i18next', () => ({
@@ -35,8 +42,16 @@ vi.mock('@/components/common/PageTransitionLayer', () => ({
 }));
 
 vi.mock('@/stores', () => ({
-  useAuthStore: (selector: (state: { connectionStatus: string }) => unknown) =>
-    selector({ connectionStatus: 'connected' }),
+  useAuthStore: (selector: (state: {
+    connectionStatus: string;
+    apiBase: string;
+    managementKey: string;
+  }) => unknown) =>
+    selector({
+      connectionStatus: 'connected',
+      apiBase: mocks.apiBase,
+      managementKey: mocks.managementKey,
+    }),
   useThemeStore: (selector: (state: { resolvedTheme: string }) => unknown) =>
     selector({ resolvedTheme: 'light' }),
   useConfigStore: (selector: (state: Record<string, unknown>) => unknown) =>
@@ -59,6 +74,9 @@ vi.mock('@/services/api', () => ({
     getOpenAIProviders: mocks.getOpenAIProviders,
     updateGeminiKey: mocks.updateGeminiKey,
     updateVertexConfig: mocks.updateVertexConfig,
+  },
+  oauthApi: {
+    getCodexCapabilities: mocks.getCodexCapabilities,
   },
 }));
 
@@ -108,7 +126,13 @@ vi.mock('@/components/providers', async () => {
       vertex: 'Vertex',
       openai: 'OpenAI',
     },
-    ProviderToolbar: () => null,
+    ProviderToolbar: (props: {
+      codexSystemScopedOAuth?: boolean;
+      onAddCodexOAuth?: (system: 'mac' | 'windows') => void;
+    }) => {
+      mocks.providerToolbarProps = props;
+      return null;
+    },
     ProviderTable: ({
       rows,
       onShowDetail,
@@ -197,6 +221,8 @@ describe('AiProvidersPage cooling policy mutation', () => {
     mocks.fetchConfig.mockImplementation(async () => mocks.config);
     mocks.getVertexConfigs.mockImplementation(async () => mocks.config.vertexApiKeys);
     mocks.getOpenAIProviders.mockResolvedValue([]);
+    mocks.getCodexCapabilities.mockResolvedValue({ system_scoped_oauth: false });
+    mocks.providerToolbarProps = null;
     mocks.updateGeminiKey.mockImplementation(
       async (_original: GeminiKeyConfig, next: GeminiKeyConfig) => {
         mocks.config = { ...mocks.config, geminiApiKeys: [next] };
@@ -207,6 +233,31 @@ describe('AiProvidersPage cooling policy mutation', () => {
         mocks.config = { ...mocks.config, vertexApiKeys: [next] };
       }
     );
+  });
+
+  it('shows platform-specific Codex OAuth actions when the CPA supports them', async () => {
+    mocks.getCodexCapabilities.mockResolvedValueOnce({ system_scoped_oauth: true });
+    vi.stubGlobal('window', { location: { hash: '' } });
+
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(<AiProvidersPage />);
+    });
+    await flush();
+
+    expect(mocks.getCodexCapabilities).toHaveBeenCalledWith({
+      apiBase: mocks.apiBase,
+      managementKey: mocks.managementKey,
+    });
+    expect(mocks.providerToolbarProps?.codexSystemScopedOAuth).toBe(true);
+
+    await act(async () => {
+      mocks.providerToolbarProps?.onAddCodexOAuth?.('windows');
+    });
+    expect(window.location.hash).toBe('/oauth?provider=codex&client_system=windows');
+
+    act(() => renderer.unmount());
+    vi.unstubAllGlobals();
   });
 
   it.each([

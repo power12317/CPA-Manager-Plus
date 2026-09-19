@@ -289,6 +289,7 @@ export function OAuthPage() {
   const connectionFingerprintRef = useRef(connectionFingerprint);
   const vertexImportGenerationRef = useRef(0);
   const vertexFileInputRef = useRef<HTMLInputElement | null>(null);
+  const autoStartCodexOAuthRef = useRef('');
   connectionFingerprintRef.current = connectionFingerprint;
 
   const clearTimers = useCallback(() => {
@@ -747,6 +748,23 @@ export function OAuthPage() {
       );
     }
   };
+
+  // The auto-start effect is intentionally driven by the URL and CPA connection.
+  // Keep the latest action implementation in a ref so a render does not restart
+  // an OAuth flow merely because the component recreated this async function.
+  const startAuthRef = useRef(startAuth);
+  startAuthRef.current = startAuth;
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('provider') !== 'codex' || !codexSystemScopedOAuth) return;
+    const clientSystem = params.get('client_system');
+    if (clientSystem !== 'mac' && clientSystem !== 'windows') return;
+    const requestKey = `${connectionFingerprint}:${clientSystem}`;
+    if (autoStartCodexOAuthRef.current === requestKey) return;
+    autoStartCodexOAuthRef.current = requestKey;
+    void startAuthRef.current('codex', { clientSystem });
+  }, [codexSystemScopedOAuth, connectionFingerprint, location.search]);
 
   const copyLink = async (url?: string) => {
     if (!url) return;

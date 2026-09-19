@@ -24,6 +24,7 @@ const { pageMocks } = vi.hoisted(() => {
         hash: '',
       },
       startAuth: vi.fn(),
+      getCodexCapabilities: vi.fn(),
       getAuthStatus: vi.fn(),
       submitCallback: vi.fn(),
       authFilesList: vi.fn(),
@@ -67,6 +68,7 @@ vi.mock('@/stores', () => {
 vi.mock('@/services/api', () => ({
   oauthApi: {
     startAuth: pageMocks.startAuth,
+    getCodexCapabilities: pageMocks.getCodexCapabilities,
     getAuthStatus: pageMocks.getAuthStatus,
     submitCallback: pageMocks.submitCallback,
   },
@@ -147,6 +149,8 @@ describe('OAuthPage request lifecycle', () => {
       hash: '',
     };
     pageMocks.startAuth.mockReset();
+    pageMocks.getCodexCapabilities.mockReset();
+    pageMocks.getCodexCapabilities.mockResolvedValue({ system_scoped_oauth: false });
     pageMocks.getAuthStatus.mockReset();
     pageMocks.submitCallback.mockReset();
     pageMocks.authFilesList.mockReset();
@@ -179,6 +183,32 @@ describe('OAuthPage request lifecycle', () => {
       renderer = null;
     }
     vi.unstubAllGlobals();
+  });
+
+  it('auto-starts the requested Codex system OAuth flow from the query', async () => {
+    pageMocks.location.search = '?provider=codex&client_system=windows';
+    pageMocks.getCodexCapabilities.mockResolvedValueOnce({ system_scoped_oauth: true });
+    pageMocks.startAuth.mockResolvedValueOnce({
+      url: 'https://oauth.example/windows',
+      state: 'windows-state',
+    });
+
+    await act(async () => {
+      renderer = create(<OAuthPage />);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(pageMocks.startAuth).toHaveBeenCalledWith(
+      'codex',
+      {
+        apiBase: 'http://cpa-a.local:8317',
+        managementKey: 'manager-key',
+      },
+      { clientSystem: 'windows' }
+    );
   });
 
   it('discards a late start response and clears loading after the connection changes', async () => {

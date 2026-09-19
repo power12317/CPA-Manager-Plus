@@ -242,6 +242,36 @@ func TestNormalizeRawParsesRequestMetadataFields(t *testing.T) {
 	}
 }
 
+func TestNormalizeRawParsesCodexTurnMetadataWithoutInventingSystem(t *testing.T) {
+	codex, err := NormalizeRaw([]byte(`{
+		"timestamp":"2026-08-12T00:00:00Z",
+		"executor_type":"codex",
+		"request_id":"request-001",
+		"session_id":"session-001",
+		"turn_id":"turn-001",
+		"system":"windows",
+		"turn_state_len":"292/312"
+	}`))
+	if err != nil {
+		t.Fatalf("NormalizeRaw Codex failed: %v", err)
+	}
+	if codex.RequestID != "request-001" || codex.SessionID != "session-001" || codex.TurnID != "turn-001" || codex.System != "windows" || codex.TurnStateLen != "292/312" {
+		t.Fatalf("Codex metadata = %+v", codex)
+	}
+
+	nonCodex, err := NormalizeRaw([]byte(`{
+		"timestamp":"2026-08-12T00:00:00Z",
+		"executor_type":"openai",
+		"turn_id":"turn-ignored"
+	}`))
+	if err != nil {
+		t.Fatalf("NormalizeRaw non-Codex failed: %v", err)
+	}
+	if nonCodex.System != "" || nonCodex.TurnID != "turn-ignored" {
+		t.Fatalf("non-Codex metadata = %+v", nonCodex)
+	}
+}
+
 func TestNormalizeRawLegacyPayloadLeavesMetadataFieldsNil(t *testing.T) {
 	raw := []byte(`{
 		"timestamp":"2026-08-12T00:00:00Z",

@@ -409,6 +409,9 @@ type EventPageItem struct {
 	AnalyticsModel         string
 	RequestedModel         string
 	ResolvedModel          string
+	TurnID                 string
+	System                 string
+	TurnStateLen           string
 	ResponseModel          string
 	SessionID              string
 	ParentSessionID        string
@@ -2636,6 +2639,9 @@ func (r *repository) EventsPageWithFilter(ctx context.Context, filter AnalyticsF
 		`+usageidentity.SQLRequestAnalyticsModelExpression("model", "requested_model")+` as analytics_model,
 		coalesce(nullif(requested_model, ''), model, ''),
 		coalesce(resolved_model, ''),
+		coalesce(turn_id, ''),
+		coalesce(system, ''),
+		coalesce(turn_state_len, ''),
 	coalesce(endpoint, ''),
 	coalesce(method, ''),
 	coalesce(path, ''),
@@ -2693,7 +2699,7 @@ limit ?`, args...)
 		var item EventPageItem
 		var failed int
 		var responseMetadataJSON string
-		var responseModel, sessionID, parentSessionID, accessTokenSHA256 sql.NullString
+		var turnID, system, turnStateLen, responseModel, sessionID, parentSessionID, accessTokenSHA256 sql.NullString
 		var generateVal, streamVal sql.NullInt64
 		if err := rows.Scan(
 			&item.ID,
@@ -2705,6 +2711,9 @@ limit ?`, args...)
 			&item.AnalyticsModel,
 			&item.RequestedModel,
 			&item.ResolvedModel,
+			&turnID,
+			&system,
+			&turnStateLen,
 			&item.Endpoint,
 			&item.Method,
 			&item.Path,
@@ -2754,6 +2763,9 @@ limit ?`, args...)
 		}
 		item.Failed = failed != 0
 		item.ResponseModel = responseModel.String
+		item.TurnID = turnID.String
+		item.System = system.String
+		item.TurnStateLen = turnStateLen.String
 		item.SessionID = sessionID.String
 		item.ParentSessionID = parentSessionID.String
 		item.AccessTokenSHA256 = accessTokenSHA256.String

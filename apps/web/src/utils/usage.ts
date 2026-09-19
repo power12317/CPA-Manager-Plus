@@ -177,6 +177,8 @@ export interface UsageResponseHeaderMetadata {
 
 export interface UsageDetail {
   timestamp: string;
+  request_id?: string;
+  requestId?: string;
   source: string;
   source_hash?: string;
   sourceHash?: string;
@@ -224,6 +226,11 @@ export interface UsageDetail {
   requestedModel?: string;
   resolved_model?: string;
   resolvedModel?: string;
+  turn_id?: string;
+  turnId?: string;
+  system?: string;
+  turn_state_len?: string;
+  turnStateLen?: string;
   response_model?: string;
   responseModel?: string;
   session_id?: string;

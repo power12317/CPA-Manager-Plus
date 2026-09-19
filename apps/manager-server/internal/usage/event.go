@@ -16,25 +16,28 @@ import (
 )
 
 type Event struct {
-	RequestID      string `json:"request_id,omitempty"`
-	EventHash      string `json:"event_hash"`
-	TimestampMS    int64  `json:"timestamp_ms"`
-	Timestamp      string `json:"timestamp"`
-	Provider       string `json:"provider,omitempty"`
-	ExecutorType   string `json:"executor_type,omitempty"`
-	Model          string `json:"model"`
-	AnalyticsModel string `json:"analytics_model,omitempty"`
-	RequestedModel string `json:"requested_model,omitempty"`
-	ResolvedModel  string `json:"resolved_model,omitempty"`
-	ResponseModel  string `json:"response_model,omitempty"`
-	SessionID      string `json:"session_id,omitempty"`
-	ParentSessionID string `json:"parent_session_id,omitempty"`
+	RequestID         string `json:"request_id,omitempty"`
+	EventHash         string `json:"event_hash"`
+	TimestampMS       int64  `json:"timestamp_ms"`
+	Timestamp         string `json:"timestamp"`
+	Provider          string `json:"provider,omitempty"`
+	ExecutorType      string `json:"executor_type,omitempty"`
+	Model             string `json:"model"`
+	AnalyticsModel    string `json:"analytics_model,omitempty"`
+	RequestedModel    string `json:"requested_model,omitempty"`
+	ResolvedModel     string `json:"resolved_model,omitempty"`
+	ResponseModel     string `json:"response_model,omitempty"`
+	SessionID         string `json:"session_id,omitempty"`
+	TurnID            string `json:"turn_id,omitempty"`
+	System            string `json:"system,omitempty"`
+	TurnStateLen      string `json:"turn_state_len,omitempty"`
+	ParentSessionID   string `json:"parent_session_id,omitempty"`
 	AccessTokenSHA256 string `json:"access_token_sha256,omitempty"`
-	Generate       *bool  `json:"generate,omitempty"`
-	Stream         *bool  `json:"stream,omitempty"`
-	Endpoint       string `json:"endpoint,omitempty"`
-	Method         string `json:"method,omitempty"`
-	Path           string `json:"path,omitempty"`
+	Generate          *bool  `json:"generate,omitempty"`
+	Stream            *bool  `json:"stream,omitempty"`
+	Endpoint          string `json:"endpoint,omitempty"`
+	Method            string `json:"method,omitempty"`
+	Path              string `json:"path,omitempty"`
 	// Downstream request metadata is available only to authenticated monitoring
 	// APIs. Compatible usage payloads and JSONL exports intentionally omit it.
 	ClientIP              string `json:"-"`
@@ -135,6 +138,7 @@ func (tokens *LongContextTokens) AddIfLongContext(input, output, cached, cacheRe
 }
 
 type Detail struct {
+	RequestID             string                  `json:"request_id,omitempty"`
 	Timestamp             string                  `json:"timestamp"`
 	Source                string                  `json:"source"`
 	AuthIndex             string                  `json:"auth_index,omitempty"`
@@ -152,6 +156,9 @@ type Detail struct {
 	ResolvedModel         string                  `json:"resolved_model,omitempty"`
 	ResponseModel         string                  `json:"response_model,omitempty"`
 	SessionID             string                  `json:"session_id,omitempty"`
+	TurnID                string                  `json:"turn_id,omitempty"`
+	System                string                  `json:"system,omitempty"`
+	TurnStateLen          string                  `json:"turn_state_len,omitempty"`
 	ParentSessionID       string                  `json:"parent_session_id,omitempty"`
 	AccessTokenSHA256     string                  `json:"access_token_sha256,omitempty"`
 	Generate              *bool                   `json:"generate,omitempty"`
@@ -554,6 +561,7 @@ func NormalizeRaw(raw []byte) (Event, error) {
 	resolvedModel := readString(record, "resolved_model", "resolvedModel", "model", "model_name", "modelName")
 	responseModel := readString(record, "response_model", "responseModel")
 	sessionID := readString(record, "session_id", "sessionId")
+	turnID := readString(record, "turn_id", "turnId")
 	parentSessionID := readString(record, "parent_session_id", "parentSessionId")
 	accessTokenSHA256 := readString(record, "access_token_sha256", "accessTokenSHA256", "accessTokenSha256")
 	generate := readOptionalBool(record, "generate", "Generate")
@@ -565,6 +573,8 @@ func NormalizeRaw(raw []byte) (Event, error) {
 	provider := readString(record, "provider", "type", "auth_type", "authType")
 	executorType := readString(record, "executor_type", "executorType")
 	authType := readString(record, "auth_type", "authType")
+	system := readCodexSystem(record)
+	turnStateLen := readString(record, "turn_state_len", "turnStateLen")
 	clientIP := readString(record, "client_ip", "clientIp")
 	xForwardedFor := readString(record, "x_forwarded_for", "xForwardedFor")
 	userAgent := readString(record, "user_agent", "userAgent")
@@ -599,6 +609,9 @@ func NormalizeRaw(raw []byte) (Event, error) {
 		ResolvedModel:                 resolvedModel,
 		ResponseModel:                 responseModel,
 		SessionID:                     sessionID,
+		TurnID:                        turnID,
+		System:                        system,
+		TurnStateLen:                  turnStateLen,
 		ParentSessionID:               parentSessionID,
 		AccessTokenSHA256:             accessTokenSHA256,
 		Generate:                      generate,
@@ -697,6 +710,7 @@ func BuildPayload(events []Event) Payload {
 			requestedModel = event.Model
 		}
 		modelEntry.Details = append(modelEntry.Details, Detail{
+			RequestID:             event.RequestID,
 			Timestamp:             event.Timestamp,
 			Source:                event.Source,
 			AuthIndex:             event.AuthIndex,
@@ -714,6 +728,9 @@ func BuildPayload(events []Event) Payload {
 			ResolvedModel:         event.ResolvedModel,
 			ResponseModel:         event.ResponseModel,
 			SessionID:             event.SessionID,
+			TurnID:                event.TurnID,
+			System:                event.System,
+			TurnStateLen:          event.TurnStateLen,
 			ParentSessionID:       event.ParentSessionID,
 			AccessTokenSHA256:     event.AccessTokenSHA256,
 			Generate:              event.Generate,
@@ -927,6 +944,14 @@ func readString(record map[string]any, keys ...string) string {
 	default:
 		return strings.TrimSpace(fmt.Sprint(value))
 	}
+}
+
+func readCodexSystem(record map[string]any) string {
+	system := strings.ToLower(readString(record, "system"))
+	if system != "mac" && system != "windows" {
+		return ""
+	}
+	return system
 }
 
 // NormalizeRequestMetadata applies the storage limits and character policy for

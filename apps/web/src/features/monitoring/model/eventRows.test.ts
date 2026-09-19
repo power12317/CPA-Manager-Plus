@@ -214,8 +214,13 @@ describe('buildEventRows', () => {
 
   it('populates request metadata fields on row without leaking new tokens into searchText', () => {
     const [row] = buildRows({
+      request_id: 'request-001',
       __responseModel: 'gpt-4o-mini',
       session_id: 'secret-session-id-999',
+      turn_id: 'turn-secret-777',
+      executor_type: 'codex',
+      system: 'windows',
+      turn_state_len: '292/312',
       parent_session_id: 'parent-secret-session-888',
       access_token_sha256: 'sha256-secret-hash-777',
       generate: true,
@@ -223,7 +228,11 @@ describe('buildEventRows', () => {
     });
 
     expect(row.responseModel).toBe('gpt-4o-mini');
+    expect(row.requestId).toBe('request-001');
     expect(row.sessionId).toBe('secret-session-id-999');
+    expect(row.turnId).toBe('turn-secret-777');
+    expect(row.system).toBe('windows');
+    expect(row.turnStateLen).toBe('292/312');
     expect(row.parentSessionId).toBe('parent-secret-session-888');
     expect(row.accessTokenSha256).toBe('sha256-secret-hash-777');
     expect(row.generate).toBe(true);
@@ -231,6 +240,12 @@ describe('buildEventRows', () => {
     expect(row.searchText).not.toContain('secret-session-id-999');
     expect(row.searchText).not.toContain('parent-secret-session-888');
     expect(row.searchText).not.toContain('sha256-secret-hash-777');
+  });
+
+  it('does not expose a system value for non-Codex events', () => {
+    const [row] = buildRows({ executor_type: 'openai' });
+
+    expect(row.system).toBeUndefined();
   });
 
   it('keeps response header diagnostics searchable', () => {

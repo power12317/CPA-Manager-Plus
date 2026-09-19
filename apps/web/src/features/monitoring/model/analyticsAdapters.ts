@@ -1045,6 +1045,7 @@ export const buildUsageDetailsFromAnalyticsEvents = (
       readString(item.analytics_model) || normalizeAnalyticsModel(requestedModel);
     return {
       timestamp: new Date(item.timestamp_ms).toISOString(),
+      request_id: readString(item.request_id),
       source: readString(item.source),
       source_hash: readString(item.source_hash),
       auth_index: item.auth_index || null,
@@ -1085,6 +1086,9 @@ export const buildUsageDetailsFromAnalyticsEvents = (
       analytics_model: analyticsModel,
       requested_model: requestedModel,
       resolved_model: readString(item.resolved_model),
+      turn_id: readString(item.turn_id),
+      system: readString(item.system),
+      turn_state_len: readString(item.turn_state_len),
       response_model: readString(item.response_model),
       session_id: readString(item.session_id),
       parent_session_id: readString(item.parent_session_id),

@@ -143,6 +143,9 @@ func TestNewRequestMetadataFieldsPersistAndLoad(t *testing.T) {
 	ev1 := streamTestEvent("metadata-ev-1", 100, "POST /v1/chat/completions", "gpt-4o")
 	ev1.ResponseModel = "gpt-4o-mini"
 	ev1.SessionID = "sess-001"
+	ev1.TurnID = "turn-001"
+	ev1.System = "windows"
+	ev1.TurnStateLen = "292/312"
 	ev1.ParentSessionID = "parent-001"
 	ev1.AccessTokenSHA256 = "sha256-hash-001"
 	ev1.Generate = &genTrue
@@ -174,7 +177,7 @@ func TestNewRequestMetadataFieldsPersistAndLoad(t *testing.T) {
 	}
 
 	rEv1 := recent[1]
-	if rEv1.ResponseModel != "gpt-4o-mini" || rEv1.SessionID != "sess-001" || rEv1.ParentSessionID != "parent-001" || rEv1.AccessTokenSHA256 != "sha256-hash-001" || rEv1.Generate == nil || *rEv1.Generate != true || rEv1.Stream == nil || *rEv1.Stream != false {
+	if rEv1.ResponseModel != "gpt-4o-mini" || rEv1.SessionID != "sess-001" || rEv1.TurnID != "turn-001" || rEv1.System != "windows" || rEv1.TurnStateLen != "292/312" || rEv1.ParentSessionID != "parent-001" || rEv1.AccessTokenSHA256 != "sha256-hash-001" || rEv1.Generate == nil || *rEv1.Generate != true || rEv1.Stream == nil || *rEv1.Stream != false {
 		t.Fatalf("rEv1 metadata mismatch: %+v", rEv1)
 	}
 
@@ -191,7 +194,7 @@ func TestNewRequestMetadataFieldsPersistAndLoad(t *testing.T) {
 	}
 
 	pEv1 := page.Items[1]
-	if pEv1.ResponseModel != "gpt-4o-mini" || pEv1.SessionID != "sess-001" || pEv1.ParentSessionID != "parent-001" || pEv1.AccessTokenSHA256 != "sha256-hash-001" || pEv1.Generate == nil || *pEv1.Generate != true || pEv1.Stream == nil || *pEv1.Stream != false {
+	if pEv1.ResponseModel != "gpt-4o-mini" || pEv1.SessionID != "sess-001" || pEv1.TurnID != "turn-001" || pEv1.System != "windows" || pEv1.TurnStateLen != "292/312" || pEv1.ParentSessionID != "parent-001" || pEv1.AccessTokenSHA256 != "sha256-hash-001" || pEv1.Generate == nil || *pEv1.Generate != true || pEv1.Stream == nil || *pEv1.Stream != false {
 		t.Fatalf("page item 1 mismatch: %+v", pEv1)
 	}
 }

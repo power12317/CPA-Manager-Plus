@@ -154,11 +154,15 @@ export type MonitoringEventRow = {
   timestampMs: number;
   dayKey: string;
   hourLabel: string;
+  requestId?: string;
   model: string;
   requestedModel?: string;
   resolvedModel?: string;
   responseModel?: string;
   sessionId?: string;
+  turnId?: string;
+  system?: string;
+  turnStateLen?: string;
   parentSessionId?: string;
   accessTokenSha256?: string;
   generate?: boolean;

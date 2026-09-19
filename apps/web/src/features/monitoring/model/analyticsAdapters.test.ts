@@ -85,12 +85,16 @@ describe('buildUsageDetailsFromAnalyticsEvents', () => {
     const events: MonitoringAnalyticsEventRow[] = [
       {
         event_hash: 'event-metadata',
+        request_id: 'request-123',
         timestamp_ms: 1714000000000,
         model: 'gpt-4o',
         requested_model: 'gpt-4o',
         resolved_model: 'gpt-4o-2024-08-06',
         response_model: 'gpt-4o-mini',
         session_id: 'sess-123',
+        turn_id: 'turn-123',
+        system: 'windows',
+        turn_state_len: '292/312',
         parent_session_id: 'parent-sess-456',
         access_token_sha256: 'sha256-token-abc',
         generate: true,
@@ -124,8 +128,12 @@ describe('buildUsageDetailsFromAnalyticsEvents', () => {
 
     expect(details[0]).toMatchObject({
       __responseModel: 'gpt-4o-mini',
+      request_id: 'request-123',
       response_model: 'gpt-4o-mini',
       session_id: 'sess-123',
+      turn_id: 'turn-123',
+      system: 'windows',
+      turn_state_len: '292/312',
       parent_session_id: 'parent-sess-456',
       access_token_sha256: 'sha256-token-abc',
       generate: true,

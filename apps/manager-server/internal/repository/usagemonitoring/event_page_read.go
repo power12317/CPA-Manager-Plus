@@ -154,6 +154,9 @@ func loadEventPageItemsByCandidates(ctx context.Context, tx *sql.Tx, candidates 
 			`+usageidentity.SQLRequestAnalyticsModelExpression("model", "requested_model")+` as analytics_model,
 			coalesce(nullif(requested_model, ''), model, ''),
 			coalesce(resolved_model, ''),
+			coalesce(turn_id, ''),
+			coalesce(system, ''),
+			coalesce(turn_state_len, ''),
 		coalesce(endpoint, ''),
 		coalesce(method, ''),
 		coalesce(path, ''),
@@ -208,7 +211,7 @@ func loadEventPageItemsByCandidates(ctx context.Context, tx *sql.Tx, candidates 
 		var item EventPageItem
 		var failed int
 		var responseMetadataJSON string
-		var responseModel, sessionID, parentSessionID, accessTokenSHA256 sql.NullString
+		var turnID, system, turnStateLen, responseModel, sessionID, parentSessionID, accessTokenSHA256 sql.NullString
 		var generateVal, streamVal sql.NullInt64
 		if err := rows.Scan(
 			&item.ID,
@@ -220,6 +223,9 @@ func loadEventPageItemsByCandidates(ctx context.Context, tx *sql.Tx, candidates 
 			&item.AnalyticsModel,
 			&item.RequestedModel,
 			&item.ResolvedModel,
+			&turnID,
+			&system,
+			&turnStateLen,
 			&item.Endpoint,
 			&item.Method,
 			&item.Path,
@@ -266,6 +272,9 @@ func loadEventPageItemsByCandidates(ctx context.Context, tx *sql.Tx, candidates 
 		}
 		item.Failed = failed != 0
 		item.ResponseModel = responseModel.String
+		item.TurnID = turnID.String
+		item.System = system.String
+		item.TurnStateLen = turnStateLen.String
 		item.SessionID = sessionID.String
 		item.ParentSessionID = parentSessionID.String
 		item.AccessTokenSHA256 = accessTokenSHA256.String

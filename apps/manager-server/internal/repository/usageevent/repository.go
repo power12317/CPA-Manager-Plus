@@ -407,7 +407,7 @@ func (r *repository) InsertBatch(ctx context.Context, events []model.UsageEvent)
 		client_ip, x_forwarded_for, user_agent,
 		auth_type, auth_index, source, source_hash, api_key_hash,
 		account_snapshot, auth_label_snapshot, auth_file_snapshot, auth_provider_snapshot, auth_account_id_snapshot, auth_project_id_snapshot, auth_snapshot_at_ms,
-		requested_model, resolved_model, reasoning_effort, service_tier, request_service_tier, response_service_tier, cache_input_mode,
+		requested_model, resolved_model, turn_id, system, turn_state_len, reasoning_effort, service_tier, request_service_tier, response_service_tier, cache_input_mode,
 		input_tokens, output_tokens, reasoning_tokens, cached_tokens, cache_tokens, cache_read_tokens, cache_creation_tokens,
 		normalized_uncached_input_tokens, normalized_total_input_tokens, normalized_cache_read_tokens, normalized_cache_creation_tokens, total_tokens,
 		latency_ms, ttft_ms, failed, fail_status_code, fail_summary,
@@ -415,7 +415,7 @@ func (r *repository) InsertBatch(ctx context.Context, events []model.UsageEvent)
 		fail_body, raw_json,
 		response_model, session_id, parent_session_id, access_token_sha256, generate, stream,
 		created_at_ms
-		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return model.InsertResult{}, err
 	}
@@ -469,6 +469,9 @@ func (r *repository) InsertBatch(ctx context.Context, events []model.UsageEvent)
 			nullPositiveInt64(ev.AuthSnapshotAtMS),
 			nullString(ev.RequestedModel),
 			nullString(ev.ResolvedModel),
+			nullString(ev.TurnID),
+			nullString(ev.System),
+			nullString(ev.TurnStateLen),
 			nullString(ev.ReasoningEffort),
 			nullString(ev.ServiceTier),
 			nullString(ev.RequestServiceTier),
@@ -560,7 +563,7 @@ func (r *repository) ListRecent(ctx context.Context, limit int) ([]model.UsageEv
 		client_ip, x_forwarded_for, user_agent,
 		auth_type, auth_index, source, source_hash, api_key_hash,
 		account_snapshot, auth_label_snapshot, auth_file_snapshot, auth_provider_snapshot, auth_account_id_snapshot, auth_project_id_snapshot, auth_snapshot_at_ms,
-		requested_model, resolved_model, reasoning_effort, service_tier, request_service_tier, response_service_tier, cache_input_mode,
+		requested_model, resolved_model, turn_id, system, turn_state_len, reasoning_effort, service_tier, request_service_tier, response_service_tier, cache_input_mode,
 		input_tokens, output_tokens, reasoning_tokens, cached_tokens, cache_tokens, cache_read_tokens, cache_creation_tokens,
 		normalized_uncached_input_tokens, normalized_total_input_tokens, normalized_cache_read_tokens, normalized_cache_creation_tokens, total_tokens,
 		latency_ms, ttft_ms, failed, fail_status_code, fail_summary,
@@ -579,7 +582,7 @@ func (r *repository) ListRecent(ctx context.Context, limit int) ([]model.UsageEv
 	events := make([]model.UsageEvent, 0)
 	for rows.Next() {
 		var event model.UsageEvent
-		var requestID, provider, executorType, endpoint, method, path, clientIP, xForwardedFor, userAgent, authType, authIndex, source, sourceHash, apiKeyHash, accountSnapshot, authLabelSnapshot, authFileSnapshot, authProviderSnapshot, authAccountIDSnapshot, authProjectIDSnapshot, requestedModel, resolvedModel, reasoningEffort, serviceTier, requestServiceTier, responseServiceTier, cacheInputMode, failSummary sql.NullString
+		var requestID, provider, executorType, endpoint, method, path, clientIP, xForwardedFor, userAgent, authType, authIndex, source, sourceHash, apiKeyHash, accountSnapshot, authLabelSnapshot, authFileSnapshot, authProviderSnapshot, authAccountIDSnapshot, authProjectIDSnapshot, requestedModel, resolvedModel, turnID, system, turnStateLen, reasoningEffort, serviceTier, requestServiceTier, responseServiceTier, cacheInputMode, failSummary sql.NullString
 		var responseMetadataJSON, quotaPlanType, errorKind, errorCode, traceID, rawJSON string
 		var responseModel, sessionID, parentSessionID, accessTokenSHA256 sql.NullString
 		var generateVal, streamVal sql.NullInt64
@@ -618,6 +621,9 @@ func (r *repository) ListRecent(ctx context.Context, limit int) ([]model.UsageEv
 			&authSnapshotAt,
 			&requestedModel,
 			&resolvedModel,
+			&turnID,
+			&system,
+			&turnStateLen,
 			&reasoningEffort,
 			&serviceTier,
 			&requestServiceTier,
@@ -681,6 +687,9 @@ func (r *repository) ListRecent(ctx context.Context, limit int) ([]model.UsageEv
 		event.AuthProjectIDSnapshot = authProjectIDSnapshot.String
 		event.RequestedModel = requestedModel.String
 		event.ResolvedModel = resolvedModel.String
+		event.TurnID = turnID.String
+		event.System = system.String
+		event.TurnStateLen = turnStateLen.String
 		event.ResponseModel = responseModel.String
 		event.SessionID = sessionID.String
 		event.ParentSessionID = parentSessionID.String

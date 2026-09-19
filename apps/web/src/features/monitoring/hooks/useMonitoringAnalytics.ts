@@ -246,6 +246,15 @@ export function useMonitoringAnalytics({
   );
 
   useEffect(() => {
+    if (!isCurrentLayer) {
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
+      requestIdRef.current += 1;
+      inFlightRequestIdentityKeyRef.current = '';
+      inFlightRequestIdRef.current = 0;
+      setLoading(false);
+      return;
+    }
     if (!isCurrentLayer || availability.checking) {
       return;
     }

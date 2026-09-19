@@ -106,9 +106,11 @@ export const oauthApi = {
     );
   },
 
-  cancelSession: (state: string, requestScope?: ApiClientRequestScope) =>
-    apiClient.delete<OAuthCancelResponse>('/oauth-session', {
+  cancelSession: (state: string, requestScope?: ApiClientRequestScope) => {
+    requestScope = flowScopes.get(state) ?? requestScope;
+    return apiClient.delete<OAuthCancelResponse>('/oauth-session', {
       ...(requestScope ? createScopedApiRequestConfig(requestScope) : {}),
       params: { state },
-    }),
+    });
+  },
 };

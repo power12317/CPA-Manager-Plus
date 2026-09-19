@@ -38,6 +38,7 @@ import {
 import type { ApiClientRequestScope } from '@/services/api/client';
 import {
   completeAccountOAuthReauthSessionFromSearch,
+  readAccountOAuthReauthInstanceId,
   readAccountOAuthReauthSessionId,
 } from '@/features/accounts/model/accountReauthSession';
 import {
@@ -572,7 +573,10 @@ export function OAuthPage() {
     completeAccountOAuthReauthSessionFromSearch(
       currentScope.search,
       provider,
-      completionConnectionFingerprint
+      completionConnectionFingerprint,
+      undefined,
+      Date.now(),
+      readAccountOAuthReauthInstanceId(currentScope.search)
     );
     recordAccountCredentialMutationMarker({
       connectionFingerprint: completionConnectionFingerprint,

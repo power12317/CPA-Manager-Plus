@@ -180,4 +180,32 @@ describe('oauthApi', () => {
     });
     expect(result).toEqual({ status: 'ok', cancelled: true });
   });
+
+  it('pins Devin cancellation to the CPA that created a qualified OAuth state', async () => {
+    const aggregateScope = {
+      apiBase: 'https://manager.example/cpamp',
+      managementKey: 'aggregate-key',
+    };
+    mocks.get.mockResolvedValueOnce({
+      url: 'https://auth.example/devin',
+      state: '@cpamp/0123456789abcdef0123456789abcdef/devin-flow',
+    });
+    mocks.delete.mockResolvedValue({ status: 'ok', cancelled: true });
+
+    const started = await oauthApi.startAuth('devin', aggregateScope);
+    await oauthApi.cancelSession(started.state!, {
+      apiBase: 'https://another-manager.example/cpamp',
+      managementKey: 'other-key',
+    });
+
+    expect(mocks.delete).toHaveBeenLastCalledWith(
+      '/oauth-session',
+      expect.objectContaining({
+        baseURL:
+          'https://manager.example/cpamp/api/instances/0123456789abcdef0123456789abcdef/v0/management',
+        headers: { Authorization: 'Bearer aggregate-key' },
+        params: { state: 'devin-flow' },
+      })
+    );
+  });
 });

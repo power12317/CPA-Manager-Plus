@@ -55,6 +55,40 @@ describe('accountReauthSession', () => {
     expect(readCompletedAccountReauthResultKeys('connection-b', storage, 2_500)).toEqual(new Set());
   });
 
+  it('keeps an aggregate reauth session bound to its credential instance', () => {
+    const storage = createStorage();
+    const sessionId = beginAccountOAuthReauthSession(
+      {
+        connectionFingerprint: 'aggregate-connection',
+        oauthProvider: 'devin',
+        instanceId: '0123456789abcdef0123456789abcdef',
+        resultKeys: ['devin-result'],
+        createdAtMs: 1_000,
+        sessionId: 'devin-session',
+      },
+      storage
+    );
+
+    expect(
+      buildAccountOAuthReauthPath('devin', sessionId, '0123456789abcdef0123456789abcdef')
+    ).toBe(
+      '/oauth?accountReauth=devin-session&scope=0123456789abcdef0123456789abcdef#oauth-provider-devin'
+    );
+    expect(
+      completeAccountOAuthReauthSessionFromSearch(
+        '?accountReauth=devin-session&scope=0123456789abcdef0123456789abcdef',
+        'devin',
+        'instance-connection',
+        storage,
+        2_000,
+        '0123456789abcdef0123456789abcdef'
+      )
+    ).toBe(true);
+    expect(readCompletedAccountReauthResultKeys('aggregate-connection', storage, 2_500)).toEqual(
+      new Set(['devin-result'])
+    );
+  });
+
   it('does not complete a session for another provider or connection', () => {
     const storage = createStorage();
     beginAccountOAuthReauthSession(

@@ -1,11 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { IconEye, IconEyeOff, IconX } from '@/components/ui/icons';
 import { AccountProcessingPolicySection } from './AccountProcessingPolicySection';
-import { Instances } from '@/features/cluster/Instances';
 import styles from '../ConfigPage.module.scss';
 
 type ManagerConfigPanelProps = {
@@ -29,7 +27,6 @@ type ManagerConfigPanelProps = {
   managerRetentionSeconds: number;
   managerConfigSourceLabel: string;
   managerUsageStatisticsEnabled: boolean;
-  onRefresh: () => void;
   onRequestMonitoringChange: (value: boolean) => void;
   onCPABaseInputChange: (value: string) => void;
   onCPAManagementKeyInputChange: (value: string) => void;
@@ -62,7 +59,6 @@ export function ManagerConfigPanel({
   managerRetentionSeconds,
   managerConfigSourceLabel,
   managerUsageStatisticsEnabled,
-  onRefresh,
   onRequestMonitoringChange,
   onCPABaseInputChange,
   onCPAManagementKeyInputChange,
@@ -79,23 +75,6 @@ export function ManagerConfigPanel({
 
   return (
     <div className={styles.managerConfigPanel}>
-      {panelHostedByUsageService === true && <Instances embedded />}
-      <div className={styles.managerConfigHeader}>
-        <div>
-          <h2>{t('config_management.manager.title')}</h2>
-          <p>{t('config_management.manager.boundary_hint')}</p>
-        </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onRefresh}
-          loading={managerLoading}
-          disabled={managerSaving}
-        >
-          {t('common.refresh')}
-        </Button>
-      </div>
-
       <section className={styles.managerSection}>
         <div className={styles.managerSectionHeader}>
           <div>

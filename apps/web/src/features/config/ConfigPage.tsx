@@ -332,13 +332,14 @@ function normalizeYamlForVisualDiff(yamlContent: string): string {
   }
 }
 
-export function ConfigPage() {
+export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = {}) {
   const { t } = useTranslation();
   const pageTransitionLayer = usePageTransitionLayer();
   const isCurrentLayer = pageTransitionLayer ? pageTransitionLayer.isCurrentLayer : true;
   const showNotification = useNotificationStore((state) => state.showNotification);
   const showConfirmation = useNotificationStore((state) => state.showConfirmation);
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
+  const managerSession = useAuthStore((state) => state.sessionMode === 'manager_embedded');
   const managementKey = useAuthStore((state) => state.managementKey);
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
   const setUsageServiceConfig = useUsageServiceStore((state) => state.setUsageServiceConfig);
@@ -358,7 +359,8 @@ export function ConfigPage() {
 
   const [activeTab, setActiveTab] = useState<ConfigEditorTab>(() => {
     const saved = localStorage.getItem(CONFIG_TAB_STORAGE_KEY);
-    if (saved === 'visual' || saved === 'source' || saved === 'manager') return saved;
+    if (managerOnly) return 'manager';
+    if (saved === 'visual' || saved === 'source') return saved;
     return 'visual';
   });
 
@@ -419,7 +421,7 @@ export function ConfigPage() {
   }, []);
 
   const disableControls = connectionStatus !== 'connected';
-  const showManagerTab = panelHostedByUsageService === true;
+  const showManagerTab = panelHostedByUsageService === true && (managerOnly || !managerSession);
   const isManagerTab = activeTab === 'manager' && showManagerTab;
   const sourceDirty = dirty || visualDirty;
   const shouldRenderFloatingActions = isCurrentLayer;
@@ -507,7 +509,7 @@ export function ConfigPage() {
       try {
         const info = await usageServiceApi.getInfo(detectedPanelBase);
         if (!cancelled) {
-          setPanelHostedByUsageService(isUsageServiceId(info.service));
+          setPanelHostedByUsageService(managerOnly || isUsageServiceId(info.service));
         }
       } catch {
         if (!cancelled) {
@@ -519,20 +521,20 @@ export function ConfigPage() {
     return () => {
       cancelled = true;
     };
-  }, [detectedPanelBase]);
+  }, [detectedPanelBase, managerOnly]);
 
   useEffect(() => {
-    if (panelHostedByUsageService !== false || activeTab !== 'manager') return;
+    if (managerOnly || panelHostedByUsageService !== false || activeTab !== 'manager') return;
     setActiveTab('visual');
     localStorage.setItem(CONFIG_TAB_STORAGE_KEY, 'visual');
-  }, [activeTab, panelHostedByUsageService]);
+  }, [activeTab, managerOnly, panelHostedByUsageService]);
 
   const resolveManagerServiceBase = useCallback(() => {
-    if (panelHostedByUsageService) {
+    if (panelHostedByUsageService || managerOnly) {
       return normalizeUsageServiceBase(detectedPanelBase);
     }
     return '';
-  }, [detectedPanelBase, panelHostedByUsageService]);
+  }, [detectedPanelBase, managerOnly, panelHostedByUsageService]);
 
   const managerServiceTarget = resolveManagerServiceBase();
   const managerDirty = useMemo(
@@ -791,7 +793,9 @@ export function ConfigPage() {
 
   const loadManagerConfig = useCallback(async () => {
     const serviceBase = resolveManagerServiceBase();
-    const requestAuthKey = resolveManagerRequestAuthKey({
+    const requestAuthKey = managerOnly
+      ? managementKey.trim()
+      : resolveManagerRequestAuthKey({
       panelHostedByUsageService,
       managementKey,
     });
@@ -829,6 +833,7 @@ export function ConfigPage() {
     applyManagerConfigResponse,
     getUsageServiceDisplayError,
     managementKey,
+    managerOnly,
     panelHostedByUsageService,
     resolveManagerServiceBase,
     syncEmbeddedManagerBootstrap,
@@ -1627,15 +1632,17 @@ export function ConfigPage() {
   return (
     <div className={styles.container}>
       <div className={styles.workspaceShell}>
-        <div className={styles.pageMeta}>
-          <SegmentedTabs
-            items={configEditorTabs}
-            activeTab={activeTab}
-            onChange={handleTabChange}
-            ariaLabel={t('config_management.title')}
-          />
-          <div className={`${styles.statusBadge} ${getStatusClass()}`}>{getStatusText()}</div>
-        </div>
+        {!managerOnly && (
+          <div className={styles.pageMeta}>
+            <SegmentedTabs
+              items={configEditorTabs}
+              activeTab={activeTab}
+              onChange={handleTabChange}
+              ariaLabel={t('config_management.title')}
+            />
+            <div className={`${styles.statusBadge} ${getStatusClass()}`}>{getStatusText()}</div>
+          </div>
+        )}
 
         <div className={styles.content}>
           {!isManagerTab && error && <div className="error-box">{error}</div>}
@@ -1670,7 +1677,6 @@ export function ConfigPage() {
               managerRetentionSeconds={managerRetentionSeconds}
               managerConfigSourceLabel={managerConfigSourceLabel}
               managerUsageStatisticsEnabled={Boolean(managerCPAUsage?.usageStatisticsEnabled)}
-              onRefresh={() => void loadManagerConfig()}
               onRequestMonitoringChange={(value) => {
                 setManagerRequestMonitoringEnabled(value);
               }}

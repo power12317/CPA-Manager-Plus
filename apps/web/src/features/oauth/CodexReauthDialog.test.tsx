@@ -190,7 +190,9 @@ describe('CodexReauthDialog connection lifecycle', () => {
       );
     });
     await flushEffects();
-    expect(mocks.startAuth).toHaveBeenCalledWith('codex', REQUEST_SCOPE);
+    expect(mocks.startAuth).toHaveBeenCalledWith('codex', REQUEST_SCOPE, {
+      authIndex: 'auth-1',
+    });
 
     await act(async () => {
       renderer.update(
@@ -203,7 +205,9 @@ describe('CodexReauthDialog connection lifecycle', () => {
       );
     });
     await flushEffects();
-    expect(mocks.startAuth).toHaveBeenCalledWith('codex', NEXT_REQUEST_SCOPE);
+    expect(mocks.startAuth).toHaveBeenCalledWith('codex', NEXT_REQUEST_SCOPE, {
+      authIndex: 'auth-1',
+    });
 
     await act(async () => {
       oldRequest.resolve({ url: 'https://auth.example/old', state: 'old-state' });

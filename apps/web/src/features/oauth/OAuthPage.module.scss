@@ -253,3 +253,11 @@
   word-break: break-all;
   overflow-wrap: anywhere;
 }
+
+.codexSystemActions {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}

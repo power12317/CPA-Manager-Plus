@@ -5,6 +5,7 @@ export const aggregateRoutes = new Set([
   '/dashboard',
   '/accounts',
   '/instances',
+  '/manager-config',
   '/usage-analytics',
   '/monitoring',
   '/system',

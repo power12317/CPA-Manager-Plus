@@ -269,7 +269,9 @@ export function CodexReauthDialog({
       setCopiedTarget(null);
       setLinkRefreshed(false);
       try {
-        const response = await oauthApi.startAuth('codex', requestScope);
+        const response = await oauthApi.startAuth('codex', requestScope, {
+          authIndex: target?.authIndex,
+        });
         if (!isCurrentOperation(operationGeneration, operationContext)) return;
         if (!response.state) {
           const message = t('codex_reauth.missing_state');
@@ -301,6 +303,7 @@ export function CodexReauthDialog({
       showNotification,
       showTemporaryFeedback,
       startPolling,
+      target?.authIndex,
       t,
     ]
   );

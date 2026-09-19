@@ -53,6 +53,7 @@ type Instance struct {
 	BaseURL                 string `json:"baseUrl"`
 	ManagementKeyConfigured bool   `json:"managementKeyConfigured"`
 	Ready                   bool   `json:"ready"`
+	Online                  bool   `json:"online"`
 	Error                   string `json:"error,omitempty"`
 }
 
@@ -181,6 +182,7 @@ func (s *Service) List(ctx context.Context) ([]Instance, error) {
 			} else {
 				item.BaseURL = connection.CPABaseURL
 				item.ManagementKeyConfigured = connection.ManagementKey != ""
+				item.Online = e.runtime.Online(ctx)
 			}
 		} else {
 			item.Error = "instance is initializing or unavailable"

@@ -52,7 +52,6 @@ import styles from './LoginPage.module.scss';
 
 type RedirectState = { from?: { pathname?: string; search?: string; hash?: string } };
 type UsageSetupStep = 'admin' | 'connection' | 'cpaKey' | 'monitoring' | 'polling' | 'review';
-const CONFIG_TAB_STORAGE_KEY = 'config-management:tab';
 
 function resolveRedirectPath(state: unknown): string {
   const from = (state as RedirectState | null)?.from;
@@ -277,10 +276,7 @@ export function LoginPage() {
           setAutoLoginSuccess(true);
           setTimeout(() => {
             const redirect =
-              autoLoggedIn.recoveryMode === 'manager_config' ? '/config' : redirectAfterLogin;
-            if (autoLoggedIn.recoveryMode === 'manager_config') {
-              localStorage.setItem(CONFIG_TAB_STORAGE_KEY, 'manager');
-            }
+              autoLoggedIn.recoveryMode === 'manager_config' ? '/manager-config' : redirectAfterLogin;
             navigate(redirect, { replace: true });
           }, 1500);
           return;
@@ -452,8 +448,7 @@ export function LoginPage() {
       });
       showNotification(t('common.connected_status'), 'success');
       if (loginResult.recoveryMode === 'manager_config') {
-        localStorage.setItem(CONFIG_TAB_STORAGE_KEY, 'manager');
-        navigate('/config', { replace: true });
+        navigate('/manager-config', { replace: true });
       } else {
         navigate(redirectAfterLogin, { replace: true });
       }

@@ -597,10 +597,13 @@ func (s *Service) Federate(r *http.Request, body []byte) (FederatedResult, error
 		result.Data = mergePayload(result.Data, part.data, "", r.URL.Path)
 	}
 	if result.Succeeded == 0 {
-		// Keep aggregate read endpoints usable while an instance is offline. The
-		// caller receives an empty, valid payload plus instanceCoverage failures.
-		result.Data = emptyAggregatePayload(r.URL.Path)
-		return result, nil
+		// Keep the read-only credential/config endpoints usable while an
+		// instance is offline. Other operations retain their failure semantics.
+		if r.Method == http.MethodGet && (strings.HasSuffix(r.URL.Path, "/auth-files") || strings.HasSuffix(r.URL.Path, "/config")) {
+			result.Data = emptyAggregatePayload(r.URL.Path)
+			return result, nil
+		}
+		return result, errors.New("no instance could complete the request")
 	}
 	result.Data = finalizePayload(result.Data, "", r.URL.Path, body)
 	if object, ok := result.Data.(map[string]any); ok {

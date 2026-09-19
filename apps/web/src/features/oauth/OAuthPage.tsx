@@ -272,6 +272,7 @@ export function OAuthPage() {
   );
   const [states, setStates] = useState<Record<string, ProviderState>>({});
   const [pluginOAuthPlugins, setPluginOAuthPlugins] = useState<PluginListEntry[]>([]);
+  const [codexSystemScopedOAuth, setCodexSystemScopedOAuth] = useState(false);
   const [vertexState, setVertexState] = useState<VertexImportState>({
     fileName: '',
     location: '',
@@ -384,6 +385,30 @@ export function OAuthPage() {
       cancelled = true;
     };
   }, [connectionFingerprint, pluginOAuthAvailable, requestScope]);
+
+  useEffect(() => {
+    if (connectionStatus !== 'connected') {
+      setCodexSystemScopedOAuth(false);
+      return;
+    }
+    if (typeof oauthApi.getCodexCapabilities !== 'function') {
+      setCodexSystemScopedOAuth(false);
+      return;
+    }
+    setCodexSystemScopedOAuth(false);
+    let cancelled = false;
+    oauthApi
+      .getCodexCapabilities(requestScope)
+      .then((capabilities) => {
+        if (!cancelled) setCodexSystemScopedOAuth(capabilities.system_scoped_oauth === true);
+      })
+      .catch(() => {
+        if (!cancelled) setCodexSystemScopedOAuth(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connectionStatus, requestScope]);
 
   const getProviderDefinition = useCallback(
     (provider: OAuthProvider) => providers.find((item) => item.id === provider),
@@ -652,7 +677,10 @@ export function OAuthPage() {
     pollingTimers.current[provider] = timer;
   };
 
-  const startAuth = async (provider: OAuthProvider) => {
+  const startAuth = async (
+    provider: OAuthProvider,
+    options?: { clientSystem?: 'mac' | 'windows' }
+  ) => {
     clearProviderTimers(provider);
     delete callbackAttemptVersions.current[provider];
     delete providerCredentialBaselines.current[provider];
@@ -684,7 +712,9 @@ export function OAuthPage() {
         if (!isProviderAttemptCurrent(provider, attempt)) return;
         // OAuth remains available, but completion will fail closed without a mutation marker.
       }
-      const res = await oauthApi.startAuth(provider, attempt.requestScope);
+      const res = options
+        ? await oauthApi.startAuth(provider, attempt.requestScope, options)
+        : await oauthApi.startAuth(provider, attempt.requestScope);
       if (!isProviderAttemptCurrent(provider, attempt)) return;
       if (!res.state) {
         const message = t('auth_login.missing_state');
@@ -963,9 +993,27 @@ export function OAuthPage() {
                   </span>
                 }
                 extra={
-                  <Button onClick={() => startAuth(provider.id)} loading={state.polling}>
-                    {loginButtonLabel}
-                  </Button>
+                  provider.id === 'codex' && codexSystemScopedOAuth ? (
+                    <div className={styles.codexSystemActions}>
+                      <Button
+                        onClick={() => startAuth('codex', { clientSystem: 'mac' })}
+                        loading={state.polling}
+                      >
+                        {t('auth_login.codex_macos_oauth_button')}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={() => startAuth('codex', { clientSystem: 'windows' })}
+                        loading={state.polling}
+                      >
+                        {t('auth_login.codex_windows_oauth_button')}
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button onClick={() => startAuth(provider.id)} loading={state.polling}>
+                      {loginButtonLabel}
+                    </Button>
+                  )
                 }
               >
                 <div className={styles.cardContent}>

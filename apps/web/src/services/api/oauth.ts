@@ -17,14 +17,37 @@ export interface OAuthCallbackResponse {
   status: 'ok';
 }
 
+export interface CodexCapabilitiesResponse {
+  system_scoped_oauth?: boolean;
+}
+
+export interface OAuthStartOptions {
+  clientSystem?: 'mac' | 'windows';
+  authIndex?: string | number | null;
+}
+
 const WEBUI_SUPPORTED: string[] = ['codex', 'anthropic', 'antigravity', 'xai'];
 const flowScopes = new Map<string, ApiClientRequestScope>();
 
 export const oauthApi = {
-  startAuth: async (provider: OAuthProvider, requestScope?: ApiClientRequestScope) => {
+  getCodexCapabilities: (requestScope?: ApiClientRequestScope) =>
+    apiClient.get<CodexCapabilitiesResponse>('/codex-capabilities', {
+      ...(requestScope ? createScopedApiRequestConfig(requestScope) : {}),
+    }),
+
+  startAuth: async (
+    provider: OAuthProvider,
+    requestScope?: ApiClientRequestScope,
+    options?: OAuthStartOptions
+  ) => {
     const params: Record<string, string | boolean> = {};
     if (WEBUI_SUPPORTED.includes(provider)) {
       params.is_webui = true;
+    }
+    if (options?.clientSystem) params.client_system = options.clientSystem;
+    if (options?.authIndex !== undefined && options.authIndex !== null) {
+      const authIndex = String(options.authIndex).trim();
+      if (authIndex) params.auth_index = authIndex;
     }
     const result = await apiClient.get<OAuthStartResponse>(`/${provider}-auth-url`, {
       ...(requestScope ? createScopedApiRequestConfig(requestScope) : {}),

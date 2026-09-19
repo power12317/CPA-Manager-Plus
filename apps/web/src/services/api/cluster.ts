@@ -11,6 +11,7 @@ export interface CPAInstance {
   baseUrl: string;
   managementKeyConfigured: boolean;
   ready: boolean;
+  online?: boolean;
   error?: string;
 }
 
@@ -63,6 +64,11 @@ export function clusterApi(base: string, key: string) {
           data: input,
         })
       ).data,
+    updateSetting: async (instanceId: string, setting: string, value: unknown) => {
+      await client.put(`/instances/${encodeURIComponent(instanceId)}/v0/management/${setting}`, {
+        value,
+      });
+    },
     credentials: async (signal?: AbortSignal) =>
       (await client.get<ClusterAggregate<AuthFileItem[]>>('/cluster/credentials', { signal })).data,
     dashboard: async (signal?: AbortSignal) => {

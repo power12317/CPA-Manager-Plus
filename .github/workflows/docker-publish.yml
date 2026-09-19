@@ -14,7 +14,9 @@ concurrency:
 
 jobs:
   publish:
-    if: github.repository != 'seakee/CPA-Manager-Plus'
+    # Publish only the maintained fork image. The upstream repository and
+    # unrelated forks must never overwrite power12317's GHCR package.
+    if: github.repository == 'power12317/CPA-Manager-Plus'
     runs-on: ubuntu-latest
     permissions:
       contents: read

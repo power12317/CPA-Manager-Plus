@@ -567,10 +567,10 @@ function MainLayoutContent({ routeBase = '', demoMode = false }: MainLayoutProps
     ],
     [
       {
-        path: '/config',
-        label: t('nav.config_management'),
-        shortLabel: navShortLabel('nav.config_management', t('nav.config_management')),
-        icon: sidebarIcons.config,
+        path: '/instances',
+        label: t('nav.instances'),
+        shortLabel: navShortLabel('nav.instances', t('nav.instances')),
+        icon: sidebarIcons.system,
       },
       {
         path: '/ai-providers',
@@ -600,6 +600,12 @@ function MainLayoutContent({ routeBase = '', demoMode = false }: MainLayoutProps
     operationNavItems,
     pluginResourceNavItems,
     [
+      {
+        path: '/manager-config',
+        label: t('nav.manager_config'),
+        shortLabel: navShortLabel('nav.manager_config', t('nav.manager_config')),
+        icon: sidebarIcons.config,
+      },
       {
         path: '/system',
         label: t('nav.system_info'),

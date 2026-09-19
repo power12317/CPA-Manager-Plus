@@ -376,7 +376,7 @@ export function DashboardPage() {
       label: t('dashboard.management_keys'),
       value: stats.apiKeys ?? '-',
       icon: <IconKey size={24} />,
-      path: '/config',
+      path: aggregate ? '/instances' : '/config',
       loading: loading && stats.apiKeys === null,
       sublabel: t('nav.config_management'),
     },
@@ -670,7 +670,7 @@ export function DashboardPage() {
                 </div>
               )}
             </div>
-            <Link to="/config" className={styles.configLink}>
+            <Link to={aggregate ? '/instances' : '/config'} className={styles.configLink}>
               {t('dashboard.view_full_config')} →
             </Link>
           </div>

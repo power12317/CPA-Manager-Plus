@@ -28,6 +28,7 @@ import { MonitoringCenterPage } from '@/pages/MonitoringCenterPage';
 import { AccountActionCandidatesPage } from '@/pages/AccountActionCandidatesPage';
 import { ModelPricesPage } from '@/pages/ModelPricesPage';
 import { ConfigPage } from '@/pages/ConfigPage';
+import { ManagerConfigPage } from '@/pages/ManagerConfigPage';
 import { LogsPage } from '@/pages/LogsPage';
 import { PluginResourcePage } from '@/pages/PluginResourcePage';
 import { PluginsPage } from '@/pages/PluginsPage';
@@ -237,6 +238,7 @@ const mainRoutes: RouteObject[] = [
   { path: '/plugin-store/*', element: <Navigate to="/plugins?tab=store" replace /> },
   { path: '/plugin-pages/*', element: <Navigate to="/" replace /> },
   { path: '/config', element: <ConfigPage /> },
+  { path: '/manager-config', element: <ManagerConfigPage /> },
   {
     path: '/logs',
     element: (

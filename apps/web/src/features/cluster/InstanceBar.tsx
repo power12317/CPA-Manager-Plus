@@ -15,6 +15,9 @@ export function InstanceBar() {
   const key = useAuthStore((s) => s.managementKey);
   const mode = useAuthStore((s) => s.sessionMode);
   const { pathname, search } = useLocation();
+  const globalManagementPage = ['/instances', '/manager-config'].includes(
+    pathname.replace(/\/+$/, '')
+  );
   const root = managerRootBase(base);
   const api = useMemo(() => clusterApi(root, key), [root, key]);
   const [query, setQuery] = useState('');
@@ -52,7 +55,7 @@ export function InstanceBar() {
     return () => window.removeEventListener(INSTANCES_CHANGED_EVENT, refresh);
   }, []);
   useEffect(() => {
-    if (mode !== 'manager_embedded') return;
+    if (mode !== 'manager_embedded' || globalManagementPage) return;
     const controller = new AbortController();
     api
       .list(controller.signal)
@@ -66,8 +69,9 @@ export function InstanceBar() {
         if (!controller.signal.aborted) setError(true);
       });
     return () => controller.abort();
-  }, [api, mode, revision]);
-  if (mode !== 'manager_embedded') return null;
+  }, [api, mode, revision, globalManagementPage]);
+  // Keep history synchronization mounted even when this global page has no scope picker.
+  if (mode !== 'manager_embedded' || globalManagementPage) return null;
   return (
     <div className={`${styles.toolbar} ${styles.workspace}`} aria-label={t('cluster.scope')}>
       {items.length > 5 ? (
@@ -161,8 +165,7 @@ export function InstanceBar() {
             })}
       </span>
       <Link
-        to="/config?tab=manager"
-        onClick={() => localStorage.setItem('config-management:tab', 'manager')}
+        to="/instances"
       >
         {t('cluster.manage')}
       </Link>
@@ -180,7 +183,7 @@ export function InstanceBar() {
             {t('cluster.partialTitle', { count: failedSources.length })}
           </summary>
           <p>{t('cluster.partialData', { instances: failedSources.join('、') })}</p>
-          <Link to="/config?tab=manager">{t('cluster.manage')}</Link>
+          <Link to="/instances">{t('cluster.manage')}</Link>
         </details>
       )}
     </div>

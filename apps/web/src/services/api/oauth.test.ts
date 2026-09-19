@@ -65,6 +65,41 @@ describe('oauthApi', () => {
     });
   });
 
+  it('reads the Codex system-scoped OAuth capability', async () => {
+    mocks.get.mockResolvedValue({ system_scoped_oauth: true });
+    const requestScope = { apiBase: 'http://cpa.local:8317', managementKey: 'key' };
+
+    await oauthApi.getCodexCapabilities(requestScope);
+
+    expect(mocks.get).toHaveBeenCalledWith(
+      '/codex-capabilities',
+      expect.objectContaining({
+        baseURL: `${requestScope.apiBase}/v0/management`,
+        headers: { Authorization: 'Bearer key' },
+      })
+    );
+  });
+
+  it('adds client_system for system-scoped Codex OAuth', async () => {
+    mocks.get.mockResolvedValue({ url: 'https://auth.example/codex', state: 'state-windows' });
+
+    await oauthApi.startAuth('codex', undefined, { clientSystem: 'windows' });
+
+    expect(mocks.get).toHaveBeenCalledWith('/codex-auth-url', {
+      params: { is_webui: true, client_system: 'windows' },
+    });
+  });
+
+  it('passes auth_index when reauthorizing a selected Codex credential', async () => {
+    mocks.get.mockResolvedValue({ url: 'https://auth.example/codex', state: 'state-target' });
+
+    await oauthApi.startAuth('codex', undefined, { authIndex: 'auth-7' });
+
+    expect(mocks.get).toHaveBeenCalledWith('/codex-auth-url', {
+      params: { is_webui: true, auth_index: 'auth-7' },
+    });
+  });
+
   it('starts plugin OAuth providers through their dynamic auth-url endpoint', async () => {
     mocks.get.mockResolvedValue({ url: 'https://auth.example/plugin', state: 'state-2' });
 

@@ -339,6 +339,8 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
   const showNotification = useNotificationStore((state) => state.showNotification);
   const showConfirmation = useNotificationStore((state) => state.showConfirmation);
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
+  const apiBase = useAuthStore((state) => state.apiBase);
+  const login = useAuthStore((state) => state.login);
   const managerSession = useAuthStore((state) => state.sessionMode === 'manager_embedded');
   const managementKey = useAuthStore((state) => state.managementKey);
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
@@ -382,6 +384,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
   const [managerCPAUsage, setManagerCPAUsage] = useState<CPAUsageConfig | null>(null);
   const [managerLoading, setManagerLoading] = useState(false);
   const [managerSaving, setManagerSaving] = useState(false);
+  const [adminKeyChanging, setAdminKeyChanging] = useState(false);
   const [managerError, setManagerError] = useState('');
   const [managerRequestMonitoringEnabled, setManagerRequestMonitoringEnabled] = useState(true);
   const [managerCPABaseInput, setManagerCPABaseInput] = useState('');
@@ -1126,6 +1129,42 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
     }
   };
 
+  const handleChangeAdminKey = async (currentKey: string, newKey: string, confirmKey: string) => {
+    if (newKey !== confirmKey) {
+      showNotification(t('config_management.manager.admin_key_mismatch'), 'warning');
+      return;
+    }
+    if (!currentKey.trim() || !newKey.trim()) {
+      showNotification(t('config_management.manager.admin_key_required'), 'warning');
+      return;
+    }
+    const serviceBase = resolveManagerServiceBase();
+    if (!serviceBase) {
+      showNotification(t('config_management.manager.service_base_required'), 'warning');
+      return;
+    }
+    setAdminKeyChanging(true);
+    try {
+      await usageServiceApi.changeAdminKey(serviceBase, currentKey, newKey, confirmKey);
+      await login({
+        apiBase,
+        managementKey: newKey,
+        rememberPassword: true,
+        sessionMode: 'manager_embedded',
+        sessionPanelBase: detectedPanelBase,
+      });
+      showNotification(t('config_management.manager.admin_key_changed'), 'success');
+    } catch (error: unknown) {
+      const message = getUsageServiceDisplayError(
+        error,
+        'config_management.manager.admin_key_change_failed'
+      );
+      showNotification(message, 'error');
+    } finally {
+      setAdminKeyChanging(false);
+    }
+  };
+
   const handleSave = async () => {
     if (isManagerTab) {
       await handleManagerSave();
@@ -1677,6 +1716,8 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
               managerRetentionSeconds={managerRetentionSeconds}
               managerConfigSourceLabel={managerConfigSourceLabel}
               managerUsageStatisticsEnabled={Boolean(managerCPAUsage?.usageStatisticsEnabled)}
+              adminKeyChanging={adminKeyChanging}
+              onChangeAdminKey={handleChangeAdminKey}
               onRequestMonitoringChange={(value) => {
                 setManagerRequestMonitoringEnabled(value);
               }}

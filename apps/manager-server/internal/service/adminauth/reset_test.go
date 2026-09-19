@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/config"
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/security"
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/store"
 )
@@ -67,6 +68,31 @@ func TestResetAdminKeyUsesProvidedKey(t *testing.T) {
 	}
 	if credential.Source != "cli" || credential.RotatedAtMS <= 0 {
 		t.Fatalf("credential metadata = %#v", credential)
+	}
+}
+
+func TestChangeAdminKeyVerifiesCurrentKeyAndAllowsWeakReplacement(t *testing.T) {
+	st := newResetTestStore(t)
+	oldCredential, err := security.NewAdminCredential("old-admin", "test")
+	if err != nil {
+		t.Fatalf("create old credential: %v", err)
+	}
+	if err := st.SaveAdminCredential(context.Background(), oldCredential); err != nil {
+		t.Fatalf("save old credential: %v", err)
+	}
+	service := New(config.Config{}, st)
+	if err := service.ChangeAdminKey(context.Background(), "old-admin", "123456"); err != nil {
+		t.Fatalf("change admin key: %v", err)
+	}
+	credential, ok, err := st.LoadAdminCredential(context.Background())
+	if err != nil || !ok || !security.VerifyAdminKey(credential, "123456") {
+		t.Fatalf("new weak key did not verify: ok=%v err=%v", ok, err)
+	}
+	if security.VerifyAdminKey(credential, "old-admin") {
+		t.Fatal("old admin key still verifies")
+	}
+	if err := service.ChangeAdminKey(context.Background(), "wrong", "next"); err == nil {
+		t.Fatal("wrong current admin key was accepted")
 	}
 }
 

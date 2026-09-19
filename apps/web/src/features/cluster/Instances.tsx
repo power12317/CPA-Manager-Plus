@@ -28,7 +28,7 @@ export function Instances() {
   const [batchValue, setBatchValue] = useState('3');
   const [batchBusy, setBatchBusy] = useState(false);
   const [batchResults, setBatchResults] = useState<Record<string, 'success' | 'failed'>>({});
-  const visibleData = useMemo(() => (data ?? []).filter((item) => item.baseUrl || item.id !== 'default'), [data]);
+  const visibleData = useMemo(() => data ?? [], [data]);
   const enabledItems = useMemo(() => visibleData.filter((item) => item.enabled), [visibleData]);
   const selectedItems = useMemo(
     () => visibleData.filter((item) => selected.has(item.id)),
@@ -78,6 +78,21 @@ export function Instances() {
       setSaveError(true);
     } finally {
       setSaving(false);
+    }
+  };
+  const remove = async (item: CPAInstance) => {
+    if (!window.confirm(t('cluster.deleteConfirm', { name: item.name }))) return;
+    try {
+      await api.remove(item.id);
+      setSelected((current) => {
+        const next = new Set(current);
+        next.delete(item.id);
+        return next;
+      });
+      window.dispatchEvent(new Event(INSTANCES_CHANGED_EVENT));
+      reload();
+    } catch {
+      setSaveError(true);
     }
   };
   return (
@@ -138,7 +153,6 @@ export function Instances() {
                 <input
                   type="checkbox"
                   checked={input.enabled}
-                  disabled={editing === 'default'}
                   onChange={(e) => setInput({ ...input, enabled: e.target.checked })}
                 />{' '}
                 {t('cluster.enabled')}
@@ -284,6 +298,9 @@ export function Instances() {
                     </Button>
                     <Button size="sm" variant="secondary" onClick={() => edit(item)}>
                       {t('cluster.edit')}
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => void remove(item)}>
+                      {t('cluster.delete')}
                     </Button>
                   </div>
                 </td>

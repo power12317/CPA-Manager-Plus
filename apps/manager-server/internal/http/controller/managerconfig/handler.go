@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/app"
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/http/response"
@@ -56,6 +57,46 @@ func (h *Handler) Handle(w http.ResponseWriter, r *http.Request) {
 	default:
 		response.MethodNotAllowed(w)
 	}
+}
+
+func (h *Handler) ChangeAdminKey(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		response.MethodNotAllowed(w)
+		return
+	}
+	var req struct {
+		CurrentKey string `json:"currentKey"`
+		NewKey     string `json:"newKey"`
+		ConfirmKey string `json:"confirmKey"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, errors.New("invalid admin key request"))
+		return
+	}
+	if req.NewKey != req.ConfirmKey {
+		response.Error(w, http.StatusBadRequest, errors.New("new admin keys do not match"))
+		return
+	}
+	// Require both the authenticated session and the explicitly entered old
+	// key. This prevents a stale browser session from rotating credentials.
+	ok, err := h.App.AdminAuthService.VerifyHeader(r.Context(), r.Header.Get("Authorization"))
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, err)
+		return
+	}
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, errors.New("invalid admin key"))
+		return
+	}
+	if err := h.App.AdminAuthService.ChangeAdminKey(r.Context(), req.CurrentKey, req.NewKey); err != nil {
+		if strings.Contains(err.Error(), "invalid admin key") {
+			response.Error(w, http.StatusUnauthorized, err)
+			return
+		}
+		response.Error(w, http.StatusBadRequest, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]bool{"changed": true})
 }
 
 func (h *Handler) authorizeRead(w http.ResponseWriter, r *http.Request) bool {

@@ -64,6 +64,9 @@ export function clusterApi(base: string, key: string) {
           data: input,
         })
       ).data,
+    remove: async (id: string) => {
+      await client.delete(`/instances/${encodeURIComponent(id)}`);
+    },
     updateSetting: async (instanceId: string, setting: string, value: unknown) => {
       await client.put(`/instances/${encodeURIComponent(instanceId)}/v0/management/${setting}`, {
         value,

@@ -2673,6 +2673,25 @@ export const usageServiceApi = {
     });
   },
 
+  changeAdminKey: async (
+    base: string,
+    currentKey: string,
+    newKey: string,
+    confirmKey: string
+  ): Promise<void> => {
+    if (__DEMO_SITE__ && isDemoMode()) return;
+    await withUsageServiceError(async () => {
+      await axios.post(
+        buildUrl(base, '/v0/management/admin-key'),
+        { currentKey, newKey, confirmKey },
+        {
+          timeout: USAGE_SERVICE_TIMEOUT_MS,
+          headers: authHeaders(currentKey),
+        }
+      );
+    });
+  },
+
   listCodexInspectionRuns: async (
     base: string,
     managementKey?: string,

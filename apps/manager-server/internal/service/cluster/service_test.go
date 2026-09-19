@@ -187,7 +187,7 @@ func TestRegistryListRemainsAvailableWhileAnInstanceOpens(t *testing.T) {
 	repo := &memoryRegistry{items: []model.Instance{{ID: id, Name: "slow", Enabled: true}}}
 	entered := make(chan struct{})
 	release := make(chan struct{})
-	s := New(repo, func(context.Context, string) (Runtime, error) { close(entered); <-release; return &fakeRuntime{}, nil }, &fakeRuntime{})
+	s := New(repo, func(context.Context, string) (Runtime, error) { close(entered); <-release; return &fakeRuntime{}, nil }, &fakeRuntime{connection: model.ManagerCPAConnectionConfig{CPABaseURL: "http://legacy:8317", ManagementKey: "legacy"}})
 	s.Start(context.Background())
 	<-entered
 	done := make(chan struct{})

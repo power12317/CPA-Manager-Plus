@@ -1,4 +1,6 @@
 import { useTranslation } from 'react-i18next';
+import { useState } from 'react';
+import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
@@ -27,6 +29,8 @@ type ManagerConfigPanelProps = {
   managerRetentionSeconds: number;
   managerConfigSourceLabel: string;
   managerUsageStatisticsEnabled: boolean;
+  adminKeyChanging: boolean;
+  onChangeAdminKey: (currentKey: string, newKey: string, confirmKey: string) => Promise<void>;
   onRequestMonitoringChange: (value: boolean) => void;
   onCPABaseInputChange: (value: string) => void;
   onCPAManagementKeyInputChange: (value: string) => void;
@@ -59,6 +63,8 @@ export function ManagerConfigPanel({
   managerRetentionSeconds,
   managerConfigSourceLabel,
   managerUsageStatisticsEnabled,
+  adminKeyChanging,
+  onChangeAdminKey,
   onRequestMonitoringChange,
   onCPABaseInputChange,
   onCPAManagementKeyInputChange,
@@ -72,6 +78,9 @@ export function ManagerConfigPanel({
   const { t } = useTranslation();
   const connectionInputDisabled =
     disableControls || managerLoading || managerSaving || panelHostedByUsageService !== true;
+  const [currentAdminKey, setCurrentAdminKey] = useState('');
+  const [newAdminKey, setNewAdminKey] = useState('');
+  const [confirmAdminKey, setConfirmAdminKey] = useState('');
 
   return (
     <div className={styles.managerConfigPanel}>
@@ -87,6 +96,54 @@ export function ManagerConfigPanel({
           </div>
           <span className={styles.managerRuntimeBadge}>{managerRuntimeModeLabel}</span>
         </div>
+      </section>
+
+      <section className={styles.managerSection}>
+        <div className={styles.managerSectionHeader}>
+          <div>
+            <h3>{t('config_management.manager.admin_key_title')}</h3>
+            <p>{t('config_management.manager.admin_key_hint')}</p>
+          </div>
+        </div>
+        <div className={styles.managerConnectionGrid}>
+          <Input
+            label={t('config_management.manager.admin_key_current')}
+            type="password"
+            value={currentAdminKey}
+            onChange={(event) => setCurrentAdminKey(event.target.value)}
+            disabled={adminKeyChanging}
+            autoComplete="current-password"
+          />
+          <Input
+            label={t('config_management.manager.admin_key_new')}
+            type="password"
+            value={newAdminKey}
+            onChange={(event) => setNewAdminKey(event.target.value)}
+            disabled={adminKeyChanging}
+            autoComplete="new-password"
+          />
+          <Input
+            label={t('config_management.manager.admin_key_confirm')}
+            type="password"
+            value={confirmAdminKey}
+            onChange={(event) => setConfirmAdminKey(event.target.value)}
+            disabled={adminKeyChanging}
+            autoComplete="new-password"
+          />
+        </div>
+        <Button
+          type="button"
+          loading={adminKeyChanging}
+          disabled={adminKeyChanging || !currentAdminKey || !newAdminKey || !confirmAdminKey}
+          onClick={async () => {
+            await onChangeAdminKey(currentAdminKey, newAdminKey, confirmAdminKey);
+            setCurrentAdminKey('');
+            setNewAdminKey('');
+            setConfirmAdminKey('');
+          }}
+        >
+          {t('config_management.manager.admin_key_change')}
+        </Button>
       </section>
 
       {panelHostedByUsageService !== true && (

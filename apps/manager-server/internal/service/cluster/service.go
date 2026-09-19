@@ -67,6 +67,7 @@ type Input struct {
 type Service struct {
 	repo    Repository
 	factory Factory
+	legacy  Runtime
 	mu      sync.RWMutex
 	writeMu sync.Mutex
 	entries map[string]*entry
@@ -78,10 +79,8 @@ type Service struct {
 
 func New(repo Repository, factory Factory, legacy Runtime) *Service {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Service{repo: repo, factory: factory, ctx: ctx, cancel: cancel,
-		ready: make(chan struct{}), entries: map[string]*entry{
-			DefaultID: {Instance: model.Instance{ID: DefaultID, Name: "Default", Enabled: true}, runtime: legacy},
-		}}
+	return &Service{repo: repo, factory: factory, legacy: legacy, ctx: ctx, cancel: cancel,
+		ready: make(chan struct{}), entries: map[string]*entry{}}
 }
 
 // Start is called only after the HTTP listener is serving. Existing data files
@@ -105,11 +104,12 @@ func (s *Service) Start(ctx context.Context) {
 			s.mu.Unlock()
 			return
 		}
+		defaultMeta := model.Instance{ID: DefaultID, Name: "Default", Enabled: true}
+		hasDefault := false
 		for index, item := range items {
 			if item.ID == DefaultID {
-				s.mu.Lock()
-				s.entries[DefaultID].Name = item.Name
-				s.mu.Unlock()
+				defaultMeta = item
+				hasDefault = true
 				continue
 			}
 			if !validID(item.ID) {
@@ -121,6 +121,19 @@ func (s *Service) Start(ctx context.Context) {
 			}
 			s.mu.Lock()
 			s.entries[item.ID] = &entry{Instance: item}
+			s.mu.Unlock()
+		}
+		// The legacy runtime is exposed as an instance only when an old
+		// deployment has a configured CPA connection or an explicit registry
+		// record. A fresh Manager therefore starts with an actually empty list.
+		if !hasDefault {
+			if connection, connectionErr := s.legacy.Connection(s.ctx); connectionErr == nil && strings.TrimSpace(connection.CPABaseURL) != "" {
+				hasDefault = true
+			}
+		}
+		if hasDefault {
+			s.mu.Lock()
+			s.entries[DefaultID] = &entry{Instance: defaultMeta, runtime: s.legacy}
 			s.mu.Unlock()
 		}
 		var wg sync.WaitGroup
@@ -282,9 +295,6 @@ func (s *Service) Save(ctx context.Context, id string, input Input) (string, err
 		if rt == nil {
 			return "", errors.New("instance storage is unavailable")
 		}
-		if id == DefaultID && !input.Enabled {
-			return "", errors.New("the compatibility instance cannot be disabled; disable its collector in configuration")
-		}
 	}
 	connection := model.ManagerCPAConnectionConfig{CPABaseURL: base, ManagementKey: strings.TrimSpace(input.ManagementKey)}
 	previous, err := rt.Connection(ctx)
@@ -333,14 +343,71 @@ func (s *Service) Save(ctx context.Context, id string, input Input) (string, err
 	s.mu.Lock()
 	s.entries[id] = &entry{Instance: meta, runtime: rt}
 	s.mu.Unlock()
-	if id != DefaultID {
-		if input.Enabled {
-			rt.Start(s.ctx)
-		} else if err := rt.Stop(ctx); err != nil {
-			return id, err
-		}
+	if input.Enabled {
+		rt.Start(s.ctx)
+	} else if err := rt.Stop(ctx); err != nil {
+		return id, err
 	}
 	return id, nil
+}
+
+func (s *Service) Delete(ctx context.Context, id string) error {
+	if id == "" {
+		return ErrNotFound
+	}
+	select {
+	case <-s.ready:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	s.mu.RLock()
+	e := s.entries[id]
+	s.mu.RUnlock()
+	if e == nil {
+		return ErrNotFound
+	}
+	items, err := s.repo.LoadInstances(ctx)
+	if err != nil {
+		return err
+	}
+	next := make([]model.Instance, 0, len(items))
+	found := false
+	for _, item := range items {
+		if item.ID == id {
+			found = true
+			continue
+		}
+		next = append(next, item)
+	}
+	if !found && id != DefaultID {
+		return ErrNotFound
+	}
+	if err := s.repo.SaveInstances(ctx, next); err != nil {
+		return err
+	}
+	if e.runtime != nil {
+		if id == DefaultID {
+			if resetter, ok := e.runtime.(interface{ ClearConnection(context.Context) error }); ok {
+				if err := resetter.ClearConnection(ctx); err != nil {
+					return err
+				}
+			}
+		}
+		if err := e.runtime.Close(); err != nil {
+			return err
+		}
+		if deleter, ok := e.runtime.(interface{ DeleteData() error }); ok {
+			if err := deleter.DeleteData(); err != nil {
+				return err
+			}
+		}
+	}
+	s.mu.Lock()
+	delete(s.entries, id)
+	s.mu.Unlock()
+	return nil
 }
 
 type Result[T any] struct {

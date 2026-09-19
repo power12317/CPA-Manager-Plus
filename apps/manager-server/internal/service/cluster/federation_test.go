@@ -25,6 +25,7 @@ func TestExportAllPreservesBothSourcesAndHandlesEmptySource(t *testing.T) {
 		t.Run(map[bool]string{false: "both sources", true: "empty source"}[empty], func(t *testing.T) {
 			id := "0123456789abcdef0123456789abcdef"
 			legacy := &jsonRuntime{payload: "{\"auth_index\":\"1\",\"total_tokens\":7}\n"}
+			legacy.connection = model.ManagerCPAConnectionConfig{CPABaseURL: "http://legacy:8317", ManagementKey: "legacy"}
 			child := &jsonRuntime{payload: "{\"auth_index\":\"1\",\"total_tokens\":11}\n"}
 			if empty {
 				child.payload = ""
@@ -81,6 +82,7 @@ func (r *jsonRuntime) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func TestFederationPartialFailureAndEncodedCredentialIdentity(t *testing.T) {
 	id := "0123456789abcdef0123456789abcdef"
 	legacy := &jsonRuntime{payload: `{"events":7}`}
+	legacy.connection = model.ManagerCPAConnectionConfig{CPABaseURL: "http://legacy:8317", ManagementKey: "legacy"}
 	child := &jsonRuntime{payload: `{"error":"offline"}`, code: 503}
 	repo := &memoryRegistry{items: []model.Instance{{ID: id, Name: "上海", Enabled: true}}}
 	s := New(repo, func(context.Context, string) (Runtime, error) { return child, nil }, legacy)

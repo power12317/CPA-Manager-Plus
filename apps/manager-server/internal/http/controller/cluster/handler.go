@@ -109,6 +109,19 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				h.save(w, r, parts[0])
 				return
 			}
+			if r.Method == http.MethodDelete {
+				err := h.Service.Delete(r.Context(), parts[0])
+				if err != nil {
+					status := 400
+					if errors.Is(err, clustersvc.ErrNotFound) {
+						status = 404
+					}
+					response.Error(w, status, err)
+					return
+				}
+				response.JSON(w, 200, map[string]bool{"deleted": true})
+				return
+			}
 			response.MethodNotAllowed(w)
 			return
 		}

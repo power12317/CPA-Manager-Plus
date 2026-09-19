@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -116,6 +117,24 @@ func (r *instanceRuntime) Configure(ctx context.Context, connection model.Manage
 		return app.CollectorService.Stop(ctx)
 	}
 	return nil
+}
+
+func (r *instanceRuntime) ClearConnection(ctx context.Context) error {
+	if !r.legacy {
+		return nil
+	}
+	r.mu.RLock()
+	app := r.server.appCtx
+	r.mu.RUnlock()
+	cfg, _, _, err := app.ManagerConfigService.ResolveManagerConfigWithSource(ctx)
+	if err != nil {
+		return err
+	}
+	cfg.CPAConnection = model.ManagerCPAConnectionConfig{}
+	enabled := false
+	cfg.Collector.Enabled = &enabled
+	_, err = app.ManagerConfigService.Update(ctx, cfg)
+	return err
 }
 
 func (r *instanceRuntime) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -304,4 +323,11 @@ func (r *instanceRuntime) Close() error {
 		return errors.Join(err, r.closeLock())
 	}
 	return err
+}
+
+func (r *instanceRuntime) DeleteData() error {
+	if r.legacy {
+		return nil
+	}
+	return os.RemoveAll(filepath.Dir(r.server.appCtx.Config.DBPath))
 }

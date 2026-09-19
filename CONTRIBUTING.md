@@ -1,32 +1,26 @@
 # Contributing to CPA Manager Plus
 
-Thanks for contributing. `main` is the stable release branch and remains the
-repository default branch. All feature, fix, documentation, and maintenance
-work is integrated through `dev` before it is promoted to `main`.
+Thanks for contributing to this maintained fork. `main` is the stable release
+branch and the repository default branch. Feature, fix, documentation, and
+maintenance work can be integrated directly into this fork's `main` branch.
 
 ## Branch and Pull Request Flow
 
-1. Fork the repository and add the upstream remote.
-2. Fetch `upstream/dev` and create your working branch from it.
-3. Open your pull request against `seakee/CPA-Manager-Plus:dev`.
-4. Address review feedback and keep the branch current with `upstream/dev`.
-5. A maintainer promotes the tested repository `dev` branch to `main`.
-
-Do not open a feature or fix pull request directly to `main`. `main` accepts
-only a pull request from this repository's `dev` branch. If a community or
-maintenance pull request targets another branch, repository automation changes
-its base to `dev`. Changing the base can alter the displayed diff and make
-existing review comments outdated, so select `dev` when opening the pull
-request instead of relying on the correction.
+1. Clone `https://github.com/power12317/CPA-Manager-Plus.git`.
+2. Create a focused feature or fix branch from `main`.
+3. Open the pull request against `power12317/CPA-Manager-Plus:main`, or push
+   directly to `main` when you are the repository maintainer.
+4. Address review feedback and keep the branch current with this fork's
+   `main`.
 
 ```bash
-git remote add upstream https://github.com/seakee/CPA-Manager-Plus.git
-git fetch upstream
-git switch -c fix/short-description upstream/dev
+git clone https://github.com/power12317/CPA-Manager-Plus.git
+cd CPA-Manager-Plus
+git switch -c fix/short-description main
 
 # Before requesting review, update your branch as appropriate for your team.
-git fetch upstream
-git rebase upstream/dev
+git fetch origin
+git rebase origin/main
 ```
 
 ## Before Opening a Pull Request
@@ -53,13 +47,11 @@ the change crosses frontend, Manager Server, packaging, or runtime boundaries.
 | Manager Server | `npm run manager-server:test` |
 | Concurrent backend behavior | `cd apps/manager-server && go test -race ./...` |
 
-CI runs the applicable checks on pull requests to `dev`. Passing CI does not
+CI runs the applicable checks on pull requests to `main`. Passing CI does not
 replace mode-specific manual verification where the pull request template
 requires it.
 
-## Maintainer Promotion
+## Maintainer Release
 
-After `dev` is reviewed and tested, open a pull request from
-`seakee/CPA-Manager-Plus:dev` to `main`. The promotion must pass the same CI,
-the source-branch gate, required review, and branch-protection rules before it
-is merged. Create release tags only from the verified `main` commit.
+After the fork's `main` checks pass, create release tags only from the verified
+`main` commit. The Docker workflow publishes the fork image from that branch.

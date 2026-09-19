@@ -80,7 +80,7 @@ func TestClusterScopedProxyCredentialsEncryptionAndRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Now().UnixMilli()
-	if _, err := db.InsertEvents(ctx, []usage.Event{{EventHash: "legacy-event", TimestampMS: now, Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Model: "test-model", TotalTokens: 7, RawJSON: `{"legacy":true}`}}); err != nil {
+	if _, err := db.InsertEvents(ctx, []usage.Event{{EventHash: canonicalCompatEventHash("legacy-event"), TimestampMS: now, Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Model: "test-model", TotalTokens: 7, RawJSON: `{"legacy":true}`}}); err != nil {
 		t.Fatal(err)
 	}
 	server := New(cfg, db, collector.NewManager(cfg, db))
@@ -179,8 +179,8 @@ func TestClusterScopedProxyCredentialsEncryptionAndRestart(t *testing.T) {
 	// global percentiles and stable pagination when timestamps/local IDs collide.
 	l1, l2 := int64(100), int64(900)
 	_, err = childStore.InsertEvents(ctx, []usage.Event{
-		{EventHash: "child-one", TimestampMS: now, Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Model: "test-model", TotalTokens: 120, AuthIndex: "1", AuthFileSnapshot: "same.json", LatencyMS: &l1},
-		{EventHash: "child-two", TimestampMS: now, Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Model: "test-model", TotalTokens: 80, AuthIndex: "1", AuthFileSnapshot: "same.json", LatencyMS: &l2, Failed: true},
+		{EventHash: canonicalCompatEventHash("child-one"), TimestampMS: now, Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Model: "test-model", TotalTokens: 120, AuthIndex: "1", AuthFileSnapshot: "same.json", LatencyMS: &l1},
+		{EventHash: canonicalCompatEventHash("child-two"), TimestampMS: now, Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Model: "test-model", TotalTokens: 80, AuthIndex: "1", AuthFileSnapshot: "same.json", LatencyMS: &l2, Failed: true},
 	})
 	if err != nil {
 		t.Fatal(err)

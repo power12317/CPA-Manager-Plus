@@ -1849,6 +1849,9 @@ export interface MonitoringAnalyticsEventRow {
   auth_account_id_snapshot?: string;
   auth_project_id_snapshot?: string;
   resolved_model?: string;
+  turn_id?: string;
+  system?: string;
+  turn_state_len?: string;
   response_model?: string;
   session_id?: string;
   parent_session_id?: string;

@@ -100,6 +100,8 @@ vi.mock('@/features/monitoring/codexInspection', () => ({
 
 vi.mock('@/features/accounts/model/accountReauthSession', () => ({
   completeAccountOAuthReauthSessionFromSearch: pageMocks.completeReauth,
+  readAccountOAuthReauthInstanceId: (search: string) =>
+    new URLSearchParams(search).get('scope'),
   readAccountOAuthReauthSessionId: (search: string) =>
     new URLSearchParams(search).get('accountReauth'),
 }));

@@ -41,6 +41,7 @@ var compatibleUsageDetailQueryPrefix = `select
 		coalesce(nullif(endpoint, ''), '-') as group_endpoint,
 			` + compatibleUsageAnalyticsModelExpression + ` as group_model,
 		timestamp,
+		coalesce(request_id, ''),
 		coalesce(source, ''),
 		coalesce(auth_index, ''),
 		coalesce(api_key_hash, ''),
@@ -55,6 +56,9 @@ var compatibleUsageDetailQueryPrefix = `select
 			ttft_ms,
 			coalesce(nullif(requested_model, ''), model, ''),
 			coalesce(resolved_model, ''),
+			coalesce(turn_id, ''),
+			coalesce(system, ''),
+			coalesce(turn_state_len, ''),
 		coalesce(reasoning_effort, ''),
 		coalesce(service_tier, ''),
 		coalesce(request_service_tier, ''),
@@ -482,7 +486,7 @@ func (r *repository) exportBatch(ctx context.Context, snapshot usageSnapshot, cu
 		request_id, event_hash, timestamp_ms, timestamp, provider, executor_type, model, endpoint, method, path,
 		auth_type, auth_index, source, source_hash, api_key_hash,
 		account_snapshot, auth_label_snapshot, auth_file_snapshot, auth_provider_snapshot, auth_account_id_snapshot, auth_project_id_snapshot, auth_snapshot_at_ms,
-		requested_model, resolved_model, reasoning_effort, service_tier,
+		requested_model, resolved_model, turn_id, system, turn_state_len, reasoning_effort, service_tier,
 		input_tokens, output_tokens, reasoning_tokens, cached_tokens, cache_tokens, cache_read_tokens, cache_creation_tokens, total_tokens,
 		latency_ms, ttft_ms, failed, fail_status_code, fail_summary,
 		coalesce(response_metadata_json, ''), header_quota_recover_at_ms, header_quota_used_percent, coalesce(header_quota_plan_type, ''), coalesce(header_error_kind, ''), coalesce(header_error_code, ''), coalesce(header_trace_id, ''),
@@ -531,7 +535,7 @@ func scanCompatibleDetail(rows *sql.Rows) (compatibleExportRow, error) {
 	var ttft sql.NullInt64
 	var failStatusCode sql.NullInt64
 	var responseMetadataJSON string
-	var responseModel, sessionID, parentSessionID, accessTokenSHA256 sql.NullString
+	var requestID, turnID, system, turnStateLen, responseModel, sessionID, parentSessionID, accessTokenSHA256 sql.NullString
 	var generate, stream sql.NullInt64
 	var failed int
 	var cachedTokens int64
@@ -542,6 +546,7 @@ func scanCompatibleDetail(rows *sql.Rows) (compatibleExportRow, error) {
 		&row.endpoint,
 		&row.model,
 		&detail.Timestamp,
+		&requestID,
 		&detail.Source,
 		&detail.AuthIndex,
 		&detail.APIKeyHash,
@@ -556,6 +561,9 @@ func scanCompatibleDetail(rows *sql.Rows) (compatibleExportRow, error) {
 		&ttft,
 		&detail.RequestedModel,
 		&detail.ResolvedModel,
+		&turnID,
+		&system,
+		&turnStateLen,
 		&detail.ReasoningEffort,
 		&detail.ServiceTier,
 		&detail.RequestServiceTier,
@@ -584,8 +592,12 @@ func scanCompatibleDetail(rows *sql.Rows) (compatibleExportRow, error) {
 	if err != nil {
 		return compatibleExportRow{}, err
 	}
+	detail.RequestID = requestID.String
 	detail.ResponseModel = responseModel.String
 	detail.SessionID = sessionID.String
+	detail.TurnID = turnID.String
+	detail.System = system.String
+	detail.TurnStateLen = turnStateLen.String
 	detail.ParentSessionID = parentSessionID.String
 	detail.AccessTokenSHA256 = accessTokenSHA256.String
 	if generate.Valid {
@@ -631,7 +643,7 @@ func scanExportRow(rows *sql.Rows) (exportRow, error) {
 	event := &row.event
 	var requestID, provider, executorType, endpoint, method, path, authType, authIndex, source, sourceHash, apiKeyHash, accountSnapshot, authLabelSnapshot, authFileSnapshot, authProviderSnapshot, authAccountIDSnapshot, authProjectIDSnapshot, requestedModel, resolvedModel, reasoningEffort, serviceTier, failSummary sql.NullString
 	var responseMetadataJSON, quotaPlanType, errorKind, errorCode, traceID string
-	var responseModel, sessionID, parentSessionID, accessTokenSHA256 sql.NullString
+	var turnID, system, turnStateLen, responseModel, sessionID, parentSessionID, accessTokenSHA256 sql.NullString
 	var generate, stream sql.NullInt64
 	var authSnapshotAt sql.NullInt64
 	var latency, ttft sql.NullInt64
@@ -665,6 +677,9 @@ func scanExportRow(rows *sql.Rows) (exportRow, error) {
 		&authSnapshotAt,
 		&requestedModel,
 		&resolvedModel,
+		&turnID,
+		&system,
+		&turnStateLen,
 		&reasoningEffort,
 		&serviceTier,
 		&event.InputTokens,
@@ -719,6 +734,9 @@ func scanExportRow(rows *sql.Rows) (exportRow, error) {
 	event.ResolvedModel = resolvedModel.String
 	event.ResponseModel = responseModel.String
 	event.SessionID = sessionID.String
+	event.TurnID = turnID.String
+	event.System = system.String
+	event.TurnStateLen = turnStateLen.String
 	event.ParentSessionID = parentSessionID.String
 	event.AccessTokenSHA256 = accessTokenSHA256.String
 	if generate.Valid {

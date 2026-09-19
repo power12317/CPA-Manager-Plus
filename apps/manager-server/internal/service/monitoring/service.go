@@ -841,6 +841,9 @@ type EventRow struct {
 	AnalyticsModel         string                        `json:"analytics_model,omitempty"`
 	RequestedModel         string                        `json:"requested_model,omitempty"`
 	ResolvedModel          string                        `json:"resolved_model,omitempty"`
+	TurnID                 string                        `json:"turn_id,omitempty"`
+	System                 string                        `json:"system,omitempty"`
+	TurnStateLen           string                        `json:"turn_state_len,omitempty"`
 	ResponseModel          string                        `json:"response_model,omitempty"`
 	SessionID              string                        `json:"session_id,omitempty"`
 	ParentSessionID        string                        `json:"parent_session_id,omitempty"`
@@ -3572,6 +3575,9 @@ func buildEvents(page store.EventsPage, totalCount int64) *EventsResponse {
 			AnalyticsModel:         item.AnalyticsModel,
 			RequestedModel:         item.RequestedModel,
 			ResolvedModel:          item.ResolvedModel,
+			TurnID:                 item.TurnID,
+			System:                 item.System,
+			TurnStateLen:           item.TurnStateLen,
 			ResponseModel:          item.ResponseModel,
 			SessionID:              item.SessionID,
 			ParentSessionID:        item.ParentSessionID,

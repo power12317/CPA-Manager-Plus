@@ -3586,10 +3586,13 @@ export function AccountsPage() {
         const sessionId = beginAccountOAuthReauthSession({
           connectionFingerprint,
           oauthProvider: action.oauthProvider,
+          instanceId: action.instanceId,
           resultKeys: handledResultKeys,
         });
         navigate(
-          sessionId ? buildAccountOAuthReauthPath(action.oauthProvider, sessionId) : action.path
+          sessionId
+            ? buildAccountOAuthReauthPath(action.oauthProvider, sessionId, action.instanceId)
+            : action.path
         );
         return;
       }

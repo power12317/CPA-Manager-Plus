@@ -868,8 +868,12 @@ func TestWriteExportJSONLAndCompatibleUsagePreserveRequestMetadata(t *testing.T)
 	genFalse := false
 	streamFalse := false
 	event := streamTestEvent("stream-meta-test", 100, "POST /v1/chat/completions", "gpt-4o")
+	event.ExecutorType = "codex"
 	event.ResponseModel = "gpt-4o-mini"
 	event.SessionID = "sess-export-1"
+	event.TurnID = "turn-export-1"
+	event.System = "mac"
+	event.TurnStateLen = "292/312"
 	event.ParentSessionID = "parent-export-1"
 	event.AccessTokenSHA256 = "sha256-export-hash"
 	event.Generate = &genFalse
@@ -898,6 +902,9 @@ func TestWriteExportJSONLAndCompatibleUsagePreserveRequestMetadata(t *testing.T)
 	}
 	if exported.SessionID != event.SessionID {
 		t.Fatalf("SessionID mismatch: got %q, want %q", exported.SessionID, event.SessionID)
+	}
+	if exported.TurnID != event.TurnID || exported.System != event.System || exported.TurnStateLen != event.TurnStateLen {
+		t.Fatalf("turn metadata mismatch: got %q/%q/%q, want %q/%q/%q", exported.TurnID, exported.System, exported.TurnStateLen, event.TurnID, event.System, event.TurnStateLen)
 	}
 	if exported.ParentSessionID != event.ParentSessionID {
 		t.Fatalf("ParentSessionID mismatch: got %q, want %q", exported.ParentSessionID, event.ParentSessionID)
@@ -934,6 +941,9 @@ func TestWriteExportJSONLAndCompatibleUsagePreserveRequestMetadata(t *testing.T)
 	compDetail := details[0]
 	if compDetail.ResponseModel != event.ResponseModel ||
 		compDetail.SessionID != event.SessionID ||
+		compDetail.TurnID != event.TurnID ||
+		compDetail.System != event.System ||
+		compDetail.TurnStateLen != event.TurnStateLen ||
 		compDetail.ParentSessionID != event.ParentSessionID ||
 		compDetail.AccessTokenSHA256 != event.AccessTokenSHA256 ||
 		compDetail.Generate == nil || *compDetail.Generate != false ||

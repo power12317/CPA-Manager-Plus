@@ -37,6 +37,8 @@ export const buildRealtimeSourceDisplay = (
         | 'xForwardedFor'
         | 'sessionId'
         | 'parentSessionId'
+        | 'requestId'
+        | 'turnId'
         | 'generate'
         | 'stream'
       >
@@ -106,6 +108,8 @@ export const buildRealtimeSourceDisplay = (
   const userAgent = row.userAgent?.trim() || '';
   const sessionId = row.sessionId?.trim() || '';
   const parentSessionId = row.parentSessionId?.trim() || '';
+  const requestId = row.requestId?.trim() || '';
+  const turnId = row.turnId?.trim() || '';
   const generateText =
     typeof row.generate === 'boolean' ? t(row.generate ? 'common.yes' : 'common.no') : '';
   const streamText =
@@ -124,6 +128,12 @@ export const buildRealtimeSourceDisplay = (
             : '',
           hasReadableRealtimeValue(sessionId)
             ? `${t('monitoring.session_id')}: ${sessionId}`
+            : '',
+          hasReadableRealtimeValue(requestId)
+            ? `${t('monitoring.request_id')}: ${requestId}`
+            : '',
+          hasReadableRealtimeValue(turnId)
+            ? `${t('monitoring.turn_id')}: ${turnId}`
             : '',
           hasReadableRealtimeValue(parentSessionId)
             ? `${t('monitoring.parent_session_id')}: ${parentSessionId}`

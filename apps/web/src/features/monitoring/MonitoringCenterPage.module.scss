@@ -1600,6 +1600,20 @@
   color: var(--monitor-muted);
 }
 
+.realtimeRequestStatusCell {
+  display: inline-grid;
+  justify-items: center;
+  gap: 2px;
+}
+
+.realtimeTurnStateLength {
+  color: var(--monitor-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .realtimeMetricCell,
 .realtimeTimeCell {
   display: inline-grid;

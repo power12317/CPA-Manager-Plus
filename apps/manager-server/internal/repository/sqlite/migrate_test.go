@@ -3579,6 +3579,9 @@ func TestEnsureUsageEventSnapshotColumnsOnlyMigratesSchema(t *testing.T) {
 		!columns["user_agent"] ||
 		!columns["response_model"] ||
 		!columns["session_id"] ||
+		!columns["turn_id"] ||
+		!columns["system"] ||
+		!columns["turn_state_len"] ||
 		!columns["parent_session_id"] ||
 		!columns["access_token_sha256"] ||
 		!columns["generate"] ||

@@ -56,6 +56,7 @@ const t = ((key: string, options?: Record<string, unknown>) => {
     'monitoring.reasoning_service_short': 'Reasoning / Tier',
     'monitoring.realtime_reasoning_label': 'Reasoning',
     'monitoring.realtime_service_label': 'Service',
+    'monitoring.realtime_system_label': 'System',
     'monitoring.recent_failures': 'Failures',
     'monitoring.recent_status': 'Recent',
     'monitoring.recent_status_short': 'Recent Status',
@@ -86,6 +87,9 @@ const t = ((key: string, options?: Record<string, unknown>) => {
     'monitoring.resolved_model': 'Routed model',
     'monitoring.response_model': 'Response model',
     'monitoring.session_id': 'Session ID (i18n)',
+    'monitoring.request_id': 'Request ID (i18n)',
+    'monitoring.turn_id': 'Turn ID (i18n)',
+    'monitoring.turn_state_len': 'Turn-state length (i18n)',
     'monitoring.parent_session_id': 'Parent session ID (i18n)',
     'monitoring.generate': 'Generate (i18n)',
     'monitoring.stream': 'Stream (i18n)',
@@ -461,10 +465,10 @@ describe('RealtimeEventsPanel', () => {
           responseModel: 'gpt-4o',
         })
       );
-      expect(markup).toContain('title="Requested model: gpt-4o"');
+      expect(markup).toContain('title="Requested model: gpt-4o\nResponse model: gpt-4o"');
       expect(markup).toContain('>gpt-4o</span>');
       expect(markup).not.toContain('realtimeModelRoutedText');
-      expect(markup).not.toContain('realtimeModelResponseLine');
+      expect(markup).toContain('realtimeModelResponseLine');
       expect(markup).not.toContain('realtimeModelMismatchBadge');
       expect(markup).not.toContain('Model mismatch');
     });
@@ -530,10 +534,12 @@ describe('RealtimeEventsPanel', () => {
           responseModel: 'gpt-4o-2024-08-06',
         })
       );
-      expect(markup).toContain('title="Requested model: gpt-4o\nRouted model: gpt-4o-2024-08-06"');
+      expect(markup).toContain(
+        'title="Requested model: gpt-4o\nRouted model: gpt-4o-2024-08-06\nResponse model: gpt-4o-2024-08-06"'
+      );
       expect(markup).toContain('>gpt-4o</span>');
       expect(markup).toContain('>→ gpt-4o-2024-08-06</small>');
-      expect(markup).not.toContain('realtimeModelResponseLine');
+      expect(markup).toContain('realtimeModelResponseLine');
       expect(markup).not.toContain('realtimeModelMismatchBadge');
       expect(markup).not.toContain('Model mismatch');
     });
@@ -602,7 +608,7 @@ describe('RealtimeEventsPanel', () => {
       expect(markup).toContain('title="Requested model: gpt-5.6-sol\nResponse model: gpt-5.6-sol"');
       expect(markup).toContain('>gpt-5.6-sol</span>');
       expect(markup).not.toContain('realtimeModelRoutedText');
-      expect(markup).not.toContain('realtimeModelResponseLine');
+      expect(markup).toContain('realtimeModelResponseLine');
       expect(markup).not.toContain('realtimeModelMismatchBadge');
       expect(markup).not.toContain('Model mismatch');
     });
@@ -675,8 +681,12 @@ describe('RealtimeEventsPanel', () => {
 
   it('formats request metadata fields using i18n translation functions in full mode', () => {
     const row = baseRow({
+      requestId: 'request-123',
       clientIp: '192.0.2.10',
       sessionId: 'sess-98765',
+      turnId: 'turn-54321',
+      system: 'windows',
+      turnStateLen: '292/312',
       parentSessionId: 'parent-sess-43210',
       generate: true,
       stream: false,
@@ -688,9 +698,14 @@ describe('RealtimeEventsPanel', () => {
     expect(maskedMarkup).not.toContain('parent-sess-43210');
 
     expect(fullMarkup).toContain('Session ID (i18n): sess-98765');
+    expect(fullMarkup).toContain('Request ID (i18n): request-123');
+    expect(fullMarkup).toContain('Turn ID (i18n): turn-54321');
     expect(fullMarkup).toContain('Parent session ID (i18n): parent-sess-43210');
     expect(fullMarkup).toContain('Generate (i18n): Yes (i18n)');
     expect(fullMarkup).toContain('Stream (i18n): No (i18n)');
+    expect(fullMarkup).toContain('System</span><span');
+    expect(fullMarkup).toContain('>windows</span>');
+    expect(fullMarkup).toContain('>292/312</small>');
   });
 
   it('renders a ttft placeholder when ttft is missing', () => {

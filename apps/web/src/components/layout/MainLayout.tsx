@@ -44,6 +44,7 @@ import {
 import { pluginsApi } from '@/services/api';
 import {
   collectPluginResourceEntries,
+  getPluginTitle,
   isPluginManagementNavVisible,
   isPluginResourceNavVisible,
   PLUGIN_RESOURCES_REFRESH_EVENT,
@@ -480,18 +481,75 @@ function MainLayoutContent({ routeBase = '', demoMode = false }: MainLayoutProps
 
     try {
       const plugins = await pluginsApi.list();
+      const resources = isPluginResourceNavVisible({
+        supportsPlugin,
+        pluginsEnabled: plugins.pluginsEnabled,
+      })
+        ? collectPluginResourceEntries(plugins.plugins).map((resource) =>
+            resource.pluginID === 'codex-turn-state'
+              ? { ...resource, label: t('codex_turn_state.title'), route: '/codex-turn-state' }
+              : resource
+          )
+        : [];
+      const turnState = plugins.plugins.find(
+        (plugin) => plugin.id === 'codex-turn-state' && plugin.effectiveEnabled
+      );
+      if (turnState && !resources.some((resource) => resource.pluginID === turnState.id)) {
+        resources.push({
+          pluginID: turnState.id,
+          pluginTitle: getPluginTitle(turnState),
+          pluginLogo: turnState.logo || turnState.metadata?.logo || '',
+          menuIndex: 0,
+          menu: {
+            path: '/v0/resource/plugins/codex-turn-state/dashboard',
+            menu: t('codex_turn_state.title'),
+            description: t('codex_turn_state.nav_description'),
+          },
+          label: t('codex_turn_state.title'),
+          description: t('codex_turn_state.nav_description'),
+          route: '/codex-turn-state',
+        });
+      }
+      if (!resources.some((resource) => resource.pluginID === 'codex-turn-state')) {
+        resources.push({
+          pluginID: 'codex-turn-state',
+          pluginTitle: t('codex_turn_state.title'),
+          pluginLogo: '',
+          menuIndex: 0,
+          menu: {
+            path: '/v0/management/codex-turn-state-ticket',
+            menu: t('codex_turn_state.title'),
+            description: t('codex_turn_state.nav_description'),
+          },
+          label: t('codex_turn_state.title'),
+          description: t('codex_turn_state.nav_description'),
+          route: '/codex-turn-state',
+        });
+      }
+      setPluginResources(resources);
+    } catch {
       setPluginResources(
-        isPluginResourceNavVisible({
-          supportsPlugin,
-          pluginsEnabled: plugins.pluginsEnabled,
-        })
-          ? collectPluginResourceEntries(plugins.plugins)
+        connectionStatus === 'connected'
+          ? [
+              {
+                pluginID: 'codex-turn-state',
+                pluginTitle: t('codex_turn_state.title'),
+                pluginLogo: '',
+                menuIndex: 0,
+                menu: {
+                  path: '/v0/management/codex-turn-state-ticket',
+                  menu: t('codex_turn_state.title'),
+                  description: t('codex_turn_state.nav_description'),
+                },
+                label: t('codex_turn_state.title'),
+                description: t('codex_turn_state.nav_description'),
+                route: '/codex-turn-state',
+              },
+            ]
           : []
       );
-    } catch {
-      setPluginResources([]);
     }
-  }, [connectionStatus, supportsPlugin]);
+  }, [connectionStatus, supportsPlugin, t]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

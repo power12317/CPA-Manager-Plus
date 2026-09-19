@@ -65,7 +65,9 @@ describe('GitHub Actions workflow integrity', () => {
     expect(workflow).toContain('pull_request:');
     expect(workflow).toContain('- main');
     expect(promotionJob).toContain('name: Verify dev promotion source');
-    expect(promotionJob).toContain("if: github.event_name == 'pull_request'");
+    expect(promotionJob).toMatch(
+      /if:\s*(?:>[-]?\s*)?github\.repository == 'seakee\/CPA-Manager-Plus' &&\s*github\.event_name == 'pull_request'/
+    );
     expect(promotionJob).toContain('HEAD_REPOSITORY');
     expect(promotionJob).toContain('HEAD_REF');
     expect(promotionJob).toContain('main accepts promotions only from');

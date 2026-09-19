@@ -5552,7 +5552,7 @@ done
 set -euo pipefail
 for arg in "$@"; do
   case "$arg" in
-    https://raw.githubusercontent.com/seakee/CPA-Manager-Plus/update-channel/stable-version.txt)
+    https://raw.githubusercontent.com/power12317/CPA-Manager-Plus/update-channel/stable-version.txt)
       printf 'v1.2.3'
       exit 0
       ;;
@@ -5648,7 +5648,7 @@ exit 22
         `#!/usr/bin/env bash
 set -euo pipefail
 for arg in "$@"; do
-  if [ "$arg" = "https://raw.githubusercontent.com/seakee/CPA-Manager-Plus/update-channel/stable-version.txt" ]; then
+  if [ "$arg" = "https://raw.githubusercontent.com/power12317/CPA-Manager-Plus/update-channel/stable-version.txt" ]; then
     printf 'v1.2.3'
     exit 0
   fi

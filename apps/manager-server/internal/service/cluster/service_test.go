@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -280,5 +281,27 @@ func TestListDoesNotProbeEveryAggregateRequest(t *testing.T) {
 	}
 	if got := runtime.calls.Load(); got != 1 {
 		t.Fatalf("cached list scheduled another probe, got %d", got)
+	}
+}
+
+func TestReadOnlyAggregateWithoutInstancesReturnsEmptyPayload(t *testing.T) {
+	s := New(&memoryRegistry{}, func(context.Context, string) (Runtime, error) {
+		return nil, errors.New("no instances should be initialized")
+	}, &fakeRuntime{})
+	s.Start(context.Background())
+	waitReady(t, s)
+	defer s.Close(context.Background())
+
+	for _, request := range []*http.Request{
+		httptest.NewRequest(http.MethodGet, "http://manager/v0/management/config", nil),
+		httptest.NewRequest(http.MethodPost, "http://manager/v0/management/monitoring/analytics", strings.NewReader(`{"from_ms":1,"to_ms":2}`)),
+	} {
+		result, err := s.Federate(request, nil)
+		if err != nil {
+			t.Fatalf("read-only aggregate failed without instances: %v", err)
+		}
+		if result.Succeeded != 0 || result.Total != 0 || result.Data == nil {
+			t.Fatalf("unexpected empty aggregate result: %+v", result)
+		}
 	}
 }

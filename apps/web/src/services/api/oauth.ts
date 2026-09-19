@@ -5,7 +5,13 @@
 import { apiClient, createScopedApiRequestConfig, type ApiClientRequestScope } from './client';
 import { instanceBase } from '@/utils/instanceScope';
 
-export type BuiltInOAuthProvider = 'codex' | 'anthropic' | 'antigravity' | 'kimi' | 'xai';
+export type BuiltInOAuthProvider =
+  | 'codex'
+  | 'anthropic'
+  | 'antigravity'
+  | 'kimi'
+  | 'xai'
+  | 'devin';
 export type OAuthProvider = BuiltInOAuthProvider | (string & {});
 
 export interface OAuthStartResponse {
@@ -26,7 +32,12 @@ export interface OAuthStartOptions {
   authIndex?: string | number | null;
 }
 
-const WEBUI_SUPPORTED: string[] = ['codex', 'anthropic', 'antigravity', 'xai'];
+export interface OAuthCancelResponse {
+  status: 'ok';
+  cancelled: boolean;
+}
+
+const WEBUI_SUPPORTED: string[] = ['codex', 'anthropic', 'antigravity', 'xai', 'devin'];
 const flowScopes = new Map<string, ApiClientRequestScope>();
 
 export const oauthApi = {
@@ -94,4 +105,10 @@ export const oauthApi = {
       requestScope ? createScopedApiRequestConfig(requestScope) : undefined
     );
   },
+
+  cancelSession: (state: string, requestScope?: ApiClientRequestScope) =>
+    apiClient.delete<OAuthCancelResponse>('/oauth-session', {
+      ...(requestScope ? createScopedApiRequestConfig(requestScope) : {}),
+      params: { state },
+    }),
 };

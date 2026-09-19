@@ -3,6 +3,7 @@ import type {
   AuthFileItem,
   ClaudeQuotaState,
   CodexQuotaState,
+  DevinQuotaState,
   KimiQuotaState,
   QuotaResetAccuracy,
   XaiBillingSummary,
@@ -74,6 +75,7 @@ export interface AccountQuotaStores {
   antigravityQuota: Record<string, AntigravityQuotaState>;
   claudeQuota: Record<string, ClaudeQuotaState>;
   codexQuota: Record<string, CodexQuotaState>;
+  devinQuota: Record<string, DevinQuotaState>;
   kimiQuota: Record<string, KimiQuotaState>;
   xaiQuota: Record<string, XaiQuotaState>;
 }
@@ -557,6 +559,9 @@ export const isConfirmedPaidXaiPlan = (planType?: string | null): boolean => {
   );
 };
 
+// Billing and account entitlement requires a confirmed paid plan.
+// AccountQuotaSummary fails closed for unconfirmed/unknown plans to avoid
+// driving account-level operational health or disable recommendations from partial data.
 export const hasConfirmedXaiBillingEntitlement = (
   billing: XaiBillingSummary | null | undefined,
   planType?: string | null
@@ -1058,6 +1063,24 @@ export const resolveAccountQuota = (
     return quotaFromXaiBilling(quota.billing, filePlanType, {
       fetchedAtMs: quota.fetchedAtMs,
     });
+  }
+
+  if (provider === 'devin') {
+    const quota = getCredentialScopedQuotaState(stores.devinQuota, file);
+    if (!quota) return emptyQuota(filePlanType);
+    const planType = quota.plan ?? filePlanType;
+    if (quota.status === 'loading') return loadingQuota(planType);
+    if (quota.status === 'error')
+      return quotaFromError(quota.error, planType, quota.errorStatus, quota.failedAtMs);
+    return quotaFromRemainingWindows(
+      quota.windows.map((window) => ({
+        remainingPercent: window.remainingPercent,
+        resetAtMs: window.resetAtMs,
+        resetAccuracy: 'exact',
+      })),
+      planType,
+      { fetchedAtMs: quota.fetchedAtMs }
+    );
   }
 
   return emptyQuota(filePlanType);

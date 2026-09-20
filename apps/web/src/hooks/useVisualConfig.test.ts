@@ -53,6 +53,7 @@ describe('useVisualConfig', () => {
       expect(harness.getCurrent().visualValues[field]).toBe(String(defaultSeconds));
     }
     expect(harness.getCurrent().visualDirty).toBe(false);
+    expect(harness.getCurrent().visualValues.codexTicketProbeIntervalSeconds).toBe('60');
     expect(harness.getCurrent().applyVisualChangesToYaml(yaml)).toBe(yaml);
     harness.unmount();
   });

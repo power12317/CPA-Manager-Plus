@@ -52,7 +52,12 @@ describe('codex turn-state ticket API normalization', () => {
       ],
     });
 
-    expect(result).toMatchObject({ enabled: true, targetLength: 292, failClosed: true });
+    expect(result).toMatchObject({
+      enabled: true,
+      targetLength: 292,
+      failClosed: true,
+      probeIntervalSeconds: 60,
+    });
     expect(result.accounts[0].tickets[0]).toMatchObject({
       model: 'gpt-6-astra',
       ready: true,

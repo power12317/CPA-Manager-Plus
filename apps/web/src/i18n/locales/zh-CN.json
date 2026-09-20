@@ -4489,7 +4489,7 @@
     "refresh_before_seconds": "提前刷新时间（秒）",
     "refresh_before_seconds_hint": "默认在到期前 600 秒（10 分钟）刷新。留空并保存使用默认值。",
     "probe_interval_seconds": "探测间隔（秒）",
-    "probe_interval_seconds_hint": "后台探测间隔，默认 6 秒。留空并保存使用默认值。",
+    "probe_interval_seconds_hint": "后台探测间隔，默认 60 秒（1 分钟）。留空并保存使用 CPA 默认值。",
     "attempt_timeout_seconds": "单次探测超时（秒）",
     "attempt_timeout_seconds_hint": "单次主动获取的超时时间，默认 25 秒。留空并保存使用默认值。",
     "target_length_hint": "目标长度按账号属性决定：Personal（free/plus/pro）为 292，Team/Business（team/business）为 332；不使用全局 target-length。",

@@ -25,7 +25,7 @@ export const CODEX_TICKET_TIMING_FIELDS = [
     field: 'codexTicketProbeIntervalSeconds',
     yamlKey: 'probe-interval-seconds',
     labelKey: 'probe_interval_seconds',
-    defaultSeconds: 6,
+    defaultSeconds: 60,
   },
   {
     field: 'codexTicketAttemptTimeoutSeconds',
@@ -271,7 +271,7 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   codexTicketHarvestProxy: '',
   codexTicketTTLSeconds: '3600',
   codexTicketRefreshBeforeSeconds: '600',
-  codexTicketProbeIntervalSeconds: '6',
+  codexTicketProbeIntervalSeconds: '60',
   codexTicketAttemptTimeoutSeconds: '25',
   devinSensitiveWords: [],
   payloadDefaultRules: [],

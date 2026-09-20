@@ -9,7 +9,7 @@
 | ttl-seconds | 3600 秒 | 门票有效期，默认 1 小时 |
 | refresh-before-seconds | 600 秒 | 到期前多久刷新，默认提前 10 分钟 |
 | harvest-proxy-url | 空 | 门票采集代理；未配置时主动获取无法运行 |
-| probe-interval-seconds | 6 秒 | 后台探测间隔 |
+| probe-interval-seconds | 60 秒（1 分钟） | 后台探测间隔，使用 CPA 默认值 |
 | attempt-timeout-seconds | 25 秒 | 单次主动获取的超时时间 |
 | fail-closed | false | 开启时缺票阻止请求，关闭时缺票继续发送；有效票仍强制替换 |
 | models | gpt-6-astra、gpt-5.6-sol | 参与门票处理的模型，支持换行或逗号分隔 |
@@ -35,7 +35,7 @@ codex:
     ttl-seconds: 3600
     refresh-before-seconds: 600
     harvest-proxy-url: ""
-    probe-interval-seconds: 6
+    probe-interval-seconds: 60
     attempt-timeout-seconds: 25
     fail-closed: false
     models:

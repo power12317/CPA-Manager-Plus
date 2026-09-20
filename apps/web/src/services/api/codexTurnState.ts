@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient, createScopedApiRequestConfig, type ApiClientRequestScope } from './client';
 import type {
   CodexTurnStateAccount,
   CodexTurnStateStatus,
@@ -72,8 +72,15 @@ export const normalizeCodexTurnStateStatus = (value: unknown): CodexTurnStateSta
 };
 
 export const codexTurnStateApi = {
-  async status(): Promise<CodexTurnStateStatus> {
-    return normalizeCodexTurnStateStatus(await apiClient.get('/codex-turn-state-ticket'));
+  async status(scope?: ApiClientRequestScope, signal?: AbortSignal): Promise<CodexTurnStateStatus> {
+    const raw = await apiClient.get('/codex-turn-state-ticket', {
+      ...(scope ? createScopedApiRequestConfig(scope) : {}),
+      signal,
+    });
+    if (!isRecord(raw) || typeof raw.enabled !== 'boolean') {
+      throw new Error('Invalid Codex ticket policy response');
+    }
+    return normalizeCodexTurnStateStatus(raw);
   },
   async update(value: {
     enabled: boolean;
@@ -85,7 +92,8 @@ export const codexTurnStateApi = {
     refresh_before_seconds: number;
     probe_interval_seconds: number;
     attempt_timeout_seconds: number;
-  }): Promise<CodexTurnStateStatus> {
-    return normalizeCodexTurnStateStatus(await apiClient.put('/codex-turn-state-ticket', value));
+  }): Promise<void> {
+    // PUT/PATCH 仅返回确认结果，不能将其当作完整配置。
+    await apiClient.put('/codex-turn-state-ticket', value);
   },
 };

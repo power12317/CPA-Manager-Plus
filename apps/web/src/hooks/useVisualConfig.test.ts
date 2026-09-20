@@ -42,6 +42,71 @@ const mountUseVisualConfig = (): UseVisualConfigHarness => {
 };
 
 describe('useVisualConfig', () => {
+  it('将门票字段纳入统一草稿，只更新修改的字段并保留高级配置和源码修改', () => {
+    const harness = mountUseVisualConfig();
+    const yaml =
+      'codex:\n  turn-state-ticket:\n    enabled: false\n    fail-closed: false\n    harvest-proxy-url: socks5://saved:secret@proxy:1080\n    ttl-seconds: 2700\n    models: [gpt-6-astra]\n# 保留注释\n';
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(yaml);
+    });
+    expect(harness.getCurrent().visualValues.codexTicketModels).toBe('gpt-6-astra');
+    expect(harness.getCurrent().visualDirty).toBe(false);
+    act(() => {
+      harness
+        .getCurrent()
+        .setVisualValues({
+          codexTicketEnabled: true,
+          codexTicketFailClosed: true,
+          codexTicketModels: 'gpt-6-astra,gpt-5.6-sol\ngpt-6-astra',
+          proxyUrl: 'http://business:8080',
+        });
+    });
+    expect(harness.getCurrent().visualDirty).toBe(true);
+    const next = harness.getCurrent().applyVisualChangesToYaml(yaml + 'future: preserved\n');
+    expect(parseYaml(next)).toMatchObject({
+      codex: {
+        'turn-state-ticket': {
+          enabled: true,
+          'fail-closed': true,
+          'ttl-seconds': 2700,
+          'harvest-proxy-url': 'socks5://saved:secret@proxy:1080',
+          models: ['gpt-6-astra', 'gpt-5.6-sol'],
+        },
+      },
+      future: 'preserved',
+      'proxy-url': 'http://business:8080',
+    });
+    expect(next).toContain('# 保留注释');
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(next);
+    });
+    expect(harness.getCurrent().visualDirty).toBe(false);
+    act(() => {
+      harness.getCurrent().setVisualValues({ codexTicketHarvestProxy: '', codexTicketModels: '' });
+    });
+    expect(
+      parseYaml(harness.getCurrent().applyVisualChangesToYaml(next)).codex['turn-state-ticket']
+    ).toMatchObject({ 'harvest-proxy-url': '', models: [] });
+    harness.unmount();
+  });
+
+  it('旧配置不自动写入门票默认值，恢复原值后清除脏状态', () => {
+    const harness = mountUseVisualConfig();
+    const yaml = 'debug: false\n';
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(yaml);
+    });
+    expect(harness.getCurrent().applyVisualChangesToYaml(yaml)).toBe(yaml);
+    act(() => {
+      harness.getCurrent().setVisualValues({ codexTicketEnabled: true });
+    });
+    expect(harness.getCurrent().visualDirty).toBe(true);
+    act(() => {
+      harness.getCurrent().setVisualValues({ codexTicketEnabled: false });
+    });
+    expect(harness.getCurrent().visualDirty).toBe(false);
+    harness.unmount();
+  });
   it('clears the page dirty state when API keys are the only changed field', () => {
     const harness = mountUseVisualConfig();
     const initialYaml = ['proxy-url: http://proxy.local:8080', 'api-keys:', '  - old-key', ''].join(

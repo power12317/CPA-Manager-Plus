@@ -560,6 +560,8 @@
 
 .codexTicketListCompact {
   flex: 0 1 auto;
+  width: 100%;
+  max-width: 100%;
   align-items: stretch;
   flex-direction: column;
   gap: 3px;
@@ -581,6 +583,8 @@
   justify-content: space-between;
   gap: 6px;
   min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 3px 7px;
   border: 1px solid color-mix(in srgb, var(--accounts-border) 80%, transparent);
   border-radius: 999px;
@@ -591,6 +595,7 @@
 
 .codexTicketListCompact .codexTicketItem {
   width: 100%;
+  flex-wrap: wrap;
   border-radius: 6px;
 }
 
@@ -606,15 +611,24 @@
   color: var(--accounts-danger);
 }
 
+.codexTicketItemBlocked {
+  color: var(--accounts-warning, #b7791f);
+  background: color-mix(in srgb, var(--accounts-warning, #b7791f) 8%, var(--accounts-surface));
+}
+
 .codexTicketModel {
   min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   font-weight: 700;
   text-overflow: ellipsis;
 }
 
 .codexTicketStatus {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-weight: 600;
 }
 

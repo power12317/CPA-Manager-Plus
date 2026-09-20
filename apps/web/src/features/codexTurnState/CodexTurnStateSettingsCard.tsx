@@ -1,93 +1,79 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { ConfigSection } from '@/components/config/ConfigSection';
 import { IconTimer } from '@/components/ui/icons';
-import { useAuthStore, useNotificationStore } from '@/stores';
-import { codexTurnStateApi } from '@/services/api';
-import type { CodexTurnStateStatus } from '@/types/codexTurnState';
-import { getErrorMessage } from '@/utils/helpers';
+import { useAuthStore } from '@/stores';
+import { codexTurnStateApi } from '@/services/api/codexTurnState';
+import type { VisualConfigValues } from '@/types/visualConfig';
+import { getErrorMessage, isRecord } from '@/utils/helpers';
 import styles from './CodexTurnStateSettingsCard.module.scss';
 
-const splitLines = (value: string) =>
-  value
-    .split(/\r?\n|,/)
-    .map((item) => item.trim())
-    .filter(Boolean);
+interface Props {
+  disabled?: boolean;
+  values: VisualConfigValues;
+  onChange: (patch: Partial<VisualConfigValues>) => void;
+}
 
-export function CodexTurnStateSettingsCard({ disabled = false }: { disabled?: boolean }) {
+// 配置值属于整页 YAML 草稿；接口只用于确认当前实例支持原生门票。
+export function CodexTurnStateSettingsCard({ disabled = false, values, onChange }: Props) {
   const { t } = useTranslation();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
-  const showNotification = useNotificationStore((state) => state.showNotification);
-  const [status, setStatus] = useState<CodexTurnStateStatus | null>(null);
-  const [enabled, setEnabled] = useState(false);
-  const [failClosed, setFailClosed] = useState(true);
-  const [models, setModels] = useState('');
-  const [proxy, setProxy] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-
-  const load = useCallback(async () => {
-    if (connectionStatus !== 'connected') {
-      setLoading(false);
-      return;
-    }
-    try {
-      const next = await codexTurnStateApi.status();
-      setStatus(next);
-      setEnabled(next.enabled);
-      setFailClosed(next.failClosed);
-      setModels(next.models.join('\n'));
-      setProxy(next.harvestProxyUrl);
-      setError('');
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, t('codex_turn_state.load_failed')));
-    } finally {
-      setLoading(false);
-    }
-  }, [connectionStatus, t]);
+  const apiBase = useAuthStore((state) => state.apiBase);
+  const managementKey = useAuthStore((state) => state.managementKey);
+  const [retry, setRetry] = useState(0);
+  const [capability, setCapability] = useState<{
+    scope: string;
+    state: 'ready' | 'unsupported' | 'error';
+    error?: unknown;
+  } | null>(null);
+  const scope = JSON.stringify([apiBase, managementKey, connectionStatus, retry]);
+  const current = capability?.scope === scope ? capability : null;
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (connectionStatus !== 'connected') return;
+    let active = true;
+    const controller = new AbortController();
+    codexTurnStateApi.status({ apiBase, managementKey }, controller.signal).then(
+      () => {
+        if (active) setCapability({ scope, state: 'ready' });
+      },
+      (error: unknown) => {
+        if (!active) return;
+        const unsupported = isRecord(error) && (error.status === 404 || error.status === 405);
+        setCapability({ scope, state: unsupported ? 'unsupported' : 'error', error });
+      }
+    );
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [apiBase, managementKey, connectionStatus, scope]);
 
-  const save = async () => {
-    if (!status) return;
-    setSaving(true);
-    try {
-      const next = await codexTurnStateApi.update({
-        enabled,
-        fail_closed: failClosed,
-        harvest_proxy_url: proxy,
-        models: splitLines(models),
-        target_length: status.targetLength,
-        ttl_seconds: status.ttlSeconds,
-        refresh_before_seconds: status.refreshBeforeSeconds,
-        probe_interval_seconds: status.probeIntervalSeconds,
-        attempt_timeout_seconds: status.attemptTimeoutSeconds,
-      });
-      setStatus(next);
-      setProxy(next.harvestProxyUrl);
-      showNotification(t('codex_turn_state.updated'), 'success');
-    } catch (err: unknown) {
-      showNotification(getErrorMessage(err, t('codex_turn_state.action_failed')), 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
+  const blocked = disabled || current?.state !== 'ready';
   return (
     <ConfigSection
       title={t('codex_turn_state.settings')}
       description={t('codex_turn_state.settings_description')}
       icon={<IconTimer size={18} />}
     >
-      {loading ? <div className={styles.muted}>{t('config_management.status_loading')}</div> : null}
-      {error ? <div className={styles.error}>{error}</div> : null}
-      {status ? (
+      {connectionStatus !== 'connected' ? (
+        <p>{t('notification.connection_required')}</p>
+      ) : !current ? (
+        <p className={styles.muted}>{t('config_management.status_loading')}</p>
+      ) : current.state === 'unsupported' ? (
+        <p className={styles.muted}>{t('codex_turn_state.unsupported_backend')}</p>
+      ) : current.state === 'error' ? (
+        <div role="alert">
+          <p className={styles.error}>
+            {getErrorMessage(current.error, t('codex_turn_state.load_failed'))}
+          </p>
+          <Button onClick={() => setRetry((value) => value + 1)}>{t('common.retry')}</Button>
+        </div>
+      ) : null}
+      {current?.state === 'ready' ? (
         <div className={styles.content}>
           <div className={styles.toggleGrid}>
             <div className={styles.toggleField}>
@@ -96,9 +82,9 @@ export function CodexTurnStateSettingsCard({ disabled = false }: { disabled?: bo
                 <span>{t('codex_turn_state.global_settings_hint')}</span>
               </div>
               <ToggleSwitch
-                checked={enabled}
-                onChange={setEnabled}
-                disabled={disabled || saving}
+                checked={values.codexTicketEnabled}
+                onChange={(value) => onChange({ codexTicketEnabled: value })}
+                disabled={blocked}
                 ariaLabel={t('codex_turn_state.enabled')}
               />
             </div>
@@ -108,9 +94,9 @@ export function CodexTurnStateSettingsCard({ disabled = false }: { disabled?: bo
                 <span>{t('codex_turn_state.fail_closed_hint')}</span>
               </div>
               <ToggleSwitch
-                checked={failClosed}
-                onChange={setFailClosed}
-                disabled={disabled || saving}
+                checked={values.codexTicketFailClosed}
+                onChange={(value) => onChange({ codexTicketFailClosed: value })}
+                disabled={blocked}
                 ariaLabel={t('codex_turn_state.fail_closed')}
               />
             </div>
@@ -118,31 +104,23 @@ export function CodexTurnStateSettingsCard({ disabled = false }: { disabled?: bo
           <label className={styles.field}>
             <span>{t('codex_turn_state.models')}</span>
             <textarea
-              value={models}
-              onChange={(event) => setModels(event.target.value)}
-              disabled={disabled || saving}
+              value={values.codexTicketModels}
+              onChange={(event) => onChange({ codexTicketModels: event.target.value })}
+              disabled={blocked}
               rows={3}
             />
+            <span className={styles.muted}>{t('codex_turn_state.models_hint')}</span>
           </label>
-          <label className={styles.field}>
-            <span>{t('codex_turn_state.harvest_proxy')}</span>
-            <Input
-              value={proxy}
-              onChange={(event) => setProxy(event.target.value)}
-              disabled={disabled || saving}
-              placeholder="socks5://user:password@host:1080"
-            />
-          </label>
-          <div className={styles.actions}>
-            <Button
-              variant="primary"
-              onClick={() => void save()}
-              disabled={disabled || saving}
-              loading={saving}
-            >
-              {t('common.save')}
-            </Button>
-          </div>
+          <Input
+            label={t('codex_turn_state.harvest_proxy')}
+            type="password"
+            autoComplete="off"
+            value={values.codexTicketHarvestProxy}
+            onChange={(event) => onChange({ codexTicketHarvestProxy: event.target.value })}
+            disabled={blocked}
+            placeholder={t('codex_turn_state.proxy_placeholder')}
+          />
+          <p className={styles.muted}>{t('codex_turn_state.draft_hint')}</p>
         </div>
       ) : null}
     </ConfigSection>

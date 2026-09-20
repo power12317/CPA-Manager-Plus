@@ -492,7 +492,7 @@ function MainLayoutContent({ routeBase = '', demoMode = false }: MainLayoutProps
     } catch {
       setPluginResources([]);
     }
-  }, [connectionStatus, supportsPlugin, t]);
+  }, [connectionStatus, supportsPlugin]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

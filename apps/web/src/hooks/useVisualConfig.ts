@@ -468,6 +468,10 @@ function getNextDirtyFields(
       'codexHeaderUserAgent',
       'codexHeaderBetaFeatures',
       'codexIdentityConfuse',
+      'codexTicketEnabled',
+      'codexTicketFailClosed',
+      'codexTicketModels',
+      'codexTicketHarvestProxy',
     ] as Array<keyof VisualConfigValues>
   ).forEach(updateScalarDirty);
 
@@ -776,6 +780,7 @@ export function useVisualConfig() {
       const claudeHeaderDefaults = asRecord(parsed['claude-header-defaults']);
       const codexHeaderDefaults = asRecord(parsed['codex-header-defaults']);
       const codex = asRecord(parsed.codex);
+      const codexTicket = asRecord(codex?.['turn-state-ticket']);
       const devin = asRecord(parsed.devin);
 
       const newValues: VisualConfigValues = {
@@ -881,6 +886,16 @@ export function useVisualConfig() {
             ? codexHeaderDefaults['beta-features']
             : '',
         codexIdentityConfuse: Boolean(codex?.['identity-confuse'] ?? codex?.identityConfuse),
+        codexTicketEnabled: codexTicket?.enabled === true,
+        codexTicketFailClosed: codexTicket?.['fail-closed'] === true,
+        codexTicketModels:
+          Array.isArray(codexTicket?.models) && codexTicket.models.length
+            ? parseStringArrayText(codexTicket.models)
+            : DEFAULT_VISUAL_VALUES.codexTicketModels,
+        codexTicketHarvestProxy:
+          typeof codexTicket?.['harvest-proxy-url'] === 'string'
+            ? codexTicket['harvest-proxy-url']
+            : '',
         devinSensitiveWords: parseStringList(devin?.['sensitive-words']),
 
         quotaSwitchProject: Boolean(quotaExceeded?.['switch-project'] ?? false),
@@ -1223,6 +1238,32 @@ export function useVisualConfig() {
         }
 
         const codexIdentityConfusePath = ['codex', 'identity-confuse'];
+        const ticketFields = [
+          ['codexTicketEnabled', 'enabled'],
+          ['codexTicketFailClosed', 'fail-closed'],
+          ['codexTicketHarvestProxy', 'harvest-proxy-url'],
+          ['codexTicketModels', 'models'],
+        ] as const;
+        ticketFields.forEach(([field, key]) => {
+          if (!isDirty(field)) return;
+          ensureMapInDoc(doc, ['codex', 'turn-state-ticket']);
+          const value = values[field];
+          doc.setIn(
+            ['codex', 'turn-state-ticket', key],
+            field === 'codexTicketModels'
+              ? Array.from(
+                  new Set(
+                    values.codexTicketModels
+                      .split(/[\n,]/)
+                      .map((item) => item.trim())
+                      .filter(Boolean)
+                  )
+                )
+              : typeof value === 'string'
+                ? value.trim()
+                : value
+          );
+        });
         const codexIdentityConfuseLegacyPath = ['codex', 'identityConfuse'];
         if (isDirty('codexIdentityConfuse')) {
           ensureMapInDoc(doc, ['codex']);

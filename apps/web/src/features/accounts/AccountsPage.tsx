@@ -9286,8 +9286,8 @@ export function AccountsPage() {
                           </span>
                         ) : null}
                       </div>
+                      <CodexTurnTicketStatus tickets={row.raw.codex_turn_tickets} compact />
                     </div>
-                    <CodexTurnTicketStatus tickets={row.raw.codex_turn_tickets} compact />
                   </div>
 
                   <div className={styles.accountCardPlan}>

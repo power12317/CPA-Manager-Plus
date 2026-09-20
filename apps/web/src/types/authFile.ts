@@ -12,6 +12,7 @@ export interface AuthFileCodexTurnTicket {
   remaining_seconds: number;
   blocked: boolean;
   expires_at?: string;
+  observedAtMs?: number;
 }
 
 export type AuthFileType =

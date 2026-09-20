@@ -1767,8 +1767,21 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
                 onRefreshApiKeys={refreshApiKeys}
                 onApiKeyOperationStart={beginApiKeyOperation}
                 onApiKeyOperationEnd={endApiKeyOperation}
+                codexTicketSettings={
+                  <CodexTurnStateSettingsCard
+                    values={visualValues}
+                    onChange={setVisualValues}
+                    disabled={
+                      disableControls ||
+                      loading ||
+                      saving ||
+                      managerSaving ||
+                      diffModalOpen ||
+                      apiKeyMutationInFlight
+                    }
+                  />
+                }
               />
-              <CodexTurnStateSettingsCard disabled={disableControls} />
             </>
           ) : (
             <div className={styles.sourceWorkspace}>

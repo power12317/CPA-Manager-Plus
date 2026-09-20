@@ -782,6 +782,7 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions = {}): UseAuth
   const authJsonPasteOperationRef = useRef<symbol | null>(null);
   const deleteOperationRef = useRef<symbol | null>(null);
   const loadFilesRequestRef = useRef(0);
+  const loadFilesPendingRef = useRef<number | null>(null);
   const filesRevisionRef = useRef(0);
   const batchStatusPendingRef = useRef<number | null>(null);
   const statusMutationPendingRef = useRef<Map<string, number>>(new Map());
@@ -798,6 +799,7 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions = {}): UseAuth
     connectionFingerprintRef.current = connectionFingerprint;
     authFilesOperationGenerationRef.current += 1;
     loadFilesRequestRef.current += 1;
+    loadFilesPendingRef.current = null;
     batchStatusPendingRef.current = null;
     statusMutationPendingRef.current.clear();
     batchFieldsPendingRef.current = null;
@@ -958,9 +960,13 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions = {}): UseAuth
       throwOnError?: boolean;
       silent?: boolean;
     }): Promise<AuthFileItem[] | undefined> => {
+      // 后台轮询不抢占手动刷新，也不与上一轮后台请求重叠。
+      if (options?.silent && loadFilesPendingRef.current !== null) return;
       const requestConnectionFingerprint = connectionFingerprint;
       const generation = authFilesOperationGenerationRef.current;
       const requestID = ++loadFilesRequestRef.current;
+      loadFilesPendingRef.current = requestID;
+      const filesRevision = filesRevisionRef.current;
       const isCurrentRequest = () =>
         authFilesOperationGenerationRef.current === generation &&
         connectionFingerprintRef.current === requestConnectionFingerprint &&
@@ -976,6 +982,7 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions = {}): UseAuth
           return;
         }
         const nextFiles = Array.isArray(data?.files) ? data.files : [];
+        if (options?.silent && filesRevision !== filesRevisionRef.current) return;
         commitFiles(nextFiles);
         return nextFiles;
       } catch (err: unknown) {
@@ -989,7 +996,10 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions = {}): UseAuth
           throw err instanceof Error ? err : new Error(errorMessage);
         }
       } finally {
-        if (isCurrentRequest() && !options?.silent) setLoading(false);
+        if (isCurrentRequest()) {
+          loadFilesPendingRef.current = null;
+          setLoading(false);
+        }
       }
     },
     [commitFiles, connectionFingerprint, requestScope, t]

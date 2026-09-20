@@ -243,6 +243,90 @@ beforeEach(() => {
   mocks.requestCredentialRefresh.mockResolvedValue(undefined);
 });
 
+describe('门票后台刷新隔离', () => {
+  it('后台刷新不抢占手动刷新，也不遗留 loading', async () => {
+    const pending = createDeferred<{ files: AuthFileItem[] }>();
+    mocks.list.mockReturnValue(pending.promise);
+    const harness = mountUseAuthFilesData('instance-a');
+    let manual!: Promise<unknown>;
+    act(() => {
+      manual = harness.getCurrent().loadFiles();
+    });
+    await act(async () => {
+      await harness.getCurrent().loadFiles({ silent: true });
+    });
+    expect(mocks.list).toHaveBeenCalledTimes(1);
+    expect(harness.getCurrent().loading).toBe(true);
+    await act(async () => {
+      pending.resolve({ files: [{ name: 'a.json' }] });
+      await manual;
+    });
+    expect(harness.getCurrent().loading).toBe(false);
+    harness.unmount();
+  });
+
+  it('后台请求去重，后发手动刷新优先于旧后台响应', async () => {
+    const harness = mountUseAuthFilesData('instance-a');
+    await act(async () => {
+      await harness.getCurrent().loadFiles();
+    });
+    const background = createDeferred<{ files: AuthFileItem[] }>();
+    const manual = createDeferred<{ files: AuthFileItem[] }>();
+    mocks.list.mockReturnValueOnce(background.promise).mockReturnValueOnce(manual.promise);
+    let bg!: Promise<unknown>;
+    let fg!: Promise<unknown>;
+    act(() => {
+      bg = harness.getCurrent().loadFiles({ silent: true });
+    });
+    await act(async () => {
+      await harness.getCurrent().loadFiles({ silent: true });
+    });
+    act(() => {
+      fg = harness.getCurrent().loadFiles();
+    });
+    await act(async () => {
+      manual.resolve({ files: [{ name: 'latest.json' }] });
+      await fg;
+    });
+    await act(async () => {
+      background.resolve({ files: [{ name: 'old.json' }] });
+      await bg;
+    });
+    expect(harness.getCurrent().files[0].name).toBe('latest.json');
+    expect(harness.getCurrent().loading).toBe(false);
+    expect(mocks.list).toHaveBeenCalledTimes(3);
+    harness.unmount();
+  });
+
+  it('旧实例后台响应不覆盖新实例，卸载后不提交结果', async () => {
+    const harness = mountUseAuthFilesData('instance-a');
+    const pending = createDeferred<{ files: AuthFileItem[] }>();
+    mocks.list.mockReturnValueOnce(pending.promise);
+    let bg!: Promise<unknown>;
+    act(() => {
+      bg = harness.getCurrent().loadFiles({ silent: true });
+    });
+    harness.rerender('instance-b');
+    mocks.list.mockResolvedValue({ files: [{ name: 'b.json' }] });
+    await act(async () => {
+      await harness.getCurrent().loadFiles();
+    });
+    await act(async () => {
+      pending.resolve({ files: [{ name: 'a.json' }] });
+      await bg;
+    });
+    expect(harness.getCurrent().files[0].name).toBe('b.json');
+    const final = createDeferred<{ files: AuthFileItem[] }>();
+    mocks.list.mockReturnValueOnce(final.promise);
+    act(() => {
+      bg = harness.getCurrent().loadFiles({ silent: true });
+    });
+    harness.unmount();
+    final.resolve({ files: [{ name: 'unmounted.json' }] });
+    await expect(bg).resolves.toBeUndefined();
+  });
+});
+
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();

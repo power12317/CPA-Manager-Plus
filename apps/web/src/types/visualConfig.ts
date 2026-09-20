@@ -150,6 +150,10 @@ export type VisualConfigValues = {
   codexHeaderUserAgent: string;
   codexHeaderBetaFeatures: string;
   codexIdentityConfuse: boolean;
+  codexTicketEnabled: boolean;
+  codexTicketFailClosed: boolean;
+  codexTicketModels: string;
+  codexTicketHarvestProxy: string;
   devinSensitiveWords: string[];
   payloadDefaultRules: PayloadRule[];
   payloadDefaultRawRules: PayloadRule[];
@@ -226,6 +230,10 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   codexHeaderUserAgent: '',
   codexHeaderBetaFeatures: '',
   codexIdentityConfuse: false,
+  codexTicketEnabled: false,
+  codexTicketFailClosed: false,
+  codexTicketModels: 'gpt-6-astra\ngpt-5.6-sol',
+  codexTicketHarvestProxy: '',
   devinSensitiveWords: [],
   payloadDefaultRules: [],
   payloadDefaultRawRules: [],

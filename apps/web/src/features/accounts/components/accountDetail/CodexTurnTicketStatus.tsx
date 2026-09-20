@@ -1,13 +1,13 @@
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AuthFileCodexTurnTicket } from '@/types/authFile';
+import { ticketRemainingSeconds } from '@/utils/codexTurnTickets';
 import styles from '@/features/accounts/AccountsPage.module.scss';
 
 const formatRemaining = (seconds: number): string => {
   const total = Math.max(0, Math.floor(seconds));
-  if (total < 60) return `${total}s`;
   const minutes = Math.floor(total / 60);
-  const hours = Math.floor(minutes / 60);
-  return hours > 0 ? `${hours}h ${minutes % 60}m` : `${minutes}m`;
+  return `${minutes}m${String(total % 60).padStart(2, '0')}s`;
 };
 
 interface CodexTurnTicketStatusProps {
@@ -17,6 +17,13 @@ interface CodexTurnTicketStatusProps {
 
 export function CodexTurnTicketStatus({ tickets, compact = false }: CodexTurnTicketStatusProps) {
   const { t } = useTranslation();
+  const [now, setNow] = useState(Date.now);
+  const hasReady = tickets?.some((ticket) => ticket.ready) === true;
+  useEffect(() => {
+    if (!hasReady) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [hasReady]);
   if (!tickets || tickets.length === 0) return null;
 
   return (
@@ -29,7 +36,7 @@ export function CodexTurnTicketStatus({ tickets, compact = false }: CodexTurnTic
         <strong className={styles.codexTicketTitle}>{t('accounts.codex_ticket_title')}</strong>
       ) : null}
       {tickets.map((ticket) => {
-        const remaining = Math.max(0, Number(ticket.remaining_seconds) || 0);
+        const remaining = ticketRemainingSeconds(ticket, Math.max(now, ticket.observedAtMs ?? now));
         const ready = ticket.ready && remaining > 0;
         const statusLabel = ready
           ? t('accounts.codex_ticket_remaining', { time: formatRemaining(remaining) })
@@ -40,7 +47,11 @@ export function CodexTurnTicketStatus({ tickets, compact = false }: CodexTurnTic
           <span
             key={ticket.model}
             className={`${styles.codexTicketItem} ${
-              ready ? styles.codexTicketItemReady : styles.codexTicketItemMissing
+              ready
+                ? styles.codexTicketItemReady
+                : ticket.blocked
+                  ? styles.codexTicketItemBlocked
+                  : styles.codexTicketItemMissing
             }`}
             title={`${ticket.model}: ${statusLabel}`}
           >

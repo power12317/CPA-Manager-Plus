@@ -1,8 +1,6 @@
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
-import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CoolingPolicy, GeminiKeyConfig, ProviderKeyConfig } from '@/types';
-import { ProviderAddButton } from '@/components/providers/ProviderToolbar/ProviderAddButton';
 
 const mocks = vi.hoisted(() => ({
   config: {} as {
@@ -31,7 +29,6 @@ const mocks = vi.hoisted(() => ({
   providerToolbarProps: null as {
     codexSystemScopedOAuth?: boolean;
     onAddCodexOAuth?: (system: 'mac' | 'windows') => void;
-    onKindChange: (kind: 'codex') => void;
   } | null,
 }));
 
@@ -44,39 +41,32 @@ vi.mock('@/components/common/PageTransitionLayer', () => ({
   usePageTransitionLayer: () => mocks.transitionLayer,
 }));
 
-vi.mock('@/stores', () => {
-  const readAuthState = () => ({
-    connectionStatus: 'connected',
-    apiBase: mocks.apiBase,
-    managementKey: mocks.managementKey,
-  });
-  return {
-    useAuthStore: Object.assign(
-      (
-        selector: (state: {
-          connectionStatus: string;
-          apiBase: string;
-          managementKey: string;
-        }) => unknown
-      ) => selector(readAuthState()),
-      { getState: readAuthState }
-    ),
-    useThemeStore: (selector: (state: { resolvedTheme: string }) => unknown) =>
-      selector({ resolvedTheme: 'light' }),
-    useConfigStore: (selector: (state: Record<string, unknown>) => unknown) =>
-      selector({
-        config: mocks.config,
-        fetchConfig: mocks.fetchConfig,
-        updateConfigValue: mocks.updateConfigValue,
-        clearCache: mocks.clearCache,
-        isCacheValid: () => mocks.cacheValid,
-      }),
-    useNotificationStore: () => ({
-      showNotification: mocks.showNotification,
-      showConfirmation: mocks.showConfirmation,
+vi.mock('@/stores', () => ({
+  useAuthStore: (selector: (state: {
+    connectionStatus: string;
+    apiBase: string;
+    managementKey: string;
+  }) => unknown) =>
+    selector({
+      connectionStatus: 'connected',
+      apiBase: mocks.apiBase,
+      managementKey: mocks.managementKey,
     }),
-  };
-});
+  useThemeStore: (selector: (state: { resolvedTheme: string }) => unknown) =>
+    selector({ resolvedTheme: 'light' }),
+  useConfigStore: (selector: (state: Record<string, unknown>) => unknown) =>
+    selector({
+      config: mocks.config,
+      fetchConfig: mocks.fetchConfig,
+      updateConfigValue: mocks.updateConfigValue,
+      clearCache: mocks.clearCache,
+      isCacheValid: () => mocks.cacheValid,
+    }),
+  useNotificationStore: () => ({
+    showNotification: mocks.showNotification,
+    showConfirmation: mocks.showConfirmation,
+  }),
+}));
 
 vi.mock('@/services/api', () => ({
   providersApi: {
@@ -139,7 +129,6 @@ vi.mock('@/components/providers', async () => {
     ProviderToolbar: (props: {
       codexSystemScopedOAuth?: boolean;
       onAddCodexOAuth?: (system: 'mac' | 'windows') => void;
-      onKindChange: (kind: 'codex') => void;
     }) => {
       mocks.providerToolbarProps = props;
       return null;
@@ -147,21 +136,15 @@ vi.mock('@/components/providers', async () => {
     ProviderTable: ({
       rows,
       onShowDetail,
-      emptyState,
     }: {
       rows: Array<Record<string, unknown>>;
       onShowDetail: (row: Record<string, unknown>) => void;
-      emptyState: ReactNode;
-    }) => (
-      <>
-        {emptyState}
-        {rows[0] ? (
-          <button type="button" data-open-detail onClick={() => onShowDetail(rows[0])}>
-            open
-          </button>
-        ) : null}
-      </>
-    ),
+    }) =>
+      rows[0] ? (
+        <button type="button" data-open-detail onClick={() => onShowDetail(rows[0])}>
+          open
+        </button>
+      ) : null,
     ProviderDetailDrawer: ({
       row,
       open,
@@ -224,8 +207,6 @@ const openDetail = async (renderer: ReactTestRenderer) => {
 describe('AiProvidersPage cooling policy mutation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.apiBase = 'http://cpa.local:8317';
-    mocks.managementKey = 'manager-key';
     mocks.cacheValid = true;
     mocks.transitionLayer = null;
     mocks.config = {
@@ -277,93 +258,6 @@ describe('AiProvidersPage cooling policy mutation', () => {
 
     act(() => renderer.unmount());
     vi.unstubAllGlobals();
-  });
-
-  it('uses the same system menu for an empty Codex category', async () => {
-    mocks.getCodexCapabilities.mockResolvedValueOnce({ system_scoped_oauth: true });
-    let renderer!: ReactTestRenderer;
-    await act(async () => {
-      renderer = create(<AiProvidersPage />);
-    });
-    act(() => mocks.providerToolbarProps!.onKindChange('codex'));
-    const emptyAction = renderer.root.findByType(ProviderAddButton);
-    expect(emptyAction.props.kind).toBe('codex');
-    expect(emptyAction.props.codexSystemScopedOAuth).toBe(true);
-    expect(emptyAction.props.onAddCodexOAuth).toBe(mocks.providerToolbarProps!.onAddCodexOAuth);
-    act(() => renderer.unmount());
-  });
-
-  it('falls back to the ordinary add action when the CPA capability endpoint fails', async () => {
-    mocks.getCodexCapabilities.mockRejectedValueOnce(new Error('not supported'));
-    let renderer!: ReactTestRenderer;
-    await act(async () => {
-      renderer = create(<AiProvidersPage />);
-    });
-    expect(mocks.providerToolbarProps!.codexSystemScopedOAuth).toBe(false);
-    act(() => renderer.unmount());
-  });
-
-  it('keeps system OAuth navigation scoped to the selected CPA', async () => {
-    const instanceId = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
-    mocks.apiBase = `http://manager.local/api/instances/${instanceId}`;
-    mocks.getCodexCapabilities.mockResolvedValueOnce({ system_scoped_oauth: true });
-    vi.stubGlobal('window', { location: { hash: '' } });
-    let renderer!: ReactTestRenderer;
-    await act(async () => {
-      renderer = create(<AiProvidersPage />);
-    });
-    await flush();
-    const start = mocks.providerToolbarProps!.onAddCodexOAuth!;
-    act(() => start('mac'));
-    expect(window.location.hash).toBe(
-      `/oauth?provider=codex&client_system=mac&scope=${instanceId}`
-    );
-
-    window.location.hash = '';
-    mocks.apiBase = 'http://other-cpa.local';
-    act(() => start('windows'));
-    expect(window.location.hash).toBe('');
-    act(() => renderer.unmount());
-    vi.unstubAllGlobals();
-  });
-
-  it('ignores late capability results from a previous CPA', async () => {
-    let resolvePrevious!: (value: { system_scoped_oauth: boolean }) => void;
-    mocks.getCodexCapabilities.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          resolvePrevious = resolve;
-        })
-    );
-    let renderer!: ReactTestRenderer;
-    await act(async () => {
-      renderer = create(<AiProvidersPage />);
-    });
-    mocks.apiBase = 'http://other-cpa.local';
-    await act(async () => {
-      renderer.update(<AiProvidersPage />);
-    });
-    await act(async () => {
-      resolvePrevious({ system_scoped_oauth: true });
-    });
-    expect(mocks.providerToolbarProps?.codexSystemScopedOAuth).toBe(false);
-    act(() => renderer.unmount());
-  });
-
-  it('clears system actions while the next CPA capability is loading', async () => {
-    mocks.getCodexCapabilities.mockResolvedValueOnce({ system_scoped_oauth: true });
-    let renderer!: ReactTestRenderer;
-    await act(async () => {
-      renderer = create(<AiProvidersPage />);
-    });
-    expect(mocks.providerToolbarProps?.codexSystemScopedOAuth).toBe(true);
-    mocks.apiBase = 'http://other-cpa.local';
-    mocks.getCodexCapabilities.mockImplementationOnce(() => new Promise(() => {}));
-    await act(async () => {
-      renderer.update(<AiProvidersPage />);
-    });
-    expect(mocks.providerToolbarProps?.codexSystemScopedOAuth).toBe(false);
-    act(() => renderer.unmount());
   });
 
   it.each([

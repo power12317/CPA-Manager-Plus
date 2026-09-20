@@ -147,6 +147,17 @@ $toolbar-control-height: 36px;
   gap: 10px;
 }
 
+.codexOAuthActions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.codexOAuthButton {
+  white-space: nowrap;
+}
+
 // 关键字搜索
 .searchBox {
   position: relative;

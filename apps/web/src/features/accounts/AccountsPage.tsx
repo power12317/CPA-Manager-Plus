@@ -297,6 +297,7 @@ import {
   AccountProviderTabs,
   AccountQuotaTab,
   AccountsBatchDeletePreview,
+  CodexTurnTicketStatus,
 } from '@/features/accounts/components';
 import {
   accountQuotaSnapshotApi,
@@ -2384,6 +2385,16 @@ export function AccountsPage() {
       (canLoadHeaderSnapshots || canLoadInspectionSummary)
       ? PASSIVE_ACCOUNTS_EVIDENCE_REFRESH_MS
       : null
+  );
+
+  const hasCodexTurnTicketStatuses = files.some(
+    (file) => Array.isArray(file.codex_turn_tickets) && file.codex_turn_tickets.length > 0
+  );
+  useInterval(
+    () => {
+      void loadFiles({ silent: true });
+    },
+    activeView === 'accounts' && documentVisible && hasCodexTurnTicketStatuses ? 10_000 : null
   );
 
   useEffect(
@@ -8945,6 +8956,8 @@ export function AccountsPage() {
                     </div>
                   </div>
 
+                  <CodexTurnTicketStatus tickets={row.raw.codex_turn_tickets} compact />
+
                   {editingNoteState?.rowKey === row.selectionKey ? (
                     <div
                       className={styles.accountGridCardNoteEditRow}
@@ -9274,6 +9287,7 @@ export function AccountsPage() {
                         ) : null}
                       </div>
                     </div>
+                    <CodexTurnTicketStatus tickets={row.raw.codex_turn_tickets} compact />
                   </div>
 
                   <div className={styles.accountCardPlan}>
@@ -9788,6 +9802,9 @@ export function AccountsPage() {
                 })}
               </p>
             </div>
+          ) : null}
+          {selectedRow.provider === CODEX_CONFIG.type ? (
+            <CodexTurnTicketStatus tickets={selectedRow.raw.codex_turn_tickets} />
           ) : null}
           <div
             className={styles.drawerTabs}

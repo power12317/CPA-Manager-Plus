@@ -24,6 +24,7 @@ import {
   IconSearch,
 } from '@/components/ui/icons';
 import { VisualConfigEditor } from '@/components/config/VisualConfigEditor';
+import { CodexTurnStateSettingsCard } from '@/features/codexTurnState/CodexTurnStateSettingsCard';
 import type { ApiKeyMutation } from '@/components/config/ApiKeysCardEditor';
 import { DiffModal } from '@/components/config/DiffModal';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -799,9 +800,9 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
     const requestAuthKey = managerOnly
       ? managementKey.trim()
       : resolveManagerRequestAuthKey({
-      panelHostedByUsageService,
-      managementKey,
-    });
+          panelHostedByUsageService,
+          managementKey,
+        });
     if (!serviceBase) {
       setManagerError('');
       setManagerConfig(null);
@@ -1748,24 +1749,27 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
               }}
             />
           ) : activeTab === 'visual' ? (
-            <VisualConfigEditor
-              values={visualValues}
-              validationErrors={visualValidationErrors}
-              hasPayloadValidationErrors={visualHasPayloadValidationErrors}
-              disabled={
-                disableControls ||
-                loading ||
-                saving ||
-                managerSaving ||
-                diffModalOpen ||
-                apiKeyMutationInFlight
-              }
-              onChange={setVisualValues}
-              onPersistApiKeyMutation={persistApiKeyMutation}
-              onRefreshApiKeys={refreshApiKeys}
-              onApiKeyOperationStart={beginApiKeyOperation}
-              onApiKeyOperationEnd={endApiKeyOperation}
-            />
+            <>
+              <VisualConfigEditor
+                values={visualValues}
+                validationErrors={visualValidationErrors}
+                hasPayloadValidationErrors={visualHasPayloadValidationErrors}
+                disabled={
+                  disableControls ||
+                  loading ||
+                  saving ||
+                  managerSaving ||
+                  diffModalOpen ||
+                  apiKeyMutationInFlight
+                }
+                onChange={setVisualValues}
+                onPersistApiKeyMutation={persistApiKeyMutation}
+                onRefreshApiKeys={refreshApiKeys}
+                onApiKeyOperationStart={beginApiKeyOperation}
+                onApiKeyOperationEnd={endApiKeyOperation}
+              />
+              <CodexTurnStateSettingsCard disabled={disableControls} />
+            </>
           ) : (
             <div className={styles.sourceWorkspace}>
               <div className={styles.sourceToolbar}>

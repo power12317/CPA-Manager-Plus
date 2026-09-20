@@ -546,6 +546,78 @@
   min-width: 0;
 }
 
+.codexTicketList {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--accounts-primary) 18%, var(--accounts-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accounts-primary) 4%, var(--accounts-surface));
+}
+
+.codexTicketListCompact {
+  flex: 0 1 auto;
+  align-items: stretch;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.codexTicketTitle {
+  flex: 0 0 100%;
+  color: var(--accounts-text);
+  font-size: 12px;
+}
+
+.codexTicketItem {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  padding: 3px 7px;
+  border: 1px solid color-mix(in srgb, var(--accounts-border) 80%, transparent);
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.codexTicketListCompact .codexTicketItem {
+  width: 100%;
+  border-radius: 6px;
+}
+
+.codexTicketItemReady {
+  border-color: color-mix(in srgb, var(--accounts-success) 30%, var(--accounts-border));
+  background: color-mix(in srgb, var(--accounts-success) 8%, var(--accounts-surface));
+  color: var(--accounts-success);
+}
+
+.codexTicketItemMissing {
+  border-color: color-mix(in srgb, var(--accounts-danger) 30%, var(--accounts-border));
+  background: color-mix(in srgb, var(--accounts-danger) 7%, var(--accounts-surface));
+  color: var(--accounts-danger);
+}
+
+.codexTicketModel {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+}
+
+.codexTicketStatus {
+  flex: 0 0 auto;
+  font-weight: 600;
+}
+
 .accountGridCardMetaRow {
   display: flex;
   align-items: center;

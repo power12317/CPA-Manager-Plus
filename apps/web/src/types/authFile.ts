@@ -5,6 +5,15 @@
 
 import type { RecentRequestBucket } from '@/utils/recentRequests';
 
+export interface AuthFileCodexTurnTicket {
+  model: string;
+  length?: number;
+  ready: boolean;
+  remaining_seconds: number;
+  blocked: boolean;
+  expires_at?: string;
+}
+
 export type AuthFileType =
   | 'qwen'
   | 'kimi'
@@ -43,6 +52,7 @@ export interface AuthFileItem {
   geminiVirtualProject?: string;
   recent_requests?: RecentRequestBucket[];
   recentRequests?: RecentRequestBucket[];
+  codex_turn_tickets?: AuthFileCodexTurnTicket[];
   [key: string]: unknown;
 }
 

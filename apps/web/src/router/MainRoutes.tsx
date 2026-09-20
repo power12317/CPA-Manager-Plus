@@ -31,7 +31,6 @@ import { ConfigPage } from '@/pages/ConfigPage';
 import { ManagerConfigPage } from '@/pages/ManagerConfigPage';
 import { LogsPage } from '@/pages/LogsPage';
 import { PluginResourcePage } from '@/pages/PluginResourcePage';
-import { CodexTurnStatePage } from '@/pages/CodexTurnStatePage';
 import { PluginsPage } from '@/pages/PluginsPage';
 import { SystemPage } from '@/pages/SystemPage';
 import { ManagerUpdatePage } from '@/pages/ManagerUpdatePage';
@@ -237,7 +236,7 @@ const mainRoutes: RouteObject[] = [
   },
   { path: '/plugins/*', element: <Navigate to="/plugins" replace /> },
   { path: '/plugin-store/*', element: <Navigate to="/plugins?tab=store" replace /> },
-  { path: '/codex-turn-state', element: <CodexTurnStatePage /> },
+  { path: '/codex-turn-state', element: <Navigate to="/accounts" replace /> },
   { path: '/plugin-pages/*', element: <Navigate to="/" replace /> },
   { path: '/config', element: <ConfigPage /> },
   { path: '/manager-config', element: <ManagerConfigPage /> },

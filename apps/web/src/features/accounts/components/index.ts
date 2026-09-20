@@ -24,4 +24,5 @@ export {
   AccountModelsTab,
   AccountOverviewTab,
   AccountQuotaTab,
+  CodexTurnTicketStatus,
 } from './accountDetail';

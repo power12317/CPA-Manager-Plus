@@ -93,7 +93,10 @@ export type UseAuthFilesDataResult = {
   batchStatusUpdating: boolean;
   batchFieldsUpdating: boolean;
   fileInputRef: RefObject<HTMLInputElement | null>;
-  loadFiles: (options?: { throwOnError?: boolean }) => Promise<AuthFileItem[] | undefined>;
+  loadFiles: (options?: {
+    throwOnError?: boolean;
+    silent?: boolean;
+  }) => Promise<AuthFileItem[] | undefined>;
   handleUploadClick: () => void;
   handleFileChange: (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
   savePastedAuthJson: (
@@ -951,7 +954,10 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions = {}): UseAuth
   }, [files, selectedFiles.size]);
 
   const loadFiles = useCallback(
-    async (options?: { throwOnError?: boolean }): Promise<AuthFileItem[] | undefined> => {
+    async (options?: {
+      throwOnError?: boolean;
+      silent?: boolean;
+    }): Promise<AuthFileItem[] | undefined> => {
       const requestConnectionFingerprint = connectionFingerprint;
       const generation = authFilesOperationGenerationRef.current;
       const requestID = ++loadFilesRequestRef.current;
@@ -959,7 +965,7 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions = {}): UseAuth
         authFilesOperationGenerationRef.current === generation &&
         connectionFingerprintRef.current === requestConnectionFingerprint &&
         loadFilesRequestRef.current === requestID;
-      setLoading(true);
+      if (!options?.silent) setLoading(true);
       setError('');
       try {
         const data = requestScope
@@ -983,7 +989,7 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions = {}): UseAuth
           throw err instanceof Error ? err : new Error(errorMessage);
         }
       } finally {
-        if (isCurrentRequest()) setLoading(false);
+        if (isCurrentRequest() && !options?.silent) setLoading(false);
       }
     },
     [commitFiles, connectionFingerprint, requestScope, t]

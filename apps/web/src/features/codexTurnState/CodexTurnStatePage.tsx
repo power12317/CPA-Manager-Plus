@@ -57,9 +57,22 @@ export function CodexTurnStatePage() {
     }
   }, [connectionStatus, t]);
 
+  const refreshStatus = useCallback(async () => {
+    if (connectionStatus !== 'connected') return;
+    try {
+      const next = await codexTurnStateApi.status();
+      setStatus(next);
+      setError('');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, t('codex_turn_state.load_failed')));
+    }
+  }, [connectionStatus, t]);
+
   useEffect(() => {
     void load();
-  }, [load]);
+    const timer = window.setInterval(() => void refreshStatus(), 10_000);
+    return () => window.clearInterval(timer);
+  }, [load, refreshStatus]);
 
   const save = async () => {
     if (!status) return;

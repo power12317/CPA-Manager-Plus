@@ -485,6 +485,7 @@ function getNextDirtyFields(
       'codexHeaderUserAgent',
       'codexHeaderBetaFeatures',
       'codexIdentityConfuse',
+      'codexDeviceConvergence',
       'codexTicketEnabled',
       'codexTicketFailClosed',
       'codexTicketModels',
@@ -904,6 +905,7 @@ export function useVisualConfig() {
             ? codexHeaderDefaults['beta-features']
             : '',
         codexIdentityConfuse: Boolean(codex?.['identity-confuse'] ?? codex?.identityConfuse),
+        codexDeviceConvergence: codex?.['device-convergence'] !== false,
         codexTicketEnabled: codexTicket?.enabled === true,
         codexTicketFailClosed: codexTicket?.['fail-closed'] === true,
         codexTicketModels:
@@ -1269,6 +1271,12 @@ export function useVisualConfig() {
             );
           }
           deleteIfMapEmpty(doc, ['codex-header-defaults']);
+        }
+
+        if (isDirty('codexDeviceConvergence')) {
+          ensureMapInDoc(doc, ['codex']);
+          // Absence defaults to true in CPA, so disabling must persist an explicit false.
+          doc.setIn(['codex', 'device-convergence'], values.codexDeviceConvergence);
         }
 
         const codexIdentityConfusePath = ['codex', 'identity-confuse'];

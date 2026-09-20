@@ -1328,6 +1328,15 @@ export function VisualConfigEditor({
                         disabled={disabled}
                         onChange={(codexIdentityConfuse) => onChange({ codexIdentityConfuse })}
                       />
+                      <ToggleRow
+                        title={t('config_management.visual.sections.headers.device_convergence')}
+                        description={t(
+                          'config_management.visual.sections.headers.device_convergence_desc'
+                        )}
+                        checked={values.codexDeviceConvergence}
+                        disabled={disabled}
+                        onChange={(codexDeviceConvergence) => onChange({ codexDeviceConvergence })}
+                      />
                     </SectionGrid>
                   </SectionSubsection>
                 </SectionStack>

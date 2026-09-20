@@ -3662,6 +3662,8 @@
           "stabilize_device_desc": "固定 OS/Arch，并按凭据/API Key 稳定软件指纹",
           "beta_features": "Beta Features",
           "identity_confuse": "启用 Codex 身份混淆",
+          "device_convergence": "codex设备固定",
+          "device_convergence_desc": "默认开启：按账号和凭据所属系统固定设备号。分别配置 Windows 和 Mac 凭据时，两者会各自固定一个设备号。关闭后原样透传，未提供设备号时不补充。与身份混淆独立，需 CPA 支持此功能。",
           "identity_confuse_desc": "写入 codex.identity-confuse，让 CPA 混合 Codex 请求身份 Header 以提升兼容性"
         },
         "network": {

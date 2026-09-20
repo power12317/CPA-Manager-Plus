@@ -231,6 +231,71 @@ describe('useVisualConfig', () => {
     expect(harness.getCurrent().visualDirty).toBe(false);
     harness.unmount();
   });
+
+  it.each([
+    ['', true],
+    ['codex: {}\n', true],
+    ['codex:\n  identity-confuse: false\n', true],
+    ['codex:\n  device-convergence: true\n', true],
+    ['codex:\n  device-convergence: false\n', false],
+  ])('loads device convergence from YAML with an enabled default: %s', (yaml, expected) => {
+    const harness = mountUseVisualConfig();
+    act(() => { harness.getCurrent().loadVisualValuesFromYaml(yaml); });
+    expect(harness.getCurrent().visualValues.codexDeviceConvergence).toBe(expected);
+    expect(harness.getCurrent().visualDirty).toBe(false);
+    expect(harness.getCurrent().applyVisualChangesToYaml(yaml)).toBe(yaml || '{}\n');
+    harness.unmount();
+  });
+
+  it('persists explicit false when the Codex section is missing, then reloads and enables', () => {
+    const harness = mountUseVisualConfig();
+    const yaml = 'debug: false\n';
+    act(() => { harness.getCurrent().loadVisualValuesFromYaml(yaml); });
+    act(() => { harness.getCurrent().setVisualValues({ codexDeviceConvergence: false }); });
+    expect(harness.getCurrent().visualDirty).toBe(true);
+    const disabledYaml = harness.getCurrent().applyVisualChangesToYaml(yaml);
+    expect(parseYaml(disabledYaml)).toEqual({ debug: false, codex: { 'device-convergence': false } });
+    act(() => { harness.getCurrent().loadVisualValuesFromYaml(disabledYaml); });
+    expect(harness.getCurrent().visualValues.codexDeviceConvergence).toBe(false);
+    expect(harness.getCurrent().visualDirty).toBe(false);
+    act(() => { harness.getCurrent().setVisualValues({ codexDeviceConvergence: true }); });
+    const enabledYaml = harness.getCurrent().applyVisualChangesToYaml(disabledYaml);
+    expect(parseYaml(enabledYaml).codex['device-convergence']).toBe(true);
+    act(() => { harness.getCurrent().loadVisualValuesFromYaml(enabledYaml); });
+    expect(harness.getCurrent().visualValues.codexDeviceConvergence).toBe(true);
+    harness.unmount();
+  });
+
+  it('leaves device convergence absent when saving unrelated settings on an older CPA', () => {
+    const harness = mountUseVisualConfig();
+    const yaml = '# existing config\ncodex:\n  identity-confuse: true\nclaude-header-defaults:\n  stabilize-device-profile: true\n';
+    act(() => { harness.getCurrent().loadVisualValuesFromYaml(yaml); });
+    act(() => { harness.getCurrent().setVisualValues({ debug: true }); });
+    const saved = harness.getCurrent().applyVisualChangesToYaml(yaml);
+    expect(saved).not.toContain('device-convergence');
+    expect(parseYaml(saved)).toEqual({ debug: true, codex: { 'identity-confuse': true }, 'claude-header-defaults': { 'stabilize-device-profile': true } });
+    expect(saved).toContain('# existing config');
+    harness.unmount();
+  });
+
+  it('changes only device convergence while preserving independent settings and latest YAML', () => {
+    const harness = mountUseVisualConfig();
+    const yaml = 'codex:\n  identity-confuse: true\n  future-setting: kept\nclaude-header-defaults:\n  stabilize-device-profile: true\n';
+    act(() => { harness.getCurrent().loadVisualValuesFromYaml(yaml); });
+    act(() => { harness.getCurrent().setVisualValues({ codexDeviceConvergence: false }); });
+    const latest = yaml + 'proxy-url: http://updated-proxy.local\n';
+    expect(parseYaml(harness.getCurrent().applyVisualChangesToYaml(latest))).toEqual({
+      codex: { 'identity-confuse': true, 'future-setting': 'kept', 'device-convergence': false },
+      'claude-header-defaults': { 'stabilize-device-profile': true },
+      'proxy-url': 'http://updated-proxy.local',
+    });
+    // Loading another instance establishes a new baseline, including its default value.
+    act(() => { harness.getCurrent().loadVisualValuesFromYaml('codex:\n  identity-confuse: false\n'); });
+    expect(harness.getCurrent().visualValues.codexDeviceConvergence).toBe(true);
+    expect(harness.getCurrent().visualDirty).toBe(false);
+    harness.unmount();
+  });
+
   it('clears the page dirty state when API keys are the only changed field', () => {
     const harness = mountUseVisualConfig();
     const initialYaml = ['proxy-url: http://proxy.local:8080', 'api-keys:', '  - old-key', ''].join(

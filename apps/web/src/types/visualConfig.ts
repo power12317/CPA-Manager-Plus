@@ -181,6 +181,7 @@ export type VisualConfigValues = {
   codexHeaderUserAgent: string;
   codexHeaderBetaFeatures: string;
   codexIdentityConfuse: boolean;
+  codexDeviceConvergence: boolean;
   codexTicketEnabled: boolean;
   codexTicketFailClosed: boolean;
   codexTicketModels: string;
@@ -265,6 +266,7 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   codexHeaderUserAgent: '',
   codexHeaderBetaFeatures: '',
   codexIdentityConfuse: false,
+  codexDeviceConvergence: true,
   codexTicketEnabled: false,
   codexTicketFailClosed: false,
   codexTicketModels: 'gpt-6-astra\ngpt-5.6-sol',

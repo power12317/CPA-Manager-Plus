@@ -3644,6 +3644,8 @@
           "stabilize_device_desc": "固定 OS/Arch，並按憑證/API Key 穩定軟體指紋",
           "beta_features": "Beta Features",
           "identity_confuse": "啟用 Codex 身份混淆",
+          "device_convergence": "codex設備固定",
+          "device_convergence_desc": "預設開啟：依帳號及憑證所屬系統固定裝置識別碼。分別設定 Windows 和 Mac 憑證時，兩者會各自固定一個裝置識別碼。關閉後原樣傳遞，未提供裝置識別碼時不補充。與身份混淆獨立，需 CPA 支援此功能。",
           "identity_confuse_desc": "寫入 codex.identity-confuse，讓 CPA 混合 Codex 請求身份 Header 以提升相容性"
         },
         "network": {

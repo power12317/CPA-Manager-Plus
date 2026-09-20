@@ -3664,6 +3664,8 @@
           "stabilize_device_desc": "Pin OS/Arch and stabilize the software fingerprint per credential/API key",
           "beta_features": "Beta Features",
           "identity_confuse": "Enable Codex Identity Confuse",
+          "device_convergence": "Codex device pinning",
+          "device_convergence_desc": "Enabled by default: keep a stable device ID per account and credential system. When Windows and Mac credentials are configured separately, each system gets its own fixed device ID. When disabled, pass the device ID through unchanged and leave it absent when missing. Independent of identity confusion; requires CPA support.",
           "identity_confuse_desc": "Write codex.identity-confuse to let CPA mix Codex request identity headers for compatibility"
         },
         "network": {

@@ -8956,7 +8956,12 @@ export function AccountsPage() {
                     </div>
                   </div>
 
-                  <CodexTurnTicketStatus tickets={row.raw.codex_turn_tickets} compact />
+                  <CodexTurnTicketStatus
+                    tickets={row.raw.codex_turn_tickets}
+                    planType={row.planType}
+                    canonicalPlanType={row.canonicalPlanType}
+                    compact
+                  />
 
                   {editingNoteState?.rowKey === row.selectionKey ? (
                     <div
@@ -9286,7 +9291,12 @@ export function AccountsPage() {
                           </span>
                         ) : null}
                       </div>
-                      <CodexTurnTicketStatus tickets={row.raw.codex_turn_tickets} compact />
+                      <CodexTurnTicketStatus
+                        tickets={row.raw.codex_turn_tickets}
+                        planType={row.planType}
+                        canonicalPlanType={row.canonicalPlanType}
+                        compact
+                      />
                     </div>
                   </div>
 
@@ -9804,7 +9814,11 @@ export function AccountsPage() {
             </div>
           ) : null}
           {selectedRow.provider === CODEX_CONFIG.type ? (
-            <CodexTurnTicketStatus tickets={selectedRow.raw.codex_turn_tickets} />
+            <CodexTurnTicketStatus
+              tickets={selectedRow.raw.codex_turn_tickets}
+              planType={selectedRow.planType}
+              canonicalPlanType={selectedRow.canonicalPlanType}
+            />
           ) : null}
           <div
             className={styles.drawerTabs}

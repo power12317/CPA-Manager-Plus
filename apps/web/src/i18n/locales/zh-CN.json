@@ -875,6 +875,7 @@
     "codex_ticket_remaining": "就绪 · 剩余 {{time}}",
     "codex_ticket_blocked": "已阻断",
     "codex_ticket_missing": "缺失",
+    "codex_ticket_length": "目标 {{expected}} · 实际 {{actual}}",
     "tabs_label": "凭证管理视图",
     "tab_accounts": "凭证列表",
     "tab_health": "健康巡检",

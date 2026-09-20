@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AuthFileCodexTurnTicket } from '@/types/authFile';
-import { ticketRemainingSeconds } from '@/utils/codexTurnTickets';
+import {
+  resolveCodexTurnTicketTargetLength,
+  ticketRemainingSeconds,
+} from '@/utils/codexTurnTickets';
 import styles from '@/features/accounts/AccountsPage.module.scss';
 
 const formatRemaining = (seconds: number): string => {
@@ -12,10 +15,17 @@ const formatRemaining = (seconds: number): string => {
 
 interface CodexTurnTicketStatusProps {
   tickets?: AuthFileCodexTurnTicket[];
+  planType?: string | null;
+  canonicalPlanType?: string | null;
   compact?: boolean;
 }
 
-export function CodexTurnTicketStatus({ tickets, compact = false }: CodexTurnTicketStatusProps) {
+export function CodexTurnTicketStatus({
+  tickets,
+  planType,
+  canonicalPlanType,
+  compact = false,
+}: CodexTurnTicketStatusProps) {
   const { t } = useTranslation();
   const [now, setNow] = useState(Date.now);
   const hasReady = tickets?.some((ticket) => ticket.ready) === true;
@@ -25,6 +35,7 @@ export function CodexTurnTicketStatus({ tickets, compact = false }: CodexTurnTic
     return () => clearInterval(timer);
   }, [hasReady]);
   if (!tickets || tickets.length === 0) return null;
+  const targetLength = resolveCodexTurnTicketTargetLength(planType, canonicalPlanType);
 
   return (
     <div
@@ -43,6 +54,14 @@ export function CodexTurnTicketStatus({ tickets, compact = false }: CodexTurnTic
           : ticket.blocked
             ? t('accounts.codex_ticket_blocked')
             : t('accounts.codex_ticket_missing');
+        const actualLength =
+          typeof ticket.length === 'number' && Number.isFinite(ticket.length)
+            ? String(ticket.length)
+            : '—';
+        const lengthLabel = t('accounts.codex_ticket_length', {
+          expected: targetLength ?? '—',
+          actual: actualLength,
+        });
         return (
           <span
             key={ticket.model}
@@ -53,10 +72,13 @@ export function CodexTurnTicketStatus({ tickets, compact = false }: CodexTurnTic
                   ? styles.codexTicketItemBlocked
                   : styles.codexTicketItemMissing
             }`}
-            title={`${ticket.model}: ${statusLabel}`}
+            title={`${ticket.model}: ${statusLabel} · ${lengthLabel}`}
           >
             <span className={styles.codexTicketModel}>{ticket.model}</span>
             <span className={styles.codexTicketStatus}>{statusLabel}</span>
+            <span className={styles.codexTicketLength} data-ticket-length="true">
+              {lengthLabel}
+            </span>
           </span>
         );
       })}

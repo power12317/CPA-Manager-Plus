@@ -877,6 +877,7 @@
     "codex_ticket_remaining": "Ready · {{time}} left",
     "codex_ticket_blocked": "Blocked",
     "codex_ticket_missing": "Missing",
+    "codex_ticket_length": "Target {{expected}} · actual {{actual}}",
     "tabs_label": "Credential management views",
     "tab_accounts": "Credential List",
     "tab_health": "Health Inspection",

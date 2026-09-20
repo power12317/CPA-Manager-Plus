@@ -52,6 +52,7 @@ describe('useVisualConfig', () => {
     for (const { field, defaultSeconds } of CODEX_TICKET_TIMING_FIELDS) {
       expect(harness.getCurrent().visualValues[field]).toBe(String(defaultSeconds));
     }
+    expect(harness.getCurrent().visualValues.codexTicketProbeIntervalSeconds).toBe('60');
     expect(harness.getCurrent().visualDirty).toBe(false);
     expect(harness.getCurrent().applyVisualChangesToYaml(yaml)).toBe(yaml);
     harness.unmount();
@@ -107,8 +108,13 @@ describe('useVisualConfig', () => {
     });
     const cleared = harness.getCurrent().applyVisualChangesToYaml(saved);
     const ticket = parseYaml(cleared).codex['turn-state-ticket'];
-    for (const { yamlKey } of CODEX_TICKET_TIMING_FIELDS)
-      expect(ticket).not.toHaveProperty(yamlKey);
+    for (const { yamlKey } of CODEX_TICKET_TIMING_FIELDS) {
+      if (yamlKey === 'probe-interval-seconds') {
+        expect(ticket[yamlKey]).toBe(60);
+      } else {
+        expect(ticket).not.toHaveProperty(yamlKey);
+      }
+    }
     act(() => {
       harness.getCurrent().loadVisualValuesFromYaml(cleared);
     });
@@ -148,10 +154,64 @@ describe('useVisualConfig', () => {
       const latest = yaml + '    enabled: true\n';
       expect(
         parseYaml(harness.getCurrent().applyVisualChangesToYaml(latest)).codex['turn-state-ticket']
-      ).toEqual({ models: ['gpt-6-astra'], enabled: true, [yamlKey]: 42 });
+      ).toEqual({
+        models: ['gpt-6-astra'],
+        enabled: true,
+        'probe-interval-seconds': 60,
+        [yamlKey]: 42,
+      });
       harness.unmount();
     }
   );
+
+  it.each(['', '    probe-interval-seconds: 0\n', '    probe-interval-seconds: -1\n'])(
+    '只在修改门票设置时持久化缺省探测间隔为 60 秒（%j）',
+    (intervalYaml) => {
+      const harness = mountUseVisualConfig();
+      const yaml = 'codex:\n  turn-state-ticket:\n    enabled: false\n' + intervalYaml;
+      act(() => {
+        harness.getCurrent().loadVisualValuesFromYaml(yaml);
+      });
+      expect(harness.getCurrent().visualValues.codexTicketProbeIntervalSeconds).toBe('60');
+      expect(harness.getCurrent().applyVisualChangesToYaml(yaml)).toBe(yaml);
+      act(() => {
+        harness.getCurrent().setVisualValues({ requestLog: true });
+      });
+      expect(parseYaml(harness.getCurrent().applyVisualChangesToYaml(yaml)).codex).toEqual(
+        parseYaml(yaml).codex
+      );
+      act(() => {
+        harness.getCurrent().setVisualValues({ codexTicketEnabled: true });
+      });
+      const saved = harness.getCurrent().applyVisualChangesToYaml(yaml);
+      expect(parseYaml(saved).codex['turn-state-ticket']).toEqual({
+        enabled: true,
+        'probe-interval-seconds': 60,
+      });
+      act(() => {
+        harness.getCurrent().loadVisualValuesFromYaml(saved);
+      });
+      expect(harness.getCurrent().visualDirty).toBe(false);
+      expect(harness.getCurrent().visualValues.codexTicketProbeIntervalSeconds).toBe('60');
+      harness.unmount();
+    }
+  );
+
+  it.each([6, 90])('修改门票设置时保留最新 YAML 中已配置的 %i 秒间隔', (interval) => {
+    const harness = mountUseVisualConfig();
+    const yaml = 'codex:\n  turn-state-ticket:\n    enabled: false\n';
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(yaml);
+    });
+    act(() => {
+      harness.getCurrent().setVisualValues({ codexTicketEnabled: true });
+    });
+    const latest = yaml + `    probe-interval-seconds: ${interval}\n`;
+    expect(parseYaml(harness.getCurrent().applyVisualChangesToYaml(latest))).toEqual({
+      codex: { 'turn-state-ticket': { enabled: true, 'probe-interval-seconds': interval } },
+    });
+    harness.unmount();
+  });
 
   it('后端非正数时间按默认值显示，不在未编辑时改写源码', () => {
     const harness = mountUseVisualConfig();

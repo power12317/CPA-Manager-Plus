@@ -4471,7 +4471,7 @@
     "refresh_before_seconds": "提前更新時間（秒）",
     "refresh_before_seconds_hint": "預設在到期前 600 秒（10 分鐘）更新。留空並儲存使用預設值。",
     "probe_interval_seconds": "探測間隔（秒）",
-    "probe_interval_seconds_hint": "背景探測間隔，預設 6 秒。留空並儲存使用預設值。",
+    "probe_interval_seconds_hint": "背景探測間隔，面板預設 60 秒（1 分鐘）。未設定時，儲存門票設定會寫入 60 秒；清空後儲存也恢復為 60 秒。",
     "attempt_timeout_seconds": "單次探測逾時（秒）",
     "attempt_timeout_seconds_hint": "單次主動取得的逾時時間，預設 25 秒。留空並儲存使用預設值。",
     "target_length_hint": "目標長度按帳號屬性決定：Personal（free/plus/pro）為 292，Team/Business（team/business）為 332；不使用全域 target-length。",

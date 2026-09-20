@@ -5,6 +5,12 @@ import { apiClient } from './client';
 afterEach(() => vi.restoreAllMocks());
 
 describe('codex turn-state ticket API normalization', () => {
+  it('uses a 60-second fallback while preserving explicitly reported intervals', () => {
+    expect(normalizeCodexTurnStateStatus({}).probeIntervalSeconds).toBe(60);
+    expect(normalizeCodexTurnStateStatus({ probe_interval_seconds: 6 }).probeIntervalSeconds).toBe(6);
+    expect(normalizeCodexTurnStateStatus({ probeIntervalSeconds: 90 }).probeIntervalSeconds).toBe(90);
+  });
+
   it('保存仅返回 status:ok，不作为完整配置归一化', async () => {
     const put = vi.spyOn(apiClient, 'put').mockResolvedValue({ status: 'ok' });
     const payload = {
@@ -15,7 +21,7 @@ describe('codex turn-state ticket API normalization', () => {
       target_length: 292,
       ttl_seconds: 2700,
       refresh_before_seconds: 600,
-      probe_interval_seconds: 6,
+      probe_interval_seconds: 60,
       attempt_timeout_seconds: 25,
     };
     expect(await codexTurnStateApi.update(payload)).toBeUndefined();

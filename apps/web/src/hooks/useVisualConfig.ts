@@ -313,7 +313,7 @@ function getPositiveIntegerError(value: string): 'positive_integer' | undefined 
     : 'positive_integer';
 }
 
-// CPA 将未配置或非正数解释为默认时间；只在用户修改字段时写回。
+// 未配置或非正数显示面板默认时间；保存门票设置时显式写入默认探测间隔。
 function readTicketTimingValue(value: unknown, fallback: string): string {
   if (value == null || (typeof value === 'number' && value <= 0)) return fallback;
   return String(value);
@@ -1305,6 +1305,18 @@ export function useVisualConfig() {
           deleteIfMapEmpty(doc, ['codex', 'turn-state-ticket']);
           deleteIfMapEmpty(doc, ['codex']);
         });
+        const ticketDirty =
+          ticketFields.some(([field]) => isDirty(field)) ||
+          CODEX_TICKET_TIMING_FIELDS.some(({ field }) => isDirty(field));
+        if (ticketDirty) {
+          const probeIntervalPath = ['codex', 'turn-state-ticket', 'probe-interval-seconds'];
+          const probeInterval = doc.getIn(probeIntervalPath);
+          // 旧 CPA 缺省时仍使用 6 秒，显式持久化面板的 60 秒默认值。
+          if (probeInterval == null || (typeof probeInterval === 'number' && probeInterval <= 0)) {
+            ensureMapInDoc(doc, ['codex', 'turn-state-ticket']);
+            doc.setIn(probeIntervalPath, Number(DEFAULT_VISUAL_VALUES.codexTicketProbeIntervalSeconds));
+          }
+        }
         const codexIdentityConfuseLegacyPath = ['codex', 'identityConfuse'];
         if (isDirty('codexIdentityConfuse')) {
           ensureMapInDoc(doc, ['codex']);

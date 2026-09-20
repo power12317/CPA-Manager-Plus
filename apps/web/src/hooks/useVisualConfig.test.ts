@@ -3,6 +3,7 @@ import { create, type ReactTestRenderer } from 'react-test-renderer';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 import { useVisualConfig } from './useVisualConfig';
+import { CODEX_TICKET_TIMING_FIELDS } from '@/types/visualConfig';
 
 type UseVisualConfigResult = ReturnType<typeof useVisualConfig>;
 
@@ -42,6 +43,128 @@ const mountUseVisualConfig = (): UseVisualConfigHarness => {
 };
 
 describe('useVisualConfig', () => {
+  it('加载门票时间默认值时不写入配置，不改变账号目标长度', () => {
+    const harness = mountUseVisualConfig();
+    const yaml = 'codex:\n  turn-state-ticket:\n    enabled: false\n    target-length: 999\n';
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(yaml);
+    });
+    for (const { field, defaultSeconds } of CODEX_TICKET_TIMING_FIELDS) {
+      expect(harness.getCurrent().visualValues[field]).toBe(String(defaultSeconds));
+    }
+    expect(harness.getCurrent().visualDirty).toBe(false);
+    expect(harness.getCurrent().applyVisualChangesToYaml(yaml)).toBe(yaml);
+    harness.unmount();
+  });
+
+  it('加载自定义时间、统一保存为数值，清空恢复默认并保留其他 YAML', () => {
+    const harness = mountUseVisualConfig();
+    const yaml =
+      'codex:\n  turn-state-ticket:\n    ttl-seconds: 1800\n    refresh-before-seconds: 300\n    probe-interval-seconds: 9\n    attempt-timeout-seconds: 30\n    fail-closed: false\n    harvest-proxy-url: socks5://proxy.example:1080\n# 原注释\nfuture: keep\n';
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(yaml);
+    });
+    expect(harness.getCurrent().visualValues).toMatchObject({
+      codexTicketTTLSeconds: '1800',
+      codexTicketRefreshBeforeSeconds: '300',
+      codexTicketProbeIntervalSeconds: '9',
+      codexTicketAttemptTimeoutSeconds: '30',
+    });
+    act(() => {
+      harness.getCurrent().setVisualValues({
+        codexTicketTTLSeconds: '7200',
+        codexTicketRefreshBeforeSeconds: '900',
+        codexTicketProbeIntervalSeconds: '12',
+        codexTicketAttemptTimeoutSeconds: '45',
+      });
+    });
+    const saved = harness.getCurrent().applyVisualChangesToYaml(yaml);
+    expect(parseYaml(saved)).toMatchObject({
+      codex: {
+        'turn-state-ticket': {
+          'ttl-seconds': 7200,
+          'refresh-before-seconds': 900,
+          'probe-interval-seconds': 12,
+          'attempt-timeout-seconds': 45,
+          'fail-closed': false,
+          'harvest-proxy-url': 'socks5://proxy.example:1080',
+        },
+      },
+      future: 'keep',
+    });
+    expect(saved).toContain('# 原注释');
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(saved);
+    });
+    expect(harness.getCurrent().visualDirty).toBe(false);
+    act(() => {
+      harness.getCurrent().setVisualValues({
+        codexTicketTTLSeconds: '',
+        codexTicketRefreshBeforeSeconds: '',
+        codexTicketProbeIntervalSeconds: '',
+        codexTicketAttemptTimeoutSeconds: '',
+      });
+    });
+    const cleared = harness.getCurrent().applyVisualChangesToYaml(saved);
+    const ticket = parseYaml(cleared).codex['turn-state-ticket'];
+    for (const { yamlKey } of CODEX_TICKET_TIMING_FIELDS)
+      expect(ticket).not.toHaveProperty(yamlKey);
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(cleared);
+    });
+    for (const { field, defaultSeconds } of CODEX_TICKET_TIMING_FIELDS) {
+      expect(harness.getCurrent().visualValues[field]).toBe(String(defaultSeconds));
+    }
+    harness.unmount();
+  });
+
+  it.each(CODEX_TICKET_TIMING_FIELDS)(
+    '校验 $yamlKey、恢复原值清除脏状态且只合并已改字段',
+    ({ field, yamlKey, defaultSeconds }) => {
+      const harness = mountUseVisualConfig();
+      const yaml = 'codex:\n  turn-state-ticket:\n    models: [gpt-6-astra]\n';
+      act(() => {
+        harness.getCurrent().loadVisualValuesFromYaml(yaml);
+      });
+      for (const invalid of ['-1', '0', '1.5', 'abc', '1e3', '9007199254740992']) {
+        act(() => {
+          harness.getCurrent().setVisualValues({ [field]: invalid });
+        });
+        expect(harness.getCurrent().visualValidationErrors[field]).toBe('positive_integer');
+      }
+      for (const valid of ['1', ' 42 ', '']) {
+        act(() => {
+          harness.getCurrent().setVisualValues({ [field]: valid });
+        });
+        expect(harness.getCurrent().visualValidationErrors[field]).toBeUndefined();
+      }
+      act(() => {
+        harness.getCurrent().setVisualValues({ [field]: String(defaultSeconds) });
+      });
+      expect(harness.getCurrent().visualDirty).toBe(false);
+      act(() => {
+        harness.getCurrent().setVisualValues({ [field]: '42' });
+      });
+      const latest = yaml + '    enabled: true\n';
+      expect(
+        parseYaml(harness.getCurrent().applyVisualChangesToYaml(latest)).codex['turn-state-ticket']
+      ).toEqual({ models: ['gpt-6-astra'], enabled: true, [yamlKey]: 42 });
+      harness.unmount();
+    }
+  );
+
+  it('后端非正数时间按默认值显示，不在未编辑时改写源码', () => {
+    const harness = mountUseVisualConfig();
+    const yaml =
+      'codex:\n  turn-state-ticket:\n    ttl-seconds: 0\n    refresh-before-seconds: -1\n';
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(yaml);
+    });
+    expect(harness.getCurrent().visualValues.codexTicketTTLSeconds).toBe('3600');
+    expect(harness.getCurrent().visualValues.codexTicketRefreshBeforeSeconds).toBe('600');
+    expect(harness.getCurrent().applyVisualChangesToYaml(yaml)).toBe(yaml);
+    harness.unmount();
+  });
   it('将门票字段纳入统一草稿，只更新修改的字段并保留高级配置和源码修改', () => {
     const harness = mountUseVisualConfig();
     const yaml =

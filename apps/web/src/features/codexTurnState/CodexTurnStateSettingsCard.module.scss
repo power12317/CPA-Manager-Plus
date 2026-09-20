@@ -9,6 +9,12 @@
   gap: 10px;
 }
 
+.timingGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 10px 16px;
+}
+
 .toggleField {
   display: flex;
   align-items: center;

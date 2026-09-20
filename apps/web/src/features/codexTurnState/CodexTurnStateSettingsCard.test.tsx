@@ -1,7 +1,7 @@
 import { act, createElement } from 'react';
 import { create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_VISUAL_VALUES } from '@/types/visualConfig';
+import { CODEX_TICKET_TIMING_FIELDS, DEFAULT_VISUAL_VALUES } from '@/types/visualConfig';
 import { CodexTurnStateSettingsCard } from './CodexTurnStateSettingsCard';
 
 const mocks = vi.hoisted(() => ({
@@ -34,6 +34,40 @@ const mount = async (onChange = vi.fn()) => {
 };
 
 describe('原生门票配置草稿', () => {
+  it('显示四个时间输入并将修改送到共享草稿，同时说明默认代理和账号长度', async () => {
+    mocks.status.mockResolvedValue({ enabled: false });
+    const onChange = await mount();
+    const inputs = view!.root.findAllByType('input').filter((node) => node.props.type === 'number');
+    expect(inputs).toHaveLength(4);
+    CODEX_TICKET_TIMING_FIELDS.forEach(({ field, defaultSeconds }, index) => {
+      expect(inputs[index].props.value).toBe(String(defaultSeconds));
+      act(() => inputs[index].props.onChange({ target: { value: '42' } }));
+      expect(onChange).toHaveBeenLastCalledWith({ [field]: '42' });
+    });
+    const text = JSON.stringify(view!.toJSON());
+    expect(text).toContain('codex_turn_state.target_length_hint');
+    expect(text).toContain('codex_turn_state.harvest_proxy_hint');
+  });
+
+  it('数字校验错误可见且页面忙时所有时间输入禁用', async () => {
+    mocks.status.mockResolvedValue({ enabled: false });
+    await act(async () => {
+      view = create(
+        createElement(CodexTurnStateSettingsCard, {
+          values: { ...DEFAULT_VISUAL_VALUES, codexTicketTTLSeconds: '-1' },
+          validationErrors: { codexTicketTTLSeconds: 'positive_integer' },
+          disabled: true,
+          onChange: vi.fn(),
+        })
+      );
+    });
+    const inputs = view!.root.findAllByType('input').filter((node) => node.props.type === 'number');
+    expect(inputs.every((node) => node.props.disabled)).toBe(true);
+    expect(inputs[0].props['aria-invalid']).toBe(true);
+    expect(JSON.stringify(view!.toJSON())).toContain(
+      'config_management.visual.validation.positive_integer'
+    );
+  });
   it('旧服务返回 404 时显示兼容提示且不暴露编辑控件', async () => {
     mocks.status.mockRejectedValue({ status: 404 });
     await mount();

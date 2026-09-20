@@ -3827,6 +3827,7 @@
         "boolean_false": "false"
       },
       "validation": {
+        "positive_integer": "請輸入正整數秒數，或留空使用預設值",
         "validation_blocked": "請先修復表單驗證錯誤再儲存",
         "port_range": "請輸入 1 到 65535 之間的有效連接埠",
         "non_negative_integer": "請輸入非負整數",
@@ -4465,6 +4466,16 @@
     "empty_src_desc": "該插件選單沒有提供可開啟的頁面地址。"
   },
   "codex_turn_state": {
+    "ttl_seconds": "門票有效期 TTL（秒）",
+    "ttl_seconds_hint": "預設 3600 秒（1 小時）。留空並儲存使用預設值。",
+    "refresh_before_seconds": "提前更新時間（秒）",
+    "refresh_before_seconds_hint": "預設在到期前 600 秒（10 分鐘）更新。留空並儲存使用預設值。",
+    "probe_interval_seconds": "探測間隔（秒）",
+    "probe_interval_seconds_hint": "背景探測間隔，預設 6 秒。留空並儲存使用預設值。",
+    "attempt_timeout_seconds": "單次探測逾時（秒）",
+    "attempt_timeout_seconds_hint": "單次主動取得的逾時時間，預設 25 秒。留空並儲存使用預設值。",
+    "target_length_hint": "目標長度按帳號屬性決定：Personal（free/plus/pro）為 292，Team/Business（team/business）為 332；不使用全域 target-length。",
+    "harvest_proxy_hint": "預設無代理。留空時主動取得無法執行；填寫採集代理後使用頁面統一儲存。",
     "title": "Codex 門票",
     "unsupported_backend": "目前 CPA 不支援原生 Codex 門票設定，請升級支援此介面的版本。",
     "load_failed": "讀取原生 Codex 門票設定失敗。",
@@ -4473,7 +4484,7 @@
     "harvest_proxy": "門票採集代理",
     "models": "門票模型",
     "settings": "Codex 門票設定",
-    "settings_description": "門票按帳號和模型生效，與 turn_id 無關。有效的 292 門票始終強制替換；收到 312 後失效並重新探測。",
+    "settings_description": "門票按帳號和模型生效，與 turn_id 無關。有效門票始終強制替換；收到 312 後失效並重新探測。",
     "global_settings_hint": "CPA 背景自動採集和續期，憑證列表及詳情顯示狀態。",
     "fail_closed_hint": "開啟時缺票阻止請求；關閉時缺票繼續傳送，有效票仍強制替換。",
     "models_hint": "每行或逗號分隔一個模型；留空使用 CPA 預設模型 gpt-6-astra、gpt-5.6-sol。",

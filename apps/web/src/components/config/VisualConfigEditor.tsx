@@ -46,6 +46,7 @@ import {
   StringListEditor,
 } from './VisualConfigEditorBlocks';
 import type { ApiKeyMutation } from './ApiKeysCardEditor';
+import { CODEX_TICKET_TIMING_FIELDS } from '@/types/visualConfig';
 import styles from './VisualConfigEditor.module.scss';
 
 type VisualSectionId =
@@ -343,7 +344,7 @@ export function VisualConfigEditor({
               title: t('codex_turn_state.settings'),
               description: t('codex_turn_state.title'),
               icon: IconTimer,
-              errorCount: 0,
+              errorCount: countErrors(CODEX_TICKET_TIMING_FIELDS.map(({ field }) => field)),
             },
           ]
         : []),

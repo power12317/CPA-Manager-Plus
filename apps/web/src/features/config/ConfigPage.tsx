@@ -1770,6 +1770,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
                 codexTicketSettings={
                   <CodexTurnStateSettingsCard
                     values={visualValues}
+                    validationErrors={visualValidationErrors}
                     onChange={setVisualValues}
                     disabled={
                       disableControls ||

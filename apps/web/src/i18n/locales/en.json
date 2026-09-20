@@ -3847,6 +3847,7 @@
         "boolean_false": "false"
       },
       "validation": {
+        "positive_integer": "Enter a positive whole number of seconds, or leave blank for the default",
         "validation_blocked": "Fix validation errors before saving",
         "port_range": "Enter a valid port between 1 and 65535",
         "non_negative_integer": "Enter a non-negative whole number",
@@ -4487,6 +4488,16 @@
     "empty_src_desc": "This plugin menu does not provide a page URL that can be opened."
   },
   "codex_turn_state": {
+    "ttl_seconds": "Ticket TTL (seconds)",
+    "ttl_seconds_hint": "Default: 3600 seconds (1 hour). Clear and save to use the default.",
+    "refresh_before_seconds": "Refresh before expiry (seconds)",
+    "refresh_before_seconds_hint": "Default: 600 seconds (10 minutes) before expiry. Clear and save to use the default.",
+    "probe_interval_seconds": "Probe interval (seconds)",
+    "probe_interval_seconds_hint": "Background probe interval, 6 seconds by default. Clear and save to use the default.",
+    "attempt_timeout_seconds": "Attempt timeout (seconds)",
+    "attempt_timeout_seconds_hint": "Timeout for one harvest attempt, 25 seconds by default. Clear and save to use the default.",
+    "target_length_hint": "Target length follows the account: Personal (free/plus/pro) uses 292; Team/Business (team/business) uses 332. A global target-length is not used.",
+    "harvest_proxy_hint": "No proxy is configured by default. Active harvesting cannot run with an empty proxy. Apply your proxy with the page’s shared Save action.",
     "title": "Codex tickets",
     "unsupported_backend": "This CPA does not support native Codex ticket settings. Upgrade to a version providing this API.",
     "load_failed": "Failed to load native Codex ticket settings.",
@@ -4495,7 +4506,7 @@
     "harvest_proxy": "Harvest proxy",
     "models": "Ticket models",
     "settings": "Codex ticket settings",
-    "settings_description": "Tickets apply to an account and model, independently of turn_id. Valid 292 tickets always replace outgoing state; receiving 312 invalidates the ticket and triggers harvesting.",
+    "settings_description": "Tickets apply to an account and model, independently of turn_id. Valid tickets always replace outgoing state; receiving 312 invalidates the ticket and triggers harvesting.",
     "global_settings_hint": "CPA automatically harvests and renews tickets. Readiness appears in credentials and account details.",
     "fail_closed_hint": "When enabled, missing tickets block requests. When disabled, requests continue without tickets; valid tickets still replace outgoing state.",
     "models_hint": "One model per line or comma. Empty uses CPA defaults: gpt-6-astra and gpt-5.6-sol.",

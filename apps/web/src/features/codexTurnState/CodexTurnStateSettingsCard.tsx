@@ -7,18 +7,25 @@ import { ConfigSection } from '@/components/config/ConfigSection';
 import { IconTimer } from '@/components/ui/icons';
 import { useAuthStore } from '@/stores';
 import { codexTurnStateApi } from '@/services/api/codexTurnState';
-import type { VisualConfigValues } from '@/types/visualConfig';
+import { CODEX_TICKET_TIMING_FIELDS } from '@/types/visualConfig';
+import type { VisualConfigValues, VisualConfigValidationErrors } from '@/types/visualConfig';
 import { getErrorMessage, isRecord } from '@/utils/helpers';
 import styles from './CodexTurnStateSettingsCard.module.scss';
 
 interface Props {
   disabled?: boolean;
   values: VisualConfigValues;
+  validationErrors?: VisualConfigValidationErrors;
   onChange: (patch: Partial<VisualConfigValues>) => void;
 }
 
 // 配置值属于整页 YAML 草稿；接口只用于确认当前实例支持原生门票。
-export function CodexTurnStateSettingsCard({ disabled = false, values, onChange }: Props) {
+export function CodexTurnStateSettingsCard({
+  disabled = false,
+  values,
+  validationErrors,
+  onChange,
+}: Props) {
   const { t } = useTranslation();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const apiBase = useAuthStore((state) => state.apiBase);
@@ -101,6 +108,29 @@ export function CodexTurnStateSettingsCard({ disabled = false, values, onChange 
               />
             </div>
           </div>
+          <div className={styles.timingGrid}>
+            {CODEX_TICKET_TIMING_FIELDS.map(({ field, labelKey, defaultSeconds }) => (
+              <Input
+                key={field}
+                label={t(`codex_turn_state.${labelKey}`)}
+                type="number"
+                min={1}
+                step={1}
+                inputMode="numeric"
+                value={values[field]}
+                placeholder={String(defaultSeconds)}
+                onChange={(event) => onChange({ [field]: event.target.value })}
+                disabled={blocked}
+                hint={t(`codex_turn_state.${labelKey}_hint`)}
+                error={
+                  validationErrors?.[field]
+                    ? t(`config_management.visual.validation.${validationErrors[field]}`)
+                    : undefined
+                }
+              />
+            ))}
+          </div>
+          <p className={styles.muted}>{t('codex_turn_state.target_length_hint')}</p>
           <label className={styles.field}>
             <span>{t('codex_turn_state.models')}</span>
             <textarea
@@ -119,6 +149,7 @@ export function CodexTurnStateSettingsCard({ disabled = false, values, onChange 
             onChange={(event) => onChange({ codexTicketHarvestProxy: event.target.value })}
             disabled={blocked}
             placeholder={t('codex_turn_state.proxy_placeholder')}
+            hint={t('codex_turn_state.harvest_proxy_hint')}
           />
           <p className={styles.muted}>{t('codex_turn_state.draft_hint')}</p>
         </div>

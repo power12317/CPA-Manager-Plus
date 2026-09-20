@@ -862,6 +862,11 @@
     "health_check_error_provider_missing": "提供商設定已不存在"
   },
   "accounts": {
+    "codex_ticket_title": "Codex 門票",
+    "codex_ticket_remaining": "就緒 · 剩餘 {{time}}",
+    "codex_ticket_blocked": "已阻止",
+    "codex_ticket_missing": "缺票",
+    "codex_ticket_length": "目標 {{expected}} · 實際 {{actual}}",
     "title": "憑證管理",
     "subtitle": "統一管理登入憑證、可用狀態、剩餘額度和巡檢結果。",
     "tabs_label": "憑證管理視圖",
@@ -4458,6 +4463,22 @@
     "not_found_desc": "目前服務沒有宣告這個插件頁面。",
     "empty_src": "插件頁面地址為空",
     "empty_src_desc": "該插件選單沒有提供可開啟的頁面地址。"
+  },
+  "codex_turn_state": {
+    "title": "Codex 門票",
+    "unsupported_backend": "目前 CPA 不支援原生 Codex 門票設定，請升級支援此介面的版本。",
+    "load_failed": "讀取原生 Codex 門票設定失敗。",
+    "enabled": "啟用 Codex 門票",
+    "fail_closed": "缺票時阻止請求",
+    "harvest_proxy": "門票採集代理",
+    "models": "門票模型",
+    "settings": "Codex 門票設定",
+    "settings_description": "門票按帳號和模型生效，與 turn_id 無關。有效的 292 門票始終強制替換；收到 312 後失效並重新探測。",
+    "global_settings_hint": "CPA 背景自動採集和續期，憑證列表及詳情顯示狀態。",
+    "fail_closed_hint": "開啟時缺票阻止請求；關閉時缺票繼續傳送，有效票仍強制替換。",
+    "models_hint": "每行或逗號分隔一個模型；留空使用 CPA 預設模型 gpt-6-astra、gpt-5.6-sol。",
+    "proxy_placeholder": "socks5://使用者名稱:密碼@代理位址:1080",
+    "draft_hint": "修改已納入本頁未儲存草稿，請使用頁面統一儲存並確認差異；代理輸入隱藏顯示，清空後儲存可移除代理。"
   },
   "system_info": {
     "title": "系統資訊",

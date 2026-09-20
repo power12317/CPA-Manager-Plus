@@ -480,14 +480,15 @@ function MainLayoutContent({ routeBase = '', demoMode = false }: MainLayoutProps
 
     try {
       const plugins = await pluginsApi.list();
-      setPluginResources(
-        isPluginResourceNavVisible({
-          supportsPlugin,
-          pluginsEnabled: plugins.pluginsEnabled,
-        })
-          ? collectPluginResourceEntries(plugins.plugins)
-          : []
-      );
+      const resources = isPluginResourceNavVisible({
+        supportsPlugin,
+        pluginsEnabled: plugins.pluginsEnabled,
+      })
+        ? collectPluginResourceEntries(plugins.plugins).filter(
+            (resource) => resource.pluginID !== 'codex-turn-state'
+          )
+        : [];
+      setPluginResources(resources);
     } catch {
       setPluginResources([]);
     }

@@ -297,6 +297,7 @@ import {
   AccountProviderTabs,
   AccountQuotaTab,
   AccountsBatchDeletePreview,
+  CodexTurnTicketStatus,
 } from '@/features/accounts/components';
 import {
   accountQuotaSnapshotApi,
@@ -2384,6 +2385,16 @@ export function AccountsPage() {
       (canLoadHeaderSnapshots || canLoadInspectionSummary)
       ? PASSIVE_ACCOUNTS_EVIDENCE_REFRESH_MS
       : null
+  );
+
+  const hasCodexTurnTicketStatuses = files.some(
+    (file) => Array.isArray(file.codex_turn_tickets) && file.codex_turn_tickets.length > 0
+  );
+  useInterval(
+    () => {
+      void loadFiles({ silent: true });
+    },
+    activeView === 'accounts' && documentVisible && hasCodexTurnTicketStatuses ? 10_000 : null
   );
 
   useEffect(
@@ -8948,6 +8959,13 @@ export function AccountsPage() {
                     </div>
                   </div>
 
+                  <CodexTurnTicketStatus
+                    tickets={row.raw.codex_turn_tickets}
+                    planType={row.planType}
+                    canonicalPlanType={row.canonicalPlanType}
+                    compact
+                  />
+
                   {editingNoteState?.rowKey === row.selectionKey ? (
                     <div
                       className={styles.accountGridCardNoteEditRow}
@@ -9276,6 +9294,12 @@ export function AccountsPage() {
                           </span>
                         ) : null}
                       </div>
+                      <CodexTurnTicketStatus
+                        tickets={row.raw.codex_turn_tickets}
+                        planType={row.planType}
+                        canonicalPlanType={row.canonicalPlanType}
+                        compact
+                      />
                     </div>
                   </div>
 
@@ -9791,6 +9815,13 @@ export function AccountsPage() {
                 })}
               </p>
             </div>
+          ) : null}
+          {selectedRow.provider === CODEX_CONFIG.type ? (
+            <CodexTurnTicketStatus
+              tickets={selectedRow.raw.codex_turn_tickets}
+              planType={selectedRow.planType}
+              canonicalPlanType={selectedRow.canonicalPlanType}
+            />
           ) : null}
           <div
             className={styles.drawerTabs}

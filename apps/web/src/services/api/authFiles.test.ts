@@ -43,6 +43,39 @@ beforeEach(() => {
 });
 
 describe('authFilesApi OAuth excluded model normalization', () => {
+  it('凭证列表保留原生门票公开字段但去掉意外原文，不影响旧服务', async () => {
+    mocks.get.mockResolvedValue({
+      files: [
+        {
+          name: 'codex.json',
+          type: 'codex',
+          codex_turn_tickets: [
+            {
+              model: 'astra',
+              ready: true,
+              remaining_seconds: 60,
+              blocked: false,
+              token: 'secret-ticket',
+            },
+          ],
+        },
+        { name: 'legacy.json', type: 'codex' },
+      ],
+    });
+    const response = await authFilesApi.list();
+    const ticket = response.files.find((file) => file.name === 'codex.json')!
+      .codex_turn_tickets![0];
+    expect(ticket).toMatchObject({
+      model: 'astra',
+      ready: true,
+      remaining_seconds: 60,
+      observedAtMs: expect.any(Number),
+    });
+    expect(ticket).not.toHaveProperty('token');
+    expect(response.files.find((file) => file.name === 'legacy.json')).not.toHaveProperty(
+      'codex_turn_tickets'
+    );
+  });
   it.each([
     { 'oauth-excluded-models': null },
     { 'oauth-excluded-models': {} },

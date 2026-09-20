@@ -19,6 +19,7 @@ import {
 } from '@/utils/authFileStatusMutation';
 import { sha256RawTextHex } from '@/utils/apiKeyHash';
 import { parseTimestampMs } from '@/utils/timestamp';
+import { normalizeAuthFileTickets } from '@/utils/codexTurnTickets';
 
 type StatusError = { status?: number };
 export type AuthFilesApiRequestScope = ApiClientRequestScope;
@@ -545,7 +546,14 @@ const dedupeAuthFilesResponse = (payload: AuthFilesResponse): AuthFilesResponse 
     grouped.set(key, [entry]);
   });
 
-  const normalizedFiles = Array.from(grouped.values()).map(mergeAuthFileEntries);
+  const observedAtMs = Date.now();
+  const normalizedFiles = Array.from(grouped.values()).map((entries) => {
+    const file = mergeAuthFileEntries(entries);
+    if (file.codex_turn_tickets !== undefined) {
+      file.codex_turn_tickets = normalizeAuthFileTickets(file.codex_turn_tickets, observedAtMs);
+    }
+    return file;
+  });
   normalizedFiles.sort((left, right) => {
     const nameDiff = readTextField(left, 'name').localeCompare(
       readTextField(right, 'name'),

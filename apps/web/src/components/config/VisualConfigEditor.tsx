@@ -55,6 +55,7 @@ type VisualSectionId =
   | 'auth'
   | 'system'
   | 'network'
+  | 'codexTickets'
   | 'quota'
   | 'streaming'
   | 'payload';
@@ -68,6 +69,7 @@ type VisualSection = {
 };
 
 interface VisualConfigEditorProps {
+  codexTicketSettings?: ReactNode;
   values: VisualConfigValues;
   validationErrors?: VisualConfigValidationErrors;
   hasPayloadValidationErrors?: boolean;
@@ -179,6 +181,7 @@ function FieldShell({
 }
 
 export function VisualConfigEditor({
+  codexTicketSettings,
   values,
   validationErrors,
   hasPayloadValidationErrors = false,
@@ -333,6 +336,17 @@ export function VisualConfigEditor({
           'authAutoRefreshWorkers',
         ]),
       },
+      ...(codexTicketSettings
+        ? [
+            {
+              id: 'codexTickets' as const,
+              title: t('codex_turn_state.settings'),
+              description: t('codex_turn_state.title'),
+              icon: IconTimer,
+              errorCount: 0,
+            },
+          ]
+        : []),
       {
         id: 'quota',
         title: t('config_management.visual.sections.quota.title'),
@@ -359,7 +373,7 @@ export function VisualConfigEditor({
         errorCount: hasPayloadValidationErrors ? 1 : 0,
       },
     ],
-    [countErrors, hasPayloadValidationErrors, t]
+    [countErrors, hasPayloadValidationErrors, t, codexTicketSettings]
   );
 
   useEffect(() => {
@@ -1320,6 +1334,16 @@ export function VisualConfigEditor({
             </SectionStack>
           </ConfigSection>
 
+          {codexTicketSettings ? (
+            <div
+              id="codexTickets"
+              ref={(node) => {
+                sectionRefs.current.codexTickets = node;
+              }}
+            >
+              {codexTicketSettings}
+            </div>
+          ) : null}
           <ConfigSection
             id="quota"
             ref={(node) => {

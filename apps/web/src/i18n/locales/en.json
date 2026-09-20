@@ -4493,7 +4493,7 @@
     "refresh_before_seconds": "Refresh before expiry (seconds)",
     "refresh_before_seconds_hint": "Default: 600 seconds (10 minutes) before expiry. Clear and save to use the default.",
     "probe_interval_seconds": "Probe interval (seconds)",
-    "probe_interval_seconds_hint": "Background probe interval. The panel defaults to 60 seconds (1 minute). Saving ticket settings writes 60 seconds if unset; clearing this field and saving also restores 60 seconds.",
+    "probe_interval_seconds_hint": "Background probe interval, 6 seconds by default. Clear and save to use the default.",
     "attempt_timeout_seconds": "Attempt timeout (seconds)",
     "attempt_timeout_seconds_hint": "Timeout for one harvest attempt, 25 seconds by default. Clear and save to use the default.",
     "target_length_hint": "Target length follows the account: Personal (free/plus/pro) uses 292; Team/Business (team/business) uses 332. A global target-length is not used.",

@@ -56,7 +56,7 @@ export const normalizeCodexTurnStateStatus = (value: unknown): CodexTurnStateSta
       source.refresh_before_seconds ?? source.refreshBeforeSeconds,
       600
     ),
-    probeIntervalSeconds: asNumber(source.probe_interval_seconds ?? source.probeIntervalSeconds, 60),
+    probeIntervalSeconds: asNumber(source.probe_interval_seconds ?? source.probeIntervalSeconds, 6),
     attemptTimeoutSeconds: asNumber(
       source.attempt_timeout_seconds ?? source.attemptTimeoutSeconds,
       25

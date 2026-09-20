@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
-import { DropdownMenu } from '@/components/ui/DropdownMenu';
 import { SelectionCheckbox } from '@/components/ui/SelectionCheckbox';
 import {
   IconArrowDownWideNarrow,
@@ -20,6 +19,7 @@ import type {
   ProviderSortOption,
 } from '../ProviderTable/sort';
 import styles from './ProviderToolbar.module.scss';
+import { ProviderAddButton } from './ProviderAddButton';
 
 interface ProviderToolbarProps {
   kind: ProviderKindFilter;
@@ -305,12 +305,6 @@ export function ProviderToolbar({
     }
   };
 
-  const addMenuItems = PROVIDER_KINDS.map((id) => ({
-    key: id,
-    label: PROVIDER_KIND_LABELS[id],
-    onClick: () => onAdd(id),
-  }));
-
   return (
     <div className={styles.toolbar}>
       <div
@@ -566,47 +560,14 @@ export function ProviderToolbar({
           <IconShield size={14} />
           {t('ai_providers.health_check_button')}
         </Button>
-        {codexSystemScopedOAuth && onAddCodexOAuth && (kind === 'all' || kind === 'codex') && (
-          <div className={styles.codexOAuthActions}>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => onAddCodexOAuth('mac')}
-              disabled={disabled}
-              className={styles.codexOAuthButton}
-            >
-              {t('auth_login.codex_macos_oauth_button')}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => onAddCodexOAuth('windows')}
-              disabled={disabled}
-              className={styles.codexOAuthButton}
-            >
-              {t('auth_login.codex_windows_oauth_button')}
-            </Button>
-          </div>
-        )}
-        {kind === 'all' ? (
-          <DropdownMenu
-            ariaLabel={t('ai_providers.add_config_menu_aria')}
-            triggerLabel={t('ai_providers.add_config_button')}
-            triggerClassName={styles.addButton}
-            disabled={disabled}
-            items={addMenuItems}
-          />
-        ) : (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => onAdd(kind)}
-            disabled={disabled}
-            className={styles.addButton}
-          >
-            {t('ai_providers.add_kind_button', { name: PROVIDER_KIND_LABELS[kind] })}
-          </Button>
-        )}
+        <ProviderAddButton
+          kind={kind}
+          disabled={disabled}
+          className={styles.addButton}
+          onAdd={onAdd}
+          codexSystemScopedOAuth={codexSystemScopedOAuth}
+          onAddCodexOAuth={onAddCodexOAuth}
+        />
       </div>
     </div>
   );

@@ -30,6 +30,8 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Select } from '@/components/ui/Select';
+import { ProviderAddButton } from '@/components/providers/ProviderToolbar/ProviderAddButton';
+import { instanceIdFromBase } from '@/utils/instanceScope';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { oauthApi, providersApi } from '@/services/api';
 import { useAuthStore, useConfigStore, useNotificationStore, useThemeStore } from '@/stores';
@@ -120,35 +122,64 @@ export function AiProvidersPage() {
   const disableControls = connectionStatus !== 'connected';
   const isSwitching = Boolean(configSwitchingKey);
   const actionsDisabled = disableControls || loading || isSwitching;
-  const [codexSystemScopedOAuth, setCodexSystemScopedOAuth] = useState(false);
+  const [codexCapabilities, setCodexCapabilities] = useState<{
+    apiBase: string;
+    managementKey: string;
+    systemScopedOAuth: boolean;
+  } | null>(null);
+  const codexSystemScopedOAuth =
+    connectionStatus === 'connected' &&
+    codexCapabilities?.apiBase === apiBase &&
+    codexCapabilities?.managementKey === managementKey &&
+    codexCapabilities.systemScopedOAuth;
 
   const pageTransitionLayer = usePageTransitionLayer();
   const isCurrentLayer = pageTransitionLayer ? pageTransitionLayer.status === 'current' : true;
 
   useEffect(() => {
     if (connectionStatus !== 'connected' || !apiBase || !managementKey) {
-      setCodexSystemScopedOAuth(false);
+      setCodexCapabilities(null);
       return;
     }
     let cancelled = false;
-    setCodexSystemScopedOAuth(false);
+    setCodexCapabilities(null);
     oauthApi
       .getCodexCapabilities({ apiBase, managementKey })
       .then((capabilities) => {
-        if (!cancelled) setCodexSystemScopedOAuth(capabilities.system_scoped_oauth === true);
+        if (!cancelled) {
+          setCodexCapabilities({
+            apiBase,
+            managementKey,
+            systemScopedOAuth: capabilities.system_scoped_oauth === true,
+          });
+        }
       })
       .catch(() => {
-        if (!cancelled) setCodexSystemScopedOAuth(false);
+        if (!cancelled) setCodexCapabilities(null);
       });
     return () => {
       cancelled = true;
     };
   }, [apiBase, connectionStatus, managementKey]);
 
-  const openCodexOAuth = useCallback((system: 'mac' | 'windows') => {
-    const params = new URLSearchParams({ provider: 'codex', client_system: system });
-    window.location.hash = `/oauth?${params.toString()}`;
-  }, []);
+  const openCodexOAuth = useCallback(
+    (system: 'mac' | 'windows') => {
+      const current = useAuthStore.getState();
+      if (
+        actionsDisabled ||
+        !codexSystemScopedOAuth ||
+        current.connectionStatus !== 'connected' ||
+        current.apiBase !== apiBase ||
+        current.managementKey !== managementKey
+      )
+        return;
+      const params = new URLSearchParams({ provider: 'codex', client_system: system });
+      const instanceId = instanceIdFromBase(apiBase);
+      if (instanceId) params.set('scope', instanceId);
+      window.location.hash = `/oauth?${params.toString()}`;
+    },
+    [actionsDisabled, apiBase, managementKey, codexSystemScopedOAuth]
+  );
 
   const { usageByProvider, loadRecentRequests, refreshRecentRequests } = useProviderRecentRequests({
     enabled: isCurrentLayer,
@@ -1496,9 +1527,14 @@ export function AiProvidersPage() {
       <EmptyState
         title={t('ai_providers.kind_empty_title', { name: PROVIDER_KIND_LABELS[kindFilter] })}
         action={
-          <Button size="sm" onClick={() => handleAdd(kindFilter)} disabled={actionsDisabled}>
-            {t('ai_providers.add_kind_button', { name: PROVIDER_KIND_LABELS[kindFilter] })}
-          </Button>
+          <ProviderAddButton
+            key={apiBase}
+            kind={kindFilter}
+            onAdd={handleAdd}
+            disabled={actionsDisabled}
+            codexSystemScopedOAuth={codexSystemScopedOAuth}
+            onAddCodexOAuth={openCodexOAuth}
+          />
         }
       />
     ) : rows.length > 0 && filtersActive ? (
@@ -1525,6 +1561,7 @@ export function AiProvidersPage() {
 
         <div>
           <ProviderToolbar
+            key={apiBase}
             kind={kindFilter}
             kindCounts={kindCounts}
             onKindChange={setKindFilter}

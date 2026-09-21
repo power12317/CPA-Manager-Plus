@@ -86,6 +86,11 @@ func (w *UsagePricingRollupWorker) catchUp(ctx context.Context) bool {
 		return false
 	}
 	defer atomic.StoreInt32(&w.running, 0)
+	defer func() {
+		if err := w.store.CheckCodexIdentityRecoveryProgress(ctx); err != nil && ctx.Err() == nil {
+			log.Printf("[codex-identity-recovery] progress check failed: %v", err)
+		}
+	}()
 
 	pendingByTask := [usageDerivedTaskCount]bool{}
 	idleByTask := [usageDerivedTaskCount]bool{}

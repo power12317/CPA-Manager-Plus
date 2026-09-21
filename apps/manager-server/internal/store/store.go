@@ -680,6 +680,10 @@ func (s *Store) CatchUpAccountHistoryRollups(ctx context.Context, limit int, now
 	return s.UsageRollups.CatchUpAccountHistory(ctx, limit, nowMS)
 }
 
+func (s *Store) CheckCodexIdentityRecoveryProgress(ctx context.Context) error {
+	return sqliterepo.CheckCodexIdentityRecoveryProgress(ctx, s.db)
+}
+
 func (s *Store) CatchUpDashboardHourlyRollups(ctx context.Context, limit int, nowMS int64) (UsageRollupCatchUpResult, error) {
 	ready, err := s.UsageCacheAccountingMigrationReady(ctx)
 	if err != nil {

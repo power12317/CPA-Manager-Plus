@@ -222,10 +222,10 @@ var derivedIndexStatements = []struct {
 	{"idx_usage_event_identity_ledger_bucket", usageEventIdentityLedger, `create index if not exists idx_usage_event_identity_ledger_bucket on usage_event_identity_ledger(bucket_ms)`},
 }
 
-// RunDerivedStartupMaintenance creates only indexes whose target tables are
-// empty and whose names are not retained by parked tables. Any index that can
-// grow with stored data is deferred to the offline cleanup command so collector
-// startup cannot be delayed by unbounded DDL.
+// RunDerivedStartupMaintenance prepares routine indexes only on empty tables
+// without parked-name conflicts. The specific Codex recovery regression is
+// repaired separately with time-bounded, cancellable transactions after the
+// HTTP listener is available; other unbounded DDL remains offline maintenance.
 func RunDerivedStartupMaintenance(ctx context.Context, db *sql.DB) error {
 	if db == nil {
 		return nil
@@ -234,6 +234,9 @@ func RunDerivedStartupMaintenance(ctx context.Context, db *sql.DB) error {
 		return err
 	}
 	log.Printf("[derived-migration] post-listen index preparation started")
+	if err := repairCodexRecoveryIndexes(ctx, db); err != nil {
+		log.Printf("[codex-identity-recovery] index restoration interrupted; maintenance will retry: %v", err)
+	}
 	indexResult, err := prepareDerivedIndexes(ctx, db, false)
 	if err != nil {
 		return err
@@ -275,6 +278,9 @@ func runDerivedMaintenance(ctx context.Context, db *sql.DB) {
 	ticker := time.NewTicker(derivedCheckInterval)
 	defer ticker.Stop()
 	for {
+		if err := repairCodexRecoveryIndexes(ctx, db); err != nil && ctx.Err() == nil {
+			log.Printf("[codex-identity-recovery] index restoration interrupted; maintenance will retry: %v", err)
+		}
 		processed, err := cleanupDerivedUntilIdle(ctx, db)
 		if err != nil {
 			if ctx.Err() != nil {

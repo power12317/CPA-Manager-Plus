@@ -34,6 +34,9 @@ func verifyRejectedCodexRecovery(t *testing.T, count, coverage int) {
 		t.Fatal(err)
 	}
 	defer db.Close()
+	if err := st.RunDerivedStartupMaintenance(ctx); err != nil {
+		t.Fatal(err)
+	}
 	exec := func(query string, args ...any) {
 		t.Helper()
 		if _, err := db.Exec(query, args...); err != nil {
@@ -133,6 +136,9 @@ func verifyRejectedCodexRecovery(t *testing.T, count, coverage int) {
 		}
 	}
 	server.Close()
+	if err := st.RunDerivedStartupMaintenance(ctx); err != nil {
+		t.Fatal(err)
+	}
 	request := monitoring.AccountHistoryRequest{Accounts: []monitoring.AccountHistoryTarget{
 		{RowKey: "mac", AuthFileSnapshot: "codex.json", AuthIndex: "mac", AuthProviderSnapshot: "codex", AuthAccountIDSnapshot: "workspace", AccountSnapshot: "same@example.com"},
 		{RowKey: "windows", System: "windows", AuthFileSnapshot: "codex-windows.json", AuthIndex: "windows", AuthProviderSnapshot: "codex", AuthAccountIDSnapshot: "workspace", AccountSnapshot: "same@example.com"},
@@ -232,6 +238,10 @@ func verifyRejectedCodexRecovery(t *testing.T, count, coverage int) {
 	}
 	runBatch(1000)
 	checkHistory(true)
+	maintenance, err := st.DerivedMaintenanceStatus(ctx)
+	if err != nil || maintenance.Required {
+		t.Fatalf("recovered database still requires maintenance: %+v %v", maintenance, err)
+	}
 	// Assert corrected active derivations, not merely a relabeled version.
 	var badKeys int
 	if err := db.QueryRow(`select count(*) from usage_monitoring_event_projection_v1 where event_id<=? and account_key like '%:codex-credential:%'`, count).Scan(&badKeys); err != nil || badKeys != 0 {

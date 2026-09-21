@@ -234,7 +234,7 @@ func TestPricingAccountRollupSeparatesCodexMembersSharingWorkspace(t *testing.T)
 
 	accountKey := func(member string) string {
 		key, valid := usageidentity.AccountKey(usageidentity.Fields{
-			AuthFileSnapshot:      member + ".json",
+			AuthFileSnapshot:      strings.Split(member, "@")[0] + ".json",
 			AuthIndex:             "auth-" + strings.Split(member, "@")[0],
 			AuthProviderSnapshot:  "codex",
 			AuthAccountIDSnapshot: "workspace-team",

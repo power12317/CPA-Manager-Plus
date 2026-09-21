@@ -72,7 +72,7 @@ func TestAccountKeyKeepsNonCodexProviderMappings(t *testing.T) {
 	}
 }
 
-func TestAccountKeyUsesCodexWorkspaceAndMemberAcrossMutableCredentialIdentity(t *testing.T) {
+func TestAccountKeyKeepsCodexCredentialsSeparateWithinWorkspaceMember(t *testing.T) {
 	oldKey, ok := AccountKey(Fields{AuthFileSnapshot: "codex-a-free.json", AuthIndex: "auth-1", AuthProviderSnapshot: "codex", AuthAccountIDSnapshot: "workspace-1", AccountSnapshot: " Alice@Example.com "})
 	if !ok {
 		t.Fatal("old key is invalid")
@@ -81,8 +81,8 @@ func TestAccountKeyUsesCodexWorkspaceAndMemberAcrossMutableCredentialIdentity(t 
 	if !ok {
 		t.Fatal("new key is invalid")
 	}
-	if oldKey != newKey {
-		t.Fatalf("same Codex member split across reauth: old=%q new=%q", oldKey, newKey)
+	if oldKey == newKey {
+		t.Fatalf("same Codex member merged distinct credentials: old=%q new=%q", oldKey, newKey)
 	}
 	legacyKey, ok := LegacyAccountKey(Fields{AuthFileSnapshot: "codex-a-pro.json", AuthIndex: "auth-2", AuthProviderSnapshot: "codex", AuthAccountIDSnapshot: "workspace-1", AccountSnapshot: "alice@example.com"})
 	if !ok || legacyKey == newKey {
@@ -156,6 +156,7 @@ func TestLegacyAccountKeyRejectsCodexDisplayFallbackWithoutCredentialIdentity(t 
 		{AuthProviderSnapshot: "codex", AuthAccountIDSnapshot: "workspace-1", AccountSnapshot: "Alice"},
 		{AuthProviderSnapshot: "codex", AuthAccountIDSnapshot: "workspace-1", AuthLabelSnapshot: "Alice"},
 		{AuthProviderSnapshot: "codex", AccountSnapshot: "alice@example.com"},
+		{AuthProviderSnapshot: "codex", AuthAccountIDSnapshot: "workspace-1", AccountSnapshot: "alice@example.com"},
 	} {
 		if key, ok := LegacyAccountKey(fields); ok || key != "" {
 			t.Fatalf("LegacyAccountKey(%#v) = %q, %v; want empty, false", fields, key, ok)
@@ -246,13 +247,13 @@ func TestCodexMemberRevisionDoesNotChangeGlobalFormatVersion(t *testing.T) {
 	if FormatVersion != "3" {
 		t.Fatalf("FormatVersion = %q, want 3", FormatVersion)
 	}
-	if CodexIdentityRevision != "2" {
-		t.Fatalf("CodexIdentityRevision = %q, want 2", CodexIdentityRevision)
+	if CodexIdentityRevision != "3" {
+		t.Fatalf("CodexIdentityRevision = %q, want 3", CodexIdentityRevision)
 	}
-	if got := AccountHistoryStructureRevision(); got != "identity-3:codex-2:model-1" {
+	if got := AccountHistoryStructureRevision(); got != "identity-3:codex-3:model-1" {
 		t.Fatalf("account history revision = %q", got)
 	}
-	if got := MonitoringProjectionStructureRevision(); got != "identity-3:codex-2:model-1:project-v1" {
+	if got := MonitoringProjectionStructureRevision(); got != "identity-3:codex-3:model-1:project-v1" {
 		t.Fatalf("monitoring projection revision = %q", got)
 	}
 }
@@ -305,6 +306,9 @@ func TestSQLAccountKeyExpressionMatchesGo(t *testing.T) {
 	}{
 		{name: "file and auth index", fields: Fields{AuthFileSnapshot: "shared.json", AuthIndex: "auth-a", AuthProviderSnapshot: "x_ai", AuthProjectIDSnapshot: "project-a", AccountSnapshot: "same@example.com", AuthLabelSnapshot: "Same Account", Source: "legacy-source"}, provider: "xai"},
 		{name: "codex stable account", fields: Fields{AuthFileSnapshot: "codex-new.json", AuthIndex: "auth-new", AuthProviderSnapshot: "codex", AuthAccountIDSnapshot: "account-a", AccountSnapshot: "same@example.com"}, provider: "codex"},
+		{name: "codex stable account without physical credential", fields: Fields{AuthProviderSnapshot: "codex", AuthAccountIDSnapshot: "account-a", AccountSnapshot: "same@example.com"}, provider: "codex"},
+		{name: "codex stable account with auth index only", fields: Fields{AuthIndex: "windows-index", AuthProviderSnapshot: "codex", AuthAccountIDSnapshot: "account-a", AccountSnapshot: "same@example.com"}, provider: "codex"},
+		{name: "codex stable account with filename only", fields: Fields{AuthFileSnapshot: "mac.json", AuthProviderSnapshot: "codex", AuthAccountIDSnapshot: "account-a", AccountSnapshot: "same@example.com"}, provider: "codex"},
 		{name: "codex second workspace member", fields: Fields{AuthFileSnapshot: "codex-team.json", AuthIndex: "auth-team", AuthProviderSnapshot: "codex", AuthAccountIDSnapshot: "workspace-a", AccountSnapshot: "bob@example.com"}, provider: "codex"},
 		{name: "codex same member different workspace", fields: Fields{AuthFileSnapshot: "codex-other-workspace.json", AuthIndex: "auth-other-workspace", AuthProviderSnapshot: "codex", AuthAccountIDSnapshot: "workspace-b", AccountSnapshot: "same@example.com"}, provider: "codex"},
 		{name: "codex direct and marked workspace agree", fields: Fields{AuthFileSnapshot: "codex-marked.json", AuthIndex: "auth-marked", AuthProviderSnapshot: "codex", AuthAccountIDSnapshot: "workspace-a", AuthProjectIDSnapshot: CodexAccountIDSnapshot("workspace-a"), AccountSnapshot: "same@example.com"}, provider: "codex"},
@@ -356,7 +360,7 @@ func TestSQLAccountKeyExpressionMatchesGo(t *testing.T) {
 }
 
 func TestPricingStructureRevisionIncludesIdentityFormat(t *testing.T) {
-	if got := PricingStructureRevision("price-revision"); got != "model-1:identity-3:codex-2:price-revision" {
+	if got := PricingStructureRevision("price-revision"); got != "model-1:identity-3:codex-3:price-revision" {
 		t.Fatalf("revision = %q", got)
 	}
 }

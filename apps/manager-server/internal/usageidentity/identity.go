@@ -16,7 +16,7 @@ const (
 	codexAccountIDSnapshotPrefix = "codex-account-id:v1:"
 	// CodexIdentityRevision changes independently from FormatVersion because
 	// the other providers must retain their existing AccountKey values.
-	CodexIdentityRevision = "2"
+	CodexIdentityRevision = "3"
 )
 
 // CodexAccountIDSnapshot marks a freshly observed, explicit ChatGPT account_id
@@ -122,7 +122,14 @@ func AccountKey(fields Fields) (string, bool) {
 		// promote an old event into the new stable member bucket.
 		if workspaceOK && strings.Trim(fields.AuthAccountIDSnapshot, " ") != "" {
 			if member, ok := stableCodexMemberSnapshot(fields); ok {
-				return encodeCodexKey("codex-member", provider, workspaceID, member), true
+				authFile := effectiveAuthFile(fields)
+				authIndex := strings.TrimSpace(fields.AuthIndex)
+				if authFile != "" || authIndex != "" {
+					// Account identity alone joins separate credentials (including
+					// Windows/macOS). Keep the physical credential boundary even
+					// when both credentials belong to the same Workspace member.
+					return encodeCodexKey("codex-credential", provider, workspaceID, member, authFile, authIndex), true
+				}
 			}
 		}
 	}
@@ -278,7 +285,7 @@ func sqlAccountKeyExpression(alias string, withoutProject bool) string {
 	}
 
 	return "case " +
-		"when " + codexMemberValid + " then " + key("codex-member", providerNormalized, codexWorkspaceID, codexMember) + " " +
+		"when " + codexMemberValid + " and (" + authFile + " <> '' or " + authIndex + " <> '') then " + key("codex-credential", providerNormalized, codexWorkspaceID, codexMember, authFile, authIndex) + " " +
 		"when " + authFile + " <> '' and " + authIndex + " <> '' then " + key("file-index", authFile, authIndex) + " " +
 		"when " + providerNormalized + " = 'codex' and " + authFile + " <> '' then " + key("file", authFile, providerNormalized) + " " +
 		"when " + providerNormalized + " <> 'codex' and " + authFile + " <> '' and " + legacyProjectID + " <> '' then " + key("file-project", authFile, providerNormalized, legacyProjectID) + " " +

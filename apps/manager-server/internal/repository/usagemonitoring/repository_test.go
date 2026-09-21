@@ -422,7 +422,7 @@ func TestAccountWindowProjectionMatchesRawAcrossCoverageTailAndIdentity(t *testi
 	}
 }
 
-func TestCodexAccountWindowKeepsHistoryAcrossSameAccountReauth(t *testing.T) {
+func TestCodexAccountWindowKeepsOnlyCurrentCredentialHistoryAcrossSameAccountReauth(t *testing.T) {
 	_, db := newMonitoringRepositoryStore(t)
 	ctx := context.Background()
 	dayStartMS := int64(1_800_057_600_000)
@@ -507,17 +507,17 @@ func TestCodexAccountWindowKeepsHistoryAcrossSameAccountReauth(t *testing.T) {
 		if projected[0].RequestIndex != 0 || projected[0].Calls != currentCalls || projected[0].InputTokens != currentInput {
 			t.Fatalf("%s current stats = %#v", phase, projected[0])
 		}
-		if projected[1].RequestIndex != 1 || projected[1].Calls != 2 || projected[1].InputTokens != 30 {
+		if projected[1].RequestIndex != 1 || projected[1].Calls != 1 || projected[1].InputTokens != 20 {
 			t.Fatalf("%s previous stats = %#v", phase, projected[1])
 		}
 	}
 
-	assertStats("projection complete with daily rollup available", 2, 35)
+	assertStats("projection complete with daily rollup available", 1, 5)
 	rawTail := makeEvent("current-new-credential-tail", currentFromMS+3_000, "codex-a-pro.json", "auth-2", "account-a", 40)
 	if _, err := db.InsertEvents(ctx, []usage.Event{rawTail}); err != nil {
 		t.Fatalf("insert raw reauth tail: %v", err)
 	}
-	assertStats("projection plus raw tail", 3, 75)
+	assertStats("projection plus raw tail", 2, 45)
 }
 
 func TestCodexAccountWindowSeparatesMembersSharingWorkspace(t *testing.T) {

@@ -945,9 +945,6 @@ func Migrate(db *sql.DB) error {
 	if err := ensureUsageAccountModelRollupPrimaryKeys(db); err != nil {
 		return err
 	}
-	if err := recoverRejectedCodexIdentity(db); err != nil {
-		return fmt.Errorf("recover rejected Codex identity migration: %w", err)
-	}
 	if err := ensureUsageMonitoringProjectionIdentity(db); err != nil {
 		return err
 	}
@@ -2084,7 +2081,6 @@ func ensureAccountHistoryIdentityFormatVersion(db *sql.DB) error {
 func supportedAccountHistoryIdentityRevision(value string) bool {
 	switch value {
 	case "1", "2", usageidentity.FormatVersion,
-		rejectedCodexIdentityRevision,
 		legacyAccountHistoryStructureRevisionV2,
 		legacyAccountHistoryStructureRevisionV3,
 		usageidentity.AccountHistoryStructureRevision():

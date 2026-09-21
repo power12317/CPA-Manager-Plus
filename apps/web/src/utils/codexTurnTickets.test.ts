@@ -1,28 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import {
-  normalizeAuthFileTickets,
-  resolveCodexTurnTicketTargetLength,
-  ticketRemainingSeconds,
-} from './codexTurnTickets';
+import { normalizeAuthFileTickets, ticketRemainingSeconds } from './codexTurnTickets';
 
 describe('门票公开状态与倒计时', () => {
-  it.each([
-    ['free', 292],
-    ['plus', 292],
-    ['pro', 292],
-    ['pro_20x', 292],
-    ['team', 332],
-    ['business', 332],
-    ['business_premium_5x', 332],
-  ] as const)('按账号计划 %s 解析门票目标长度', (plan, expected) => {
-    expect(resolveCodexTurnTicketTargetLength(plan)).toBe(expected);
-  });
-
-  it('不为未知计划臆测门票目标长度', () => {
-    expect(resolveCodexTurnTicketTargetLength('enterprise')).toBeNull();
-    expect(resolveCodexTurnTicketTargetLength(undefined, 'unknown')).toBeNull();
-  });
-
   it('拒绝畸形数据、去重模型并丢弃门票原文', () => {
     const tickets = normalizeAuthFileTickets(
       [

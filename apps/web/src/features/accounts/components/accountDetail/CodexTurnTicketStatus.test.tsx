@@ -5,11 +5,8 @@ import { CodexTurnTicketStatus } from './CodexTurnTicketStatus';
 import { normalizeAuthFileTickets } from '@/utils/codexTurnTickets';
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, options?: { time?: string; expected?: number | string; actual?: string }) => {
+    t: (key: string, options?: { time?: string }) => {
       if (options?.time) return key + ':' + options.time;
-      if (options?.expected !== undefined && options.actual !== undefined) {
-        return key + ':' + options.expected + ':' + options.actual;
-      }
       return key;
     },
   }),
@@ -38,19 +35,21 @@ describe('凭证门票显示', () => {
       view = create(
         createElement(CodexTurnTicketStatus, {
           tickets,
-          planType: 'pro',
           compact: true,
         })
       );
     });
     expect(JSON.stringify(view!.toJSON())).toContain('accounts.codex_ticket_remaining:0m02s');
-    expect(JSON.stringify(view!.toJSON())).toContain('accounts.codex_ticket_length:292:292');
+    expect(JSON.stringify(view!.toJSON())).not.toContain('292');
     expect(JSON.stringify(view!.toJSON())).toContain('accounts.codex_ticket_blocked');
     expect(JSON.stringify(view!.toJSON())).toContain('accounts.codex_ticket_missing');
     act(() => {
       vi.advanceTimersByTime(2000);
     });
     expect(JSON.stringify(view!.toJSON())).not.toContain('accounts.codex_ticket_remaining');
+    expect(
+      view!.root.findByProps({ title: 'ready-model: accounts.codex_ticket_missing' })
+    ).toBeDefined();
     act(() => view!.unmount());
     expect(vi.getTimerCount()).toBe(0);
   });
@@ -61,36 +60,24 @@ describe('凭证门票显示', () => {
     expect(view!.toJSON()).toBeNull();
   });
 
-  it('在 Team/Business 账号中显示 332 目标，并保留实际长度', () => {
+  it.each([false, true])('只展示模型和状态，不在正文或悬浮提示中展示长度（compact=%s）', (compact) => {
     const tickets = normalizeAuthFileTickets([
-      { model: 'team-model', ready: true, remaining_seconds: 60, length: 332 },
-      { model: 'business-model', ready: false, remaining_seconds: 0, length: 292 },
+      { model: 'gpt-6-astra', ready: true, remaining_seconds: 60, length: 292 },
+      { model: 'gpt-5.6-sol', ready: false, remaining_seconds: 0, length: 312 },
     ]);
     act(() => {
       view = create(
         createElement(CodexTurnTicketStatus, {
           tickets,
-          planType: 'team',
+          compact,
         })
       );
     });
     const text = JSON.stringify(view!.toJSON());
-    expect(text).toContain('accounts.codex_ticket_length:332:332');
-    expect(text).toContain('accounts.codex_ticket_length:332:292');
-  });
-
-  it('未知账号计划显示未知目标而不改变实际长度', () => {
-    const tickets = normalizeAuthFileTickets([
-      { model: 'unknown-model', ready: true, remaining_seconds: 60, length: 292 },
-    ]);
-    act(() => {
-      view = create(
-        createElement(CodexTurnTicketStatus, {
-          tickets,
-          planType: 'enterprise',
-        })
-      );
-    });
-    expect(JSON.stringify(view!.toJSON())).toContain('accounts.codex_ticket_length:—:292');
+    expect(text).toContain('gpt-6-astra');
+    expect(text).toContain('accounts.codex_ticket_remaining:1m00s');
+    expect(text).toContain('gpt-5.6-sol');
+    expect(text).toContain('accounts.codex_ticket_missing');
+    expect(text).not.toMatch(/codex_ticket_length|data-ticket-length|292|312/);
   });
 });

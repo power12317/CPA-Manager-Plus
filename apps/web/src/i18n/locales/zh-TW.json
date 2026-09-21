@@ -863,10 +863,9 @@
   },
   "accounts": {
     "codex_ticket_title": "Codex 門票",
-    "codex_ticket_remaining": "就緒 · 剩餘 {{time}}",
+    "codex_ticket_remaining": "剩餘 {{time}}",
     "codex_ticket_blocked": "已阻止",
     "codex_ticket_missing": "缺票",
-    "codex_ticket_length": "目標 {{expected}} · 實際 {{actual}}",
     "title": "憑證管理",
     "subtitle": "統一管理登入憑證、可用狀態、剩餘額度和巡檢結果。",
     "tabs_label": "憑證管理視圖",

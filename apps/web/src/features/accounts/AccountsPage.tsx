@@ -8961,8 +8961,6 @@ export function AccountsPage() {
 
                   <CodexTurnTicketStatus
                     tickets={row.raw.codex_turn_tickets}
-                    planType={row.planType}
-                    canonicalPlanType={row.canonicalPlanType}
                     compact
                   />
 
@@ -9296,8 +9294,6 @@ export function AccountsPage() {
                       </div>
                       <CodexTurnTicketStatus
                         tickets={row.raw.codex_turn_tickets}
-                        planType={row.planType}
-                        canonicalPlanType={row.canonicalPlanType}
                         compact
                       />
                     </div>
@@ -9819,8 +9815,6 @@ export function AccountsPage() {
           {selectedRow.provider === CODEX_CONFIG.type ? (
             <CodexTurnTicketStatus
               tickets={selectedRow.raw.codex_turn_tickets}
-              planType={selectedRow.planType}
-              canonicalPlanType={selectedRow.canonicalPlanType}
             />
           ) : null}
           <div

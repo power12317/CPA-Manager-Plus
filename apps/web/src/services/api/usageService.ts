@@ -857,6 +857,7 @@ export interface MonitoringAnalyticsRequest {
 }
 
 export interface MonitoringAccountHistoryTarget {
+  system?: string;
   row_key: string;
   account_key?: string;
   account_snapshot?: string;
@@ -916,6 +917,7 @@ export interface MonitoringAccountHistoryResponse {
 }
 
 export interface MonitoringAccountWindowUsageTarget {
+  system?: string;
   request_key?: string;
   row_key: string;
   window_key?: string;

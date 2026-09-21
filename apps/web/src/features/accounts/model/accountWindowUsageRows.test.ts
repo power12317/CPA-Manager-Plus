@@ -35,6 +35,7 @@ describe('accountWindowUsageRows', () => {
         account: 'codex@example.com',
         label: 'Codex Seat',
         account_id: 'account-1',
+        codex_client_system: 'windows',
       },
     });
     const entries = buildAccountWindowUsageTargetEntries(
@@ -59,6 +60,7 @@ describe('accountWindowUsageRows', () => {
         complete: true,
       }),
       target: {
+        system: 'windows',
         row_key: row.selectionKey,
         window_key: '5h',
         from_ms: 1000,

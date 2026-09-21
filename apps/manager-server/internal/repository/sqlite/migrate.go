@@ -18,7 +18,6 @@ const (
 	accountHistoryIdentityFormatVersionKey  = "usage_account_history_identity_format_version"
 	legacyAccountHistoryStructureRevisionV2 = "identity-2:model-1"
 	legacyAccountHistoryStructureRevisionV3 = "identity-3:model-1"
-	legacyCodexMemberStructureRevision      = "identity-3:codex-2:model-1"
 	legacyMonitoringProjectionRevisionV3    = legacyAccountHistoryStructureRevisionV3 + ":project-v1"
 	dashboardHourlyRollupFormatVersionKey   = "usage_dashboard_hourly_format_version"
 	dashboardHourlyRollupFormatVersion      = "3"
@@ -48,7 +47,7 @@ const (
 	// the previous identity revision. New Codex identity rebuilds use a
 	// revision-specific name so pending old cleanup cannot block startup.
 	usageAccountModelIdentityLegacy           = "usage_account_model_rollups_legacy_identity_v3"
-	usageAccountModelCodexIdentityLegacy      = "usage_account_model_rollups_legacy_identity_v3_codex_v3"
+	usageAccountModelCodexIdentityLegacy      = "usage_account_model_rollups_legacy_identity_v3_codex_v2"
 	usagePricingAccountLegacy                 = "usage_pricing_account_rollups_v1_legacy_v1120_rc2"
 	usageDashboardHourlyLegacy                = "usage_dashboard_hourly_rollups_legacy_v1120_rc2"
 	usageHourlyAggregateLegacy                = "usage_hourly_aggregate_v1_legacy_v1120_rc2"
@@ -988,6 +987,12 @@ func Migrate(db *sql.DB) error {
 	if err := ensureUsageHourlyAggregateSchemaVersion(db, usageHourlyAggregateSnapshot, monitoringSnapshot.sourceTableMissing()); err != nil {
 		return err
 	}
+	// Record a boundary with an indexed MAX(id), preserving rows and checkpoints.
+	if _, err := db.Exec(`insert into settings (key, value, updated_at_ms)
+		select ?, cast(coalesce(max(id), 0) as text), 0 from usage_events where true
+		on conflict(key) do nothing`, usageidentity.CredentialCutoverSetting); err != nil {
+		return fmt.Errorf("record credential history boundary: %w", err)
+	}
 	if err := ensureAccountHistoryIdentityFormatVersion(db); err != nil {
 		return err
 	}
@@ -1658,24 +1663,6 @@ func ensureUsageMonitoringProjectionIdentity(db *sql.DB) error {
 
 	statsNeedsIdentityUpgrade := !statsHasAuthAccountID || !statsPKHasAuthAccountID
 	apiKeyStatsNeedsIdentityUpgrade := !apiKeyStatsHasAuthAccountID || !apiKeyStatsPKHasAuthAccountID
-	if versionErr == nil && projectionRevision == legacyCodexMemberStructureRevision+":project-v1" &&
-		hasAccountKey && hasRequestedModel && hasAnalyticsModel && hasAuthAccountID &&
-		headerHasAuthAccountID && selectorHasRevision && !statsNeedsIdentityUpgrade && !apiKeyStatsNeedsIdentityUpgrade {
-		// Only account_key changes in this upgrade. Preserve the existing
-		// projection/search tables and physical credential daily rows. A zero
-		// coverage checkpoint keeps reads on immutable usage_events while the
-		// post-listen worker replaces projection keys in bounded batches.
-		_, err := tx.Exec(`update usage_monitoring_rollup_state set
-			structure_revision = ?, status = 'pending', backfill_last_event_id = 0,
-			coverage_event_id = 0, target_event_id = (select coalesce(max(id), 0) from usage_events),
-			processed_events = 0, last_run_started_at_ms = null, updated_at_ms = 0,
-			finished_at_ms = null, last_error = null where rollup_name = ?`,
-			usageidentity.MonitoringProjectionStructureRevision(), usageMonitoringProjectionRollupName)
-		if err != nil {
-			return fmt.Errorf("schedule credential identity projection rebuild: %w", err)
-		}
-		return tx.Commit()
-	}
 	codexIdentityRevisionUpgrade := projectionRevisionMismatch && projectionRevision == legacyMonitoringProjectionRevisionV3
 	needsRebuild := versionErr != nil || projectionRevisionMismatch || !hasAccountKey || !hasRequestedModel || !hasAnalyticsModel || !hasAuthAccountID || !headerHasAuthAccountID || !selectorHasRevision || statsNeedsIdentityUpgrade || apiKeyStatsNeedsIdentityUpgrade
 	if needsRebuild {
@@ -2096,7 +2083,6 @@ func supportedAccountHistoryIdentityRevision(value string) bool {
 	case "1", "2", usageidentity.FormatVersion,
 		legacyAccountHistoryStructureRevisionV2,
 		legacyAccountHistoryStructureRevisionV3,
-		legacyCodexMemberStructureRevision,
 		usageidentity.AccountHistoryStructureRevision():
 		return true
 	default:

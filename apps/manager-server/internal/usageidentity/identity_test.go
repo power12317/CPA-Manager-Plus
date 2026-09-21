@@ -144,7 +144,7 @@ func TestAccountKeyFallsBackWhenCodexMemberEvidenceIsMissingOrWeak(t *testing.T)
 		}
 		got, ok := AccountKey(fields)
 		want, wantOK := LegacyAccountKey(fields)
-		if !ok || !wantOK || got != want || strings.Contains(got, ":636F6465782D6D656D626572:") {
+		if !ok || !wantOK || got != "credential:"+want || strings.Contains(got, ":636F6465782D6D656D626572:") {
 			t.Fatalf("snapshot %q: AccountKey() = %q, %v; want legacy %q, %v", snapshot, got, ok, want, wantOK)
 		}
 	}
@@ -247,13 +247,13 @@ func TestCodexMemberRevisionDoesNotChangeGlobalFormatVersion(t *testing.T) {
 	if FormatVersion != "3" {
 		t.Fatalf("FormatVersion = %q, want 3", FormatVersion)
 	}
-	if CodexIdentityRevision != "3" {
-		t.Fatalf("CodexIdentityRevision = %q, want 3", CodexIdentityRevision)
+	if CodexIdentityRevision != "2" {
+		t.Fatalf("CodexIdentityRevision = %q, want unchanged revision 2", CodexIdentityRevision)
 	}
-	if got := AccountHistoryStructureRevision(); got != "identity-3:codex-3:model-1" {
+	if got := AccountHistoryStructureRevision(); got != "identity-3:codex-2:model-1" {
 		t.Fatalf("account history revision = %q", got)
 	}
-	if got := MonitoringProjectionStructureRevision(); got != "identity-3:codex-3:model-1:project-v1" {
+	if got := MonitoringProjectionStructureRevision(); got != "identity-3:codex-2:model-1:project-v1" {
 		t.Fatalf("monitoring projection revision = %q", got)
 	}
 }
@@ -262,7 +262,7 @@ func TestAccountKeyDoesNotPromoteHistoricalCodexProjectSnapshot(t *testing.T) {
 	fields := Fields{AuthFileSnapshot: "legacy-codex.json", AuthIndex: "auth-old", AuthProviderSnapshot: "codex", AuthProjectIDSnapshot: "generic-project"}
 	got, ok := AccountKey(fields)
 	want, legacyOK := LegacyAccountKey(fields)
-	if !ok || !legacyOK || got != want {
+	if !ok || !legacyOK || got != "credential:"+want {
 		t.Fatalf("historical Codex project snapshot promoted: got=%q want legacy=%q", got, want)
 	}
 }
@@ -271,7 +271,7 @@ func TestAccountKeyDoesNotReadLegacyCodexAccountMarkerFromProjectSnapshot(t *tes
 	fields := Fields{AuthFileSnapshot: "legacy-codex.json", AuthIndex: "auth-old", AuthProviderSnapshot: "codex", AuthProjectIDSnapshot: CodexAccountIDSnapshot("account-a")}
 	got, ok := AccountKey(fields)
 	want, legacyOK := LegacyAccountKey(fields)
-	if !ok || !legacyOK || got != want {
+	if !ok || !legacyOK || got != "credential:"+want {
 		t.Fatalf("legacy project marker promoted to stable account: got=%q want=%q", got, want)
 	}
 }
@@ -360,7 +360,7 @@ func TestSQLAccountKeyExpressionMatchesGo(t *testing.T) {
 }
 
 func TestPricingStructureRevisionIncludesIdentityFormat(t *testing.T) {
-	if got := PricingStructureRevision("price-revision"); got != "model-1:identity-3:codex-3:price-revision" {
+	if got := PricingStructureRevision("price-revision"); got != "model-1:identity-3:codex-2:price-revision" {
 		t.Fatalf("revision = %q", got)
 	}
 }

@@ -54,6 +54,7 @@ limit ?`
 // snapshot captured with a request. AuthFileSnapshot is the primary identity;
 // Source is used only for records created before auth-file snapshots existed.
 type LatestAccountRequestQuery struct {
+	System                string
 	RequestIndex          int
 	AuthFileSnapshot      string
 	AuthIndex             string
@@ -169,6 +170,9 @@ func withLatestRequestIdentity(
 	target LatestAccountRequestQuery,
 ) []latestRequestPredicate {
 	identitySQL, identityArgs := latestRequestIdentityPredicate(target)
+	if normalizeLatestRequestProvider(target.Provider) == "codex" && usageidentity.IsWindowsCredential(usageidentity.Fields{System: target.System, AuthFileSnapshot: target.AuthFileSnapshot}) {
+		identitySQL += " and e.id > " + usageidentity.SQLCredentialCutover()
+	}
 	if identitySQL == "" {
 		return predicates
 	}
@@ -411,7 +415,7 @@ func (r *repository) recentAccountRequestsBatched(
 				identityMode = 1
 			}
 		}
-		values = append(values, "(?, ?, ?, ?, ?, ?, ?, ?)")
+		values = append(values, "(?, ?, ?, ?, ?, ?, ?, ?, ?)")
 		args = append(
 			args,
 			target.RequestIndex,
@@ -422,6 +426,7 @@ func (r *repository) recentAccountRequestsBatched(
 			member,
 			strings.TrimSpace(target.AuthProjectIDSnapshot),
 			identityMode,
+			provider == "codex" && usageidentity.IsWindowsCredential(usageidentity.Fields{System: target.System, AuthFileSnapshot: target.AuthFileSnapshot}),
 		)
 	}
 	if len(values) == 0 {
@@ -430,7 +435,7 @@ func (r *repository) recentAccountRequestsBatched(
 	args = append(args, limit)
 
 	rows, err := r.db.QueryContext(ctx, `with credential_targets(
-	request_index, auth_file_snapshot, auth_index, provider, workspace_id, member, project_id, identity_mode
+	request_index, auth_file_snapshot, auth_index, provider, workspace_id, member, project_id, identity_mode, windows_credential
 ) as (
 	values `+strings.Join(values, ",")+`
 ), snapshot_candidates as (
@@ -449,6 +454,7 @@ func (r *repository) recentAccountRequestsBatched(
 		on e.auth_file_snapshot collate nocase = t.auth_file_snapshot
 		and coalesce(e.auth_index, '') collate nocase = t.auth_index
 		and `+latestRequestBatchedIdentityPredicate("t", "e")+`
+		and (t.windows_credential = 0 or e.id > `+usageidentity.SQLCredentialCutover()+`)
 ), legacy_source_candidates as (
 	select
 		t.request_index,
@@ -466,6 +472,7 @@ func (r *repository) recentAccountRequestsBatched(
 		and e.source collate nocase = t.auth_file_snapshot
 		and coalesce(e.auth_index, '') collate nocase = t.auth_index
 		and `+latestRequestBatchedIdentityPredicate("t", "e")+`
+		and (t.windows_credential = 0 or e.id > `+usageidentity.SQLCredentialCutover()+`)
 ), candidates as (
 	select * from snapshot_candidates
 	union all

@@ -66,6 +66,9 @@ export const buildAccountHistoryTargetEntries = (rows: AccountRow[]): AccountHis
         rowKey: row.selectionKey,
         target: {
           row_key: row.selectionKey,
+          ...(isCodex && readString(row.raw.codex_client_system)
+            ? { system: readString(row.raw.codex_client_system) }
+            : {}),
           account_snapshot: accountSnapshot || undefined,
           auth_label_snapshot: authLabelSnapshot || undefined,
           auth_file_snapshot: authFileSnapshot || undefined,

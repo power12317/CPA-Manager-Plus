@@ -62,16 +62,16 @@ func TestBuildEventsIncludesRequestMetadata(t *testing.T) {
 	genTrue := true
 	streamFalse := false
 	response := buildEvents(store.EventsPage{Items: []store.EventPageItem{{
-		EventHash:          "request-metadata",
-		ClientIP:           "192.0.2.10",
-		XForwardedFor:      "203.0.113.5, 198.51.100.8",
-		UserAgent:          "test-client/1.0",
-		ResponseModel:      "gpt-4o-mini",
-		SessionID:          "sess-12345",
-		ParentSessionID:    "parent-sess-67890",
-		AccessTokenSHA256:  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-		Generate:           &genTrue,
-		Stream:             &streamFalse,
+		EventHash:         "request-metadata",
+		ClientIP:          "192.0.2.10",
+		XForwardedFor:     "203.0.113.5, 198.51.100.8",
+		UserAgent:         "test-client/1.0",
+		ResponseModel:     "gpt-4o-mini",
+		SessionID:         "sess-12345",
+		ParentSessionID:   "parent-sess-67890",
+		AccessTokenSHA256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+		Generate:          &genTrue,
+		Stream:            &streamFalse,
 	}}}, 1)
 	if response == nil || len(response.Items) != 1 {
 		t.Fatalf("events response = %#v", response)
@@ -2534,7 +2534,7 @@ func TestAccountHistoryTargetRejectsInjectedCodexWorkspaceKeyWithoutStrongMember
 				AuthAccountIDSnapshot: "workspace-1",
 				AccountSnapshot:       test.accountSnapshot,
 			})
-			if !valid || !wantValid || key != want || key == legacyWorkspaceKey {
+			if !valid || !wantValid || key != "credential:"+want || key == legacyWorkspaceKey {
 				t.Fatalf("injected legacy Codex workspace key resolved as %q, %v; want credential key %q", key, valid, want)
 			}
 		})

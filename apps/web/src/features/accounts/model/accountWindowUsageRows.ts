@@ -154,6 +154,7 @@ export const buildAccountWindowUsageTargetEntries = (
             auth_account_id_snapshot: accountTarget.auth_account_id_snapshot,
             auth_project_id_snapshot: accountTarget.auth_project_id_snapshot,
             auth_index: accountTarget.auth_index,
+            ...(accountTarget.system ? { system: accountTarget.system } : {}),
             source: accountTarget.source,
           },
         });

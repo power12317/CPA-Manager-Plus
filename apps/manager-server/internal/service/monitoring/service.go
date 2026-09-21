@@ -228,6 +228,7 @@ type AccountHistoryRequest struct {
 }
 
 type AccountHistoryTarget struct {
+	System                string `json:"system,omitempty"`
 	RowKey                string `json:"row_key"`
 	AccountKey            string `json:"account_key,omitempty"`
 	AccountSnapshot       string `json:"account_snapshot,omitempty"`
@@ -288,6 +289,7 @@ type AccountWindowUsageRequest struct {
 }
 
 type AccountWindowUsageTarget struct {
+	System                string                  `json:"system,omitempty"`
 	RequestKey            string                  `json:"request_key,omitempty"`
 	RowKey                string                  `json:"row_key"`
 	WindowKey             string                  `json:"window_key,omitempty"`
@@ -323,6 +325,7 @@ func (target *AccountWindowUsageTarget) UnmarshalJSON(data []byte) error {
 	// controller's DisallowUnknownFields contract for the target itself while
 	// allowing forward-compatible metadata inside model_scope.
 	knownFields := map[string]struct{}{
+		"system":      {},
 		"request_key": {}, "row_key": {}, "window_key": {}, "provider_window_id": {},
 		"period": {}, "from_ms": {}, "to_ms": {}, "model_scope": {},
 		"account_snapshot": {}, "auth_label_snapshot": {}, "auth_file_snapshot": {},
@@ -1413,6 +1416,7 @@ func (s *Service) accountHistory(ctx context.Context, req AccountHistoryRequest)
 	keys := make([]string, 0, len(req.Accounts)*2)
 	stableKeys := make([]string, 0, len(req.Accounts))
 	legacyAliases := make(map[string]string)
+	historicalAliases := make(map[string]string)
 	legacyConflicts := make(map[string]struct{})
 	targetKeys := make([]string, len(req.Accounts))
 	validTargets := make([]bool, len(req.Accounts))
@@ -1424,9 +1428,27 @@ func (s *Service) accountHistory(ctx context.Context, req AccountHistoryRequest)
 		if valid {
 			keys = append(keys, key)
 			stableKeys = append(stableKeys, key)
+			fields := accountHistoryIdentityFields(account)
+			if strings.EqualFold(strings.TrimSpace(account.AuthProviderSnapshot), "codex") && !usageidentity.IsWindowsCredential(fields) {
+				if historicalKey, ok := usageidentity.HistoricalAccountKey(fields); ok && historicalKey != key {
+					keys = append(keys, historicalKey)
+					stableKeys = append(stableKeys, historicalKey)
+					legacyAliases[historicalKey] = key
+					historicalAliases[historicalKey] = key
+				}
+			}
 			legacyKey, allowed, err := s.store.UsageEvents.ResolveCodexLegacyAccountKey(ctx, accountHistoryIdentityFields(account))
 			if err != nil {
 				return AccountHistoryResponse{}, err
+			}
+			if allowed && legacyKey != "" {
+				if !usageidentity.IsWindowsCredential(fields) && legacyKey != key {
+					keys = append(keys, legacyKey)
+					stableKeys = append(stableKeys, legacyKey)
+					legacyAliases[legacyKey] = key
+					historicalAliases[legacyKey] = key
+				}
+				legacyKey = "credential:" + legacyKey
 			}
 			if allowed && legacyKey != "" && legacyKey != key {
 				keys = append(keys, legacyKey)
@@ -1445,6 +1467,7 @@ func (s *Service) accountHistory(ctx context.Context, req AccountHistoryRequest)
 		}
 		if latestAccountRequestTargetValid(account) {
 			latestRequestTargets = append(latestRequestTargets, store.LatestAccountRequestQuery{
+				System:                account.System,
 				RequestIndex:          index,
 				AuthFileSnapshot:      accountHistoryAuthFileSnapshot(account),
 				AuthIndex:             account.AuthIndex,
@@ -1492,6 +1515,7 @@ func (s *Service) accountHistory(ctx context.Context, req AccountHistoryRequest)
 			if err != nil {
 				return AccountHistoryResponse{}, err
 			}
+			mergeAliasedAccountHistoryTotals(totals, historicalAliases)
 		}
 	}
 	recentRequests, err := s.store.RecentAccountRequests(
@@ -1643,6 +1667,7 @@ func (s *Service) accountWindowUsage(ctx context.Context, req AccountWindowUsage
 			return AccountWindowUsageResponse{}, errors.New("account target credential identity is required")
 		}
 		queries = append(queries, store.AccountWindowUsageQuery{
+			System:                window.System,
 			RequestIndex:          index,
 			FromMS:                window.FromMS,
 			ToMS:                  window.ToMS,
@@ -3709,6 +3734,7 @@ func isLegacyCodexWorkspaceAccountKey(key string) bool {
 
 func accountHistoryIdentityFields(target AccountHistoryTarget) usageidentity.Fields {
 	return usageidentity.Fields{
+		System:                target.System,
 		AuthFileSnapshot:      target.AuthFileSnapshot,
 		AuthIndex:             target.AuthIndex,
 		AuthProviderSnapshot:  target.AuthProviderSnapshot,

@@ -213,7 +213,7 @@ func upsertEvents(ctx context.Context, tx *sql.Tx, whereClause string, whereArgs
 		header_error_kind = excluded.header_error_kind,
 		header_error_code = excluded.header_error_code,
 		header_trace_id = excluded.header_trace_id,
-		updated_at_ms = excluded.updated_at_ms`, EventTable, SearchTextExpression(""), usageidentity.SQLAccountKeyExpression(""), usageidentity.SQLRequestAnalyticsModelExpression("model", "requested_model"), whereClause)
+		updated_at_ms = excluded.updated_at_ms`, EventTable, SearchTextExpression(""), usageidentity.SQLEventAccountKeyExpression(""), usageidentity.SQLRequestAnalyticsModelExpression("model", "requested_model"), whereClause)
 	args := make([]any, 0, len(whereArgs)+1)
 	args = append(args, nowMS)
 	args = append(args, whereArgs...)

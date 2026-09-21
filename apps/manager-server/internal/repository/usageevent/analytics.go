@@ -227,6 +227,10 @@ type AccountModelStat struct {
 }
 
 type AccountWindowUsageQuery struct {
+	System                string
+	HistoricalAccountKey  string
+	HistoricalLegacyKey   string
+	HistoricalCutoverID   int64
 	RequestIndex          int
 	FromMS                int64
 	ToMS                  int64
@@ -1627,7 +1631,7 @@ func (r *repository) AccountWindowModelStats(ctx context.Context, windows []Acco
 	args := make([]any, 0, len(resolvedWindows)*5)
 	for _, window := range resolvedWindows {
 		accountKey, legacyAccountKey := accountWindowQueryKeys(window)
-		values = append(values, "(?, ?, ?, ?, ?)")
+		values = append(values, "(?, ?, ?, ?, ?, ?, ?)")
 		args = append(
 			args,
 			window.RequestIndex,
@@ -1635,11 +1639,13 @@ func (r *repository) AccountWindowModelStats(ctx context.Context, windows []Acco
 			window.ToMS,
 			accountKey,
 			legacyAccountKey,
+			window.HistoricalAccountKey,
+			window.HistoricalLegacyKey,
 		)
 	}
 
 	rows, err := tx.QueryContext(ctx, pricingBandedUsageEventsCTE+`, window_targets(
-	request_index, from_ms, to_ms, account_key, legacy_account_key
+	request_index, from_ms, to_ms, account_key, legacy_account_key, historical_account_key, historical_legacy_key
 ) as (
 	values `+strings.Join(values, ",")+`
 )
@@ -1669,7 +1675,7 @@ from window_targets w
 	join banded_usage_events e
 		on e.timestamp_ms >= w.from_ms
 		and e.timestamp_ms < w.to_ms
-		and `+usageidentity.SQLAccountKeyExpression("e")+` in (w.account_key, w.legacy_account_key)
+		and `+usageidentity.SQLEventAccountKeyExpression("e")+` in (w.account_key, w.legacy_account_key, w.historical_account_key, w.historical_legacy_key)
 	group by w.request_index, e.analytics_model_value, billing_model, e.pricing_model_value, e.context_threshold_tokens_value, coalesce(e.service_tier, '')
 order by w.request_index, max(e.timestamp_ms) desc`, args...)
 	if err != nil {
@@ -1727,6 +1733,21 @@ func ResolveAccountWindowLegacyKeys(
 	windows []AccountWindowUsageQuery,
 ) ([]AccountWindowUsageQuery, error) {
 	resolved := append([]AccountWindowUsageQuery(nil), windows...)
+	boundaryRows, err := queryer.QueryContext(ctx, "select "+usageidentity.SQLCredentialCutover())
+	if err != nil {
+		return nil, err
+	}
+	var cutover int64
+	if boundaryRows.Next() {
+		err = boundaryRows.Scan(&cutover)
+	}
+	if err == nil {
+		err = boundaryRows.Err()
+	}
+	_ = boundaryRows.Close()
+	if err != nil {
+		return nil, err
+	}
 	cache := make(map[string]struct {
 		key     string
 		allowed bool
@@ -1735,6 +1756,12 @@ func ResolveAccountWindowLegacyKeys(
 	legacyConflicts := make(map[string]struct{})
 	for index := range resolved {
 		window := &resolved[index]
+		if normalizeIdentityProvider(window.AuthProviderSnapshot) == "codex" {
+			window.HistoricalCutoverID = cutover
+			if !usageidentity.IsWindowsCredential(accountWindowIdentityFields(*window)) {
+				window.HistoricalAccountKey, _ = usageidentity.HistoricalAccountKey(accountWindowIdentityFields(*window))
+			}
+		}
 		if !codexLegacyWindowTarget(*window) {
 			continue
 		}
@@ -1764,13 +1791,17 @@ func ResolveAccountWindowLegacyKeys(
 			continue
 		}
 		legacyOwners[result.key] = ownerKey
-		window.LegacyAccountKey = result.key
+		if !usageidentity.IsWindowsCredential(accountWindowIdentityFields(*window)) {
+			window.HistoricalLegacyKey = result.key
+		}
+		window.LegacyAccountKey = "credential:" + result.key
 	}
 	if len(legacyConflicts) > 0 {
 		for index := range resolved {
 			window := &resolved[index]
-			if _, conflicted := legacyConflicts[window.LegacyAccountKey]; conflicted {
+			if _, conflicted := legacyConflicts[strings.TrimPrefix(window.LegacyAccountKey, "credential:")]; conflicted {
 				window.LegacyAccountKey = ""
+				window.HistoricalLegacyKey = ""
 			}
 		}
 	}
@@ -1808,6 +1839,7 @@ func codexLegacyWindowCacheKey(window AccountWindowUsageQuery) string {
 
 func accountWindowIdentityFields(window AccountWindowUsageQuery) usageidentity.Fields {
 	return usageidentity.Fields{
+		System:                window.System,
 		AuthFileSnapshot:      window.AuthFileSnapshot,
 		AuthIndex:             window.AuthIndex,
 		AuthProviderSnapshot:  window.AuthProviderSnapshot,

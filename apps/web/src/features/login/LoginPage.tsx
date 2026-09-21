@@ -47,7 +47,7 @@ import {
   CPAMP_VERTICAL_LOGO_URL,
 } from '@/assets/brand';
 import type { ApiError } from '@/types';
-import { resolveUsageServiceLoginMode } from './loginMode';
+import { resolveLoginProbeFailureMode, resolveUsageServiceLoginMode } from './loginMode';
 import styles from './LoginPage.module.scss';
 
 type RedirectState = { from?: { pathname?: string; search?: string; hash?: string } };
@@ -131,9 +131,6 @@ export function LoginPage() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const login = useAuthStore((state) => state.login);
   const restoreSession = useAuthStore((state) => state.restoreSession);
-  const storedBase = useAuthStore((state) => state.apiBase);
-  const storedKey = useAuthStore((state) => state.managementKey);
-  const storedRememberPassword = useAuthStore((state) => state.rememberPassword);
   const setUsageServiceConfig = useUsageServiceStore((state) => state.setUsageServiceConfig);
   const languageMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -154,11 +151,9 @@ export function LoginPage() {
   const [hasHistoricalData, setHasHistoricalData] = useState(false);
   const [migrationStatus, setMigrationStatus] = useState('');
   const [usageSetupStep, setUsageSetupStep] = useState<UsageSetupStep>('admin');
+  const [isManagerServerMode, setIsManagerServerMode] = useState(false);
 
   const detectedBase = useMemo(() => detectApiBaseFromLocation(), []);
-  // The main panel is always Manager-backed. CPA URLs and CPA management keys
-  // are configured after login in Instance Management and are never login inputs.
-  const isManagerServerMode = true;
   const loginCredential = isManagerServerMode ? adminKey : cpaManagementKey;
   const redirectAfterLogin = useMemo(() => resolveRedirectPath(location.state), [location.state]);
   const loginCredentialLabel = isManagerServerMode
@@ -253,30 +248,39 @@ export function LoginPage() {
           setUsageServiceNeedsSetup(false);
           setHasHistoricalData(Boolean(info.hasHistoricalData));
           setMigrationStatus(info.migrationStatus || '');
-        } catch {
-          detectedUsageService = false;
+        } catch (error) {
+          detectedUsageService =
+            resolveLoginProbeFailureMode(error, detectedBase, useAuthStore.getState()) ===
+            'manager_embedded';
           detectedUsageServiceConfigured = false;
           setUsageServiceNeedsSetup(false);
           setHasHistoricalData(false);
           setMigrationStatus('');
         }
 
-        const autoLoginExpectedPanelBase = detectedBase;
+        setIsManagerServerMode(detectedUsageService);
         const autoLoggedIn = await restoreSession({
-          expectedMode: 'manager_embedded',
-          expectedPanelBase: autoLoginExpectedPanelBase,
+          expectedMode: detectedUsageService ? 'manager_embedded' : 'external_panel',
+          expectedPanelBase: detectedBase,
         });
         if (detectedUsageService) {
           setUsageServiceConfig(
             { enabled: true, serviceBase: detectedBase },
             { panelBase: detectedBase, panelHostMode: 'manager_embedded' }
           );
+        } else {
+          setUsageServiceConfig(
+            { enabled: false, serviceBase: '' },
+            { panelBase: detectedBase, panelHostMode: 'external_panel' }
+          );
         }
         if (autoLoggedIn) {
           setAutoLoginSuccess(true);
           setTimeout(() => {
             const redirect =
-              autoLoggedIn.recoveryMode === 'manager_config' ? '/manager-config' : redirectAfterLogin;
+              autoLoggedIn.recoveryMode === 'manager_config'
+                ? '/manager-config'
+                : redirectAfterLogin;
             navigate(redirect, { replace: true });
           }, 1500);
           return;
@@ -295,16 +299,20 @@ export function LoginPage() {
             ? detectedUsageServiceConfigured
               ? detectedBase
               : lastCPAForUsageService || defaultCPAConnectionBase
-            : storedBase || detectedBase
+            : detectedBase
         );
+        // Restoration may discard credentials from another host or mode.
+        // Read the accepted state instead of pre-filling a stale render snapshot.
+        const storedSession = useAuthStore.getState();
+        const storedKey = storedSession.managementKey;
         if (detectedUsageService) {
           setAdminKey(storedKey || '');
           setCPAManagementKey('');
         } else {
-          setAdminKey(storedKey || '');
-          setCPAManagementKey('');
+          setAdminKey('');
+          setCPAManagementKey(storedKey || '');
         }
-        setRememberCredential(storedRememberPassword || Boolean(storedKey));
+        setRememberCredential(storedSession.rememberPassword || Boolean(storedKey));
       } finally {
         if (!autoLoginSuccess) {
           setAutoLoading(false);

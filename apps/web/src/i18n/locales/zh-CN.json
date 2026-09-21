@@ -247,6 +247,7 @@
     "config_management": "CPA 配置",
     "cpa_config": "CPA 配置",
     "instances": "实例管理",
+    "instance_config": "实例配置",
     "manager_config": "CPAMP 设置",
     "config_management_short": "配置",
     "system_config": "系统配置",

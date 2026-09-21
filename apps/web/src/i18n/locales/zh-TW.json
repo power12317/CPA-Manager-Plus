@@ -245,6 +245,7 @@
     "account_actions": "認證異常",
     "account_actions_short": "異常",
     "config_management": "設定面板",
+    "instance_config": "實例設定",
     "config_management_short": "設定",
     "system_config": "系統設定",
     "logs": "記錄檢視",

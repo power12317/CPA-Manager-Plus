@@ -249,6 +249,7 @@
     "config_management": "CPA configuration",
     "cpa_config": "CPA configuration",
     "instances": "Instance management",
+    "instance_config": "Instance configuration",
     "manager_config": "CPAMP settings",
     "config_management_short": "Config",
     "system_config": "System Config",

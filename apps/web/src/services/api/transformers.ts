@@ -497,6 +497,9 @@ export const normalizeConfigResponse = (raw: unknown): Config => {
     config.pluginsEnabled = normalizeBoolean(raw['plugins-enabled'] ?? raw.pluginsEnabled);
   }
   config.wsAuth = normalizeBoolean(raw['ws-auth'] ?? raw.wsAuth);
+  config.codexForceWebsocket = isRecord(raw.codex)
+    ? normalizeBoolean(raw.codex['force-websocket'])
+    : undefined;
   config.forceModelPrefix = normalizeBoolean(raw['force-model-prefix'] ?? raw.forceModelPrefix);
   const routing = raw.routing;
   const strategyRaw = isRecord(routing)

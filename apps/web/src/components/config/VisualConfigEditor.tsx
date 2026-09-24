@@ -1198,6 +1198,15 @@ export function VisualConfigEditor({
                   disabled={disabled}
                   onChange={(wsAuth) => onChange({ wsAuth })}
                 />
+                <ToggleRow
+                  title={t('config_management.visual.sections.network.codex_force_websocket')}
+                  description={t(
+                    'config_management.visual.sections.network.codex_force_websocket_desc'
+                  )}
+                  checked={values.codexForceWebsocket}
+                  disabled={disabled}
+                  onChange={(codexForceWebsocket) => onChange({ codexForceWebsocket })}
+                />
               </SectionGrid>
 
               <SectionSubsection

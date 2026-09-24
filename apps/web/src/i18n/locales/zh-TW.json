@@ -3600,6 +3600,8 @@
           "disable_claude_cloak_mode": "停用 Claude 偽裝模式",
           "disable_claude_cloak_mode_desc": "全域原樣傳遞 Claude system 提示詞，不再偽裝成 Claude Code；個別憑證仍可覆寫",
           "session_affinity": "會話黏性路由",
+          "codex_force_websocket": "強制上游 WebSocket（ChatGPT）",
+          "codex_force_websocket_desc": "ChatGPT Codex 生成請求優先使用 WebSocket，用戶端仍可使用 SSE 或 WebSocket。累計 5 次握手失敗後，本次請求回退 SSE；斷線後按需重連。需要支援此功能的 CPA 後端。",
           "ws_auth": "WebSocket 驗證",
           "ws_auth_desc": "啟用 WebSocket 連線驗證（/v1/ws）"
         },

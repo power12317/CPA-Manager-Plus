@@ -42,6 +42,36 @@ const mountUseVisualConfig = (): UseVisualConfigHarness => {
 };
 
 describe('useVisualConfig', () => {
+  it('round trips the upstream WebSocket policy independently of auth and other Codex settings', () => {
+    const harness = mountUseVisualConfig();
+    const yaml = 'ws-auth: false\ncodex:\n  identity-confuse: true\n';
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(yaml);
+    });
+    expect(harness.getCurrent().visualValues.codexForceWebsocket).toBe(false);
+    expect(
+      parseYaml(harness.getCurrent().applyVisualChangesToYaml(yaml)).codex['force-websocket']
+    ).toBeUndefined();
+    act(() => {
+      harness.getCurrent().setVisualValues({ codexForceWebsocket: true });
+    });
+    const updated = harness.getCurrent().applyVisualChangesToYaml(yaml);
+    expect(parseYaml(updated)).toEqual({
+      'ws-auth': false,
+      codex: { 'identity-confuse': true, 'force-websocket': true },
+    });
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(updated);
+    });
+    expect(harness.getCurrent().visualValues.codexForceWebsocket).toBe(true);
+    act(() => {
+      harness.getCurrent().setVisualValues({ codexForceWebsocket: false });
+    });
+    expect(
+      parseYaml(harness.getCurrent().applyVisualChangesToYaml(updated)).codex['force-websocket']
+    ).toBe(false);
+    harness.unmount();
+  });
   it('clears the page dirty state when API keys are the only changed field', () => {
     const harness = mountUseVisualConfig();
     const initialYaml = ['proxy-url: http://proxy.local:8080', 'api-keys:', '  - old-key', ''].join(

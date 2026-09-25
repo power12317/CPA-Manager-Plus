@@ -3665,7 +3665,7 @@
           "beta_features": "Beta Features",
           "identity_confuse": "Enable Codex Identity Confuse",
           "device_convergence": "Codex device pinning",
-          "device_convergence_desc": "Enabled by default: keep a stable device ID per account and credential system. When Windows and Mac credentials are configured separately, each system gets its own fixed device ID. When disabled, pass the device ID through unchanged and leave it absent when missing. Independent of identity confusion; requires CPA support.",
+          "device_convergence_desc": "On by default. Keep a fixed device ID per account and credential system; when off, pass it through without adding one.",
           "identity_confuse_desc": "Write codex.identity-confuse to let CPA mix Codex request identity headers for compatibility"
         },
         "network": {
@@ -3707,11 +3707,11 @@
           "disable_claude_cloak_mode": "Disable Claude Cloak Mode",
           "disable_claude_cloak_mode_desc": "Globally pass Claude system prompts through without the Claude Code disguise unless a credential overrides it",
           "session_affinity": "Session Affinity Routing",
-          "codex_force_websocket": "Force upstream WebSocket (ChatGPT)",
+          "codex_force_websocket": "Force upstream WebSocket",
           "codex_basispoints": "Use Basispoints",
-          "codex_basispoints_desc": "Use Basispoints for Codex requests, preserving model names and reasoning effort. Requests with hosted tools such as image generation or web search use native Codex to retain those capabilities. Unsupported parameters return the upstream error.",
+          "codex_basispoints_desc": "Use Basispoints for Codex; hosted tools use native Codex. Risk of account suspension. Enable with caution.",
           "codex_basispoints_unavailable": "This backend has not declared Basispoints support. Connect to a CPA version that supports it.",
-          "codex_force_websocket_desc": "Prefer WebSocket for ChatGPT Codex generation while clients keep SSE or WebSocket. After 5 failed handshakes, this request falls back to SSE. Reconnect on demand. Requires a compatible CPA backend.",
+          "codex_force_websocket_desc": "Prefer WebSocket for Codex; fall back to SSE for the current request after 5 failed handshakes.",
           "ws_auth": "WebSocket Authentication",
           "ws_auth_desc": "Enable WebSocket authentication (/v1/ws)"
         },

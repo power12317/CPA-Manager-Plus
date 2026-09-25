@@ -3663,7 +3663,7 @@
           "beta_features": "Beta Features",
           "identity_confuse": "启用 Codex 身份混淆",
           "device_convergence": "codex设备固定",
-          "device_convergence_desc": "默认开启：按账号和凭据所属系统固定设备号。分别配置 Windows 和 Mac 凭据时，两者会各自固定一个设备号。关闭后原样透传，未提供设备号时不补充。与身份混淆独立，需 CPA 支持此功能。",
+          "device_convergence_desc": "默认开启，按账号和凭据系统固定设备号；关闭后原样透传，不补设备号。",
           "identity_confuse_desc": "写入 codex.identity-confuse，让 CPA 混合 Codex 请求身份 Header 以提升兼容性"
         },
         "network": {
@@ -3705,11 +3705,11 @@
           "disable_claude_cloak_mode": "禁用 Claude 伪装模式",
           "disable_claude_cloak_mode_desc": "全局原样传递 Claude system 提示词，不再伪装成 Claude Code；单个凭证仍可覆盖",
           "session_affinity": "会话粘性路由",
-          "codex_force_websocket": "强制上游 WebSocket（ChatGPT）",
+          "codex_force_websocket": "强制上游 WebSocket",
           "codex_basispoints": "使用 Basispoints 接口",
-          "codex_basispoints_desc": "常规 Codex 请求使用 Basispoints，模型名称和推理强度保持原值。包含图片生成、联网搜索等托管工具的请求使用原生 Codex，保留工具能力。上游不支持的参数直接返回上游错误。",
+          "codex_basispoints_desc": "Codex 请求使用 Basispoints，托管工具走原生接口。存在封号风险，请谨慎开启。",
           "codex_basispoints_unavailable": "当前后端尚未声明支持 Basispoints，请连接支持此功能的 CPA 版本。",
-          "codex_force_websocket_desc": "ChatGPT Codex 生成请求优先使用 WebSocket，客户端仍可使用 SSE 或 WebSocket。累计 5 次握手失败后，本次请求回退 SSE；断线后按需重连。需要支持此功能的 CPA 后端。",
+          "codex_force_websocket_desc": "Codex 上游优先使用 WebSocket，5 次握手失败后本次请求回退 SSE。",
           "ws_auth": "WebSocket 认证",
           "ws_auth_desc": "启用 WebSocket 连接认证 (/v1/ws)"
         },

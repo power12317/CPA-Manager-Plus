@@ -17,6 +17,14 @@ const weightedConfigYaml = [
 ].join('\n');
 
 describe('demo configuration API', () => {
+  it('persists the single Basispoints switch through the same configuration endpoints', async () => {
+    const yaml = 'codex:\n  basispoints:\n    enabled: true\n';
+    await handleDemoApiRequest('put', '/config.yaml', yaml);
+    expect(await handleDemoApiRequest('get', '/config.yaml')).toBe(yaml);
+    expect(await handleDemoApiRequest('get', '/config')).toMatchObject({
+      codex: { basispoints: { enabled: true } },
+    });
+  });
   beforeEach(() => {
     resetDemoConfigState();
   });

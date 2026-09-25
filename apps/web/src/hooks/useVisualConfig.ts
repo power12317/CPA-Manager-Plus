@@ -601,6 +601,18 @@ function getNextDirtyFields(
   if (Object.prototype.hasOwnProperty.call(patch, 'wsAuth')) {
     updateDirty('wsAuth', nextValues.wsAuth === baselineValues.wsAuth);
   }
+  if (Object.prototype.hasOwnProperty.call(patch, 'codexForceWebsocket')) {
+    updateDirty(
+      'codexForceWebsocket',
+      nextValues.codexForceWebsocket === baselineValues.codexForceWebsocket
+    );
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'codexBasispointsEnabled')) {
+    updateDirty(
+      'codexBasispointsEnabled',
+      nextValues.codexBasispointsEnabled === baselineValues.codexBasispointsEnabled
+    );
+  }
   if (Object.prototype.hasOwnProperty.call(patch, 'quotaSwitchProject')) {
     updateDirty(
       'quotaSwitchProject',
@@ -872,6 +884,8 @@ export function useVisualConfig() {
             : '',
         authAutoRefreshWorkers: String(parsed['auth-auto-refresh-workers'] ?? ''),
         wsAuth: Boolean(parsed['ws-auth'] ?? true),
+        codexForceWebsocket: Boolean(codex?.['force-websocket'] ?? false),
+        codexBasispointsEnabled: Boolean(asRecord(codex?.basispoints)?.enabled ?? false),
         antigravitySignatureCacheEnabled: Boolean(
           parsed['antigravity-signature-cache-enabled'] ?? true
         ),
@@ -1187,6 +1201,12 @@ export function useVisualConfig() {
         }
         if (isDirty('wsAuth')) {
           doc.setIn(['ws-auth'], values.wsAuth);
+        }
+        if (isDirty('codexForceWebsocket')) {
+          doc.setIn(['codex', 'force-websocket'], values.codexForceWebsocket);
+        }
+        if (isDirty('codexBasispointsEnabled')) {
+          doc.setIn(['codex', 'basispoints', 'enabled'], values.codexBasispointsEnabled);
         }
         if (isDirty('antigravitySignatureCacheEnabled')) {
           doc.setIn(

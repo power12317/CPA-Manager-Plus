@@ -42,6 +42,8 @@ export interface Config {
   logsMaxTotalSizeMb?: number;
   pluginsEnabled?: boolean;
   wsAuth?: boolean;
+  codexForceWebsocket?: boolean;
+  codexBasispointsEnabled?: boolean;
   forceModelPrefix?: boolean;
   routingStrategy?: string;
   apiKeys?: string[];

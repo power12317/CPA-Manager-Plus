@@ -43,6 +43,116 @@ const mountUseVisualConfig = (): UseVisualConfigHarness => {
 };
 
 describe('useVisualConfig', () => {
+  it('preserves ticket probing and device settings while toggling Basispoints and WebSocket', () => {
+    const harness = mountUseVisualConfig();
+    const yaml = [
+      'codex:',
+      '  force-websocket: false',
+      '  basispoints: { enabled: false }',
+      '  device-convergence: false',
+      '  identity-confuse: true',
+      '  turn-state-ticket:',
+      '    enabled: true',
+      '    fail-closed: true',
+      '    ttl-seconds: 1800',
+      '    refresh-before-seconds: 300',
+      '    probe-interval-seconds: 60',
+      '    attempt-timeout-seconds: 30',
+      '    harvest-proxy-url: socks5://probe.example:1080',
+      '    models: [gpt-6-astra]',
+      '    cache-all-models: false',
+      '    target-length: 780',
+      '',
+    ].join('\n');
+    act(() => harness.getCurrent().loadVisualValuesFromYaml(yaml));
+    act(() => harness.getCurrent().setVisualValues({
+      codexBasispointsEnabled: true,
+      codexForceWebsocket: true,
+    }));
+    const enabled = harness.getCurrent().applyVisualChangesToYaml(yaml);
+    expect(parseYaml(enabled)).toEqual({
+      codex: { ...parseYaml(yaml).codex, basispoints: { enabled: true }, 'force-websocket': true },
+    });
+    act(() => harness.getCurrent().loadVisualValuesFromYaml(enabled));
+    expect(harness.getCurrent().visualValues).toMatchObject({
+      codexBasispointsEnabled: true,
+      codexForceWebsocket: true,
+      codexTicketEnabled: true,
+      codexDeviceConvergence: false,
+    });
+    act(() => harness.getCurrent().setVisualValues({ codexTicketProbeIntervalSeconds: '90' }));
+    const changed = harness.getCurrent().applyVisualChangesToYaml(enabled);
+    expect(parseYaml(changed)).toEqual({
+      codex: {
+        ...parseYaml(enabled).codex,
+        'turn-state-ticket': {
+          ...parseYaml(yaml).codex['turn-state-ticket'],
+          'probe-interval-seconds': 90,
+        },
+      },
+    });
+    act(() => harness.getCurrent().loadVisualValuesFromYaml(changed));
+    act(() => harness.getCurrent().setVisualValues({ codexBasispointsEnabled: false }));
+    expect(parseYaml(harness.getCurrent().applyVisualChangesToYaml(changed))).toEqual({
+      codex: { ...parseYaml(changed).codex, basispoints: { enabled: false } },
+    });
+    harness.unmount();
+  });
+
+  it('round trips the Basispoints switch without changing models, effort or unrelated YAML', () => {
+    const harness = mountUseVisualConfig();
+    const yaml = 'codex:\n  force-websocket: true\n  future-setting: keep\n';
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(yaml);
+    });
+    expect(harness.getCurrent().visualValues.codexBasispointsEnabled).toBe(false);
+    expect(harness.getCurrent().applyVisualChangesToYaml(yaml)).toBe(yaml);
+    act(() => {
+      harness.getCurrent().setVisualValues({ codexBasispointsEnabled: true });
+    });
+    const updated = harness.getCurrent().applyVisualChangesToYaml(yaml);
+    expect(parseYaml(updated)).toEqual({
+      codex: { 'force-websocket': true, 'future-setting': 'keep', basispoints: { enabled: true } },
+    });
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(updated);
+      harness.getCurrent().setVisualValues({ codexBasispointsEnabled: false });
+    });
+    expect(
+      parseYaml(harness.getCurrent().applyVisualChangesToYaml(updated)).codex.basispoints
+    ).toEqual({ enabled: false });
+    harness.unmount();
+  });
+  it('round trips the upstream WebSocket policy independently of auth and other Codex settings', () => {
+    const harness = mountUseVisualConfig();
+    const yaml = 'ws-auth: false\ncodex:\n  identity-confuse: true\n';
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(yaml);
+    });
+    expect(harness.getCurrent().visualValues.codexForceWebsocket).toBe(false);
+    expect(
+      parseYaml(harness.getCurrent().applyVisualChangesToYaml(yaml)).codex['force-websocket']
+    ).toBeUndefined();
+    act(() => {
+      harness.getCurrent().setVisualValues({ codexForceWebsocket: true });
+    });
+    const updated = harness.getCurrent().applyVisualChangesToYaml(yaml);
+    expect(parseYaml(updated)).toEqual({
+      'ws-auth': false,
+      codex: { 'identity-confuse': true, 'force-websocket': true },
+    });
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(updated);
+    });
+    expect(harness.getCurrent().visualValues.codexForceWebsocket).toBe(true);
+    act(() => {
+      harness.getCurrent().setVisualValues({ codexForceWebsocket: false });
+    });
+    expect(
+      parseYaml(harness.getCurrent().applyVisualChangesToYaml(updated)).codex['force-websocket']
+    ).toBe(false);
+    harness.unmount();
+  });
   it('加载门票时间默认值时不写入配置，不改变账号目标长度', () => {
     const harness = mountUseVisualConfig();
     const yaml = 'codex:\n  turn-state-ticket:\n    enabled: false\n    target-length: 999\n';

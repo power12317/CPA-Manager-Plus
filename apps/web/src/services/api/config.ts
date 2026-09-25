@@ -82,6 +82,8 @@ export const configApi = {
    * WebSocket 鉴权开关
    */
   updateWsAuth: (enabled: boolean) => apiClient.put('/ws-auth', { value: enabled }),
+  updateCodexForceWebsocket: (enabled: boolean) =>
+    apiClient.put('/codex/force-websocket', { value: enabled }),
 
   /**
    * 获取强制模型前缀开关

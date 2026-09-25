@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeConfigResponse } from './transformers';
 
+describe('Basispoints support', () => {
+  it('distinguishes a disabled supported backend from an older backend', () => {
+    expect(normalizeConfigResponse({}).codexBasispointsEnabled).toBeUndefined();
+    expect(normalizeConfigResponse({ codex: {} }).codexBasispointsEnabled).toBeUndefined();
+    expect(
+      normalizeConfigResponse({ codex: { basispoints: { enabled: false } } })
+        .codexBasispointsEnabled
+    ).toBe(false);
+    expect(
+      normalizeConfigResponse({ codex: { basispoints: { enabled: true } } }).codexBasispointsEnabled
+    ).toBe(true);
+  });
+});
+
 describe('normalizeConfigResponse xAI API keys', () => {
   it('normalizes the xai-api-key contract using the provider-key shape', () => {
     const config = normalizeConfigResponse({

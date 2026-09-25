@@ -16,6 +16,7 @@ import {
   getDemoModelPrices,
   getDemoMonitoringAnalytics,
   getDemoQuotaCooldowns,
+  getDemoRuntimeModelPricingStatus,
   getDemoUsagePayload,
   getDemoUsageServiceInfo,
   getDemoUsageServiceStatus,
@@ -421,6 +422,11 @@ export interface ModelPriceSyncSourceResult {
   error?: string;
 }
 
+export interface ModelPriceSyncRequest {
+  models?: string[];
+  includeRuntimeModels?: boolean;
+}
+
 export interface ModelPriceSyncResponse extends ModelPricesResponse {
   source?: string;
   sources?: string[];
@@ -432,6 +438,15 @@ export interface ModelPriceSyncResponse extends ModelPricesResponse {
   preserved?: string[];
   proxyUsed?: boolean;
   sourceResults?: ModelPriceSyncSourceResult[];
+  runtimeModelCount?: number;
+  runtimeModelDiscoveryError?: string;
+}
+
+export interface RuntimeModelPricingStatusResponse {
+  models: string[];
+  unpricedModels: string[];
+  count: number;
+  unpricedCount: number;
 }
 
 export interface ApiKeyAlias {
@@ -842,6 +857,7 @@ export interface MonitoringAnalyticsRequest {
 }
 
 export interface MonitoringAccountHistoryTarget {
+  system?: string;
   row_key: string;
   account_key?: string;
   account_snapshot?: string;
@@ -901,6 +917,7 @@ export interface MonitoringAccountHistoryResponse {
 }
 
 export interface MonitoringAccountWindowUsageTarget {
+  system?: string;
   request_key?: string;
   row_key: string;
   window_key?: string;
@@ -1834,6 +1851,15 @@ export interface MonitoringAnalyticsEventRow {
   auth_account_id_snapshot?: string;
   auth_project_id_snapshot?: string;
   resolved_model?: string;
+  turn_id?: string;
+  system?: string;
+  turn_state_len?: string;
+  response_model?: string;
+  session_id?: string;
+  parent_session_id?: string;
+  access_token_sha256?: string;
+  generate?: boolean;
+  stream?: boolean;
   reasoning_effort?: string;
   service_tier?: string;
   executor_type?: string;
@@ -2967,6 +2993,28 @@ export const usageServiceApi = {
     });
   },
 
+  getRuntimeModelPricingStatus: async (
+    base: string,
+    managementKey?: string,
+    signal?: AbortSignal
+  ): Promise<RuntimeModelPricingStatusResponse> => {
+    if (__DEMO_SITE__ && isDemoMode()) {
+      return getDemoRuntimeModelPricingStatus();
+    }
+
+    return withUsageServiceError(async () => {
+      const response = await axios.get<RuntimeModelPricingStatusResponse>(
+        buildUrl(base, '/v0/management/model-prices/runtime-models'),
+        {
+          timeout: USAGE_SERVICE_TIMEOUT_MS,
+          headers: authHeaders(managementKey),
+          signal,
+        }
+      );
+      return response.data;
+    });
+  },
+
   saveModelPrices: async (
     base: string,
     prices: Record<string, ModelPrice>,
@@ -3189,16 +3237,31 @@ export const usageServiceApi = {
   syncModelPrices: async (
     base: string,
     managementKey?: string,
-    models?: string[]
+    modelsOrRequest?: string[] | ModelPriceSyncRequest,
+    options?: { includeRuntimeModels?: boolean }
   ): Promise<ModelPriceSyncResponse> => {
+    let payload: ModelPriceSyncRequest = {};
+    if (Array.isArray(modelsOrRequest)) {
+      payload = {
+        models: modelsOrRequest,
+        ...(options?.includeRuntimeModels !== undefined
+          ? { includeRuntimeModels: options.includeRuntimeModels }
+          : {}),
+      };
+    } else if (modelsOrRequest) {
+      payload = modelsOrRequest;
+    } else if (options?.includeRuntimeModels !== undefined) {
+      payload = { includeRuntimeModels: options.includeRuntimeModels };
+    }
+
     if (__DEMO_SITE__ && isDemoMode()) {
-      return getDemoModelPriceSyncResponse(models);
+      return getDemoModelPriceSyncResponse(payload.models);
     }
 
     return withUsageServiceError(async () => {
       const response = await axios.post<ModelPriceSyncResponse>(
         buildUrl(base, '/v0/management/model-prices/sync'),
-        models ? { models } : {},
+        payload,
         {
           timeout: 45 * 1000,
           headers: authHeaders(managementKey),

@@ -4,7 +4,7 @@ import { buildAccountOAuthReauthPath } from './accountReauthSession';
 
 export type AccountReauthAction =
   | { kind: 'codex-dialog' }
-  | { kind: 'navigate'; oauthProvider: string; path: string }
+  | { kind: 'navigate'; oauthProvider: string; path: string; instanceId?: string }
   | { kind: 'unsupported'; provider: string };
 
 const OAUTH_PROVIDER_BY_ACCOUNT_PROVIDER: Record<string, string> = {
@@ -13,6 +13,7 @@ const OAUTH_PROVIDER_BY_ACCOUNT_PROVIDER: Record<string, string> = {
   claude: 'anthropic',
   kimi: 'kimi',
   xai: 'xai',
+  devin: 'devin',
 };
 
 export const resolveAccountReauthAction = (file: AuthFileItem): AccountReauthAction => {
@@ -21,10 +22,12 @@ export const resolveAccountReauthAction = (file: AuthFileItem): AccountReauthAct
 
   const oauthProvider = OAUTH_PROVIDER_BY_ACCOUNT_PROVIDER[provider];
   if (oauthProvider) {
+    const instanceId = String(file.instanceId ?? '').trim() || undefined;
     return {
       kind: 'navigate',
       oauthProvider,
-      path: buildAccountOAuthReauthPath(oauthProvider),
+      ...(instanceId ? { instanceId } : {}),
+      path: buildAccountOAuthReauthPath(oauthProvider, null, instanceId),
     };
   }
 

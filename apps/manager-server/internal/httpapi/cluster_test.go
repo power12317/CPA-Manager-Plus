@@ -42,7 +42,7 @@ func TestClusterScopedProxyCredentialsEncryptionAndRestart(t *testing.T) {
 			case "/v0/management/config":
 				fmt.Fprintf(w, `{"node":%q,"usage-statistics-enabled":true}`, name)
 			case "/v0/management/auth-files":
-				fmt.Fprint(w, `{"files":[{"name":"same.json","id":"same","type":"codex","auth_index":"1","access_token":"must-not-appear"}]}`)
+				fmt.Fprint(w, `{"files":[{"name":"same.json","id":"same","type":"devin","auth_index":"1","access_token":"must-not-appear"}]}`)
 			case "/v0/management/usage-queue":
 				fmt.Fprint(w, `{"items":[]}`)
 			case "/v0/management/codex-auth-url":
@@ -80,7 +80,7 @@ func TestClusterScopedProxyCredentialsEncryptionAndRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Now().UnixMilli()
-	if _, err := db.InsertEvents(ctx, []usage.Event{{EventHash: "legacy-event", TimestampMS: now, Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Model: "test-model", TotalTokens: 7, RawJSON: `{"legacy":true}`}}); err != nil {
+	if _, err := db.InsertEvents(ctx, []usage.Event{{EventHash: canonicalCompatEventHash("legacy-event"), TimestampMS: now, Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Model: "test-model", TotalTokens: 7, RawJSON: `{"legacy":true}`}}); err != nil {
 		t.Fatal(err)
 	}
 	server := New(cfg, db, collector.NewManager(cfg, db))
@@ -179,8 +179,8 @@ func TestClusterScopedProxyCredentialsEncryptionAndRestart(t *testing.T) {
 	// global percentiles and stable pagination when timestamps/local IDs collide.
 	l1, l2 := int64(100), int64(900)
 	_, err = childStore.InsertEvents(ctx, []usage.Event{
-		{EventHash: "child-one", TimestampMS: now, Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Model: "test-model", TotalTokens: 120, AuthIndex: "1", AuthFileSnapshot: "same.json", LatencyMS: &l1},
-		{EventHash: "child-two", TimestampMS: now, Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Model: "test-model", TotalTokens: 80, AuthIndex: "1", AuthFileSnapshot: "same.json", LatencyMS: &l2, Failed: true},
+		{EventHash: canonicalCompatEventHash("child-one"), TimestampMS: now, Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Model: "test-model", TotalTokens: 120, AuthIndex: "1", AuthFileSnapshot: "same.json", LatencyMS: &l1},
+		{EventHash: canonicalCompatEventHash("child-two"), TimestampMS: now, Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Model: "test-model", TotalTokens: 80, AuthIndex: "1", AuthFileSnapshot: "same.json", LatencyMS: &l2, Failed: true},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -226,6 +226,20 @@ func TestClusterScopedProxyCredentialsEncryptionAndRestart(t *testing.T) {
 	statusBody, _ := json.Marshal(map[string]any{"name": target, "disabled": true})
 	statusResponse := request("PATCH", "/api/aggregate/v0/management/auth-files/status", string(statusBody), "admin-secret")
 	testutil.RequireStatus(t, statusResponse, 200)
+	// Devin credentials carry the same CPAMP identity metadata as every other
+	// provider. Verify the aggregate route restores that metadata before the
+	// child CPA validates the mutation target.
+	identityBody := map[string]any{
+		"name":                target,
+		"auth_index":          fmt.Sprintf("@cpamp/%s/1", id),
+		"disabled":            true,
+		"cpamp_physical_name": "[B] same.json",
+		"cpamp_runtime_id":    target,
+		"cpamp_provider":      "devin",
+	}
+	identityPayload, _ := json.Marshal(identityBody)
+	identityResponse := request("PATCH", "/api/aggregate/v0/management/auth-files/status", string(identityPayload), "admin-secret")
+	testutil.RequireStatus(t, identityResponse, 200)
 	requestsMu.Lock()
 	aWrites, bWrites := 0, 0
 	for _, seen := range requests["A"] {
@@ -239,7 +253,7 @@ func TestClusterScopedProxyCredentialsEncryptionAndRestart(t *testing.T) {
 		}
 	}
 	requestsMu.Unlock()
-	if aWrites != 0 || bWrites != 1 {
+	if aWrites != 0 || bWrites != 2 {
 		t.Fatalf("credential write reached wrong source: A=%d B=%d", aWrites, bWrites)
 	}
 	// Rotation is authoritative centrally; no child retains the old login.

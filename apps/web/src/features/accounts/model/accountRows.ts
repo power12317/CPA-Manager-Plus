@@ -56,6 +56,7 @@ import {
   getPlanPresentation,
   resolveAuthFilePlanType,
 } from '@/utils/plans';
+import { buildAccountSubscriptionPresentation } from './accountSubscriptionPresentation';
 
 export {
   compareQuotaResetLabels,
@@ -103,6 +104,7 @@ export type AccountRowSortKey =
   | 'plan'
   | 'note'
   | 'reset'
+  | 'remaining'
   | 'priority'
   | 'recent'
   | 'quota'
@@ -192,6 +194,7 @@ export interface AccountRow {
   priority: number | null;
   createdAtMs: number | null;
   updatedAtMs: number | null;
+  subscriptionUntilMs: number | null;
   authenticationAtMs: number;
   rawCredentialStatusSuperseded: boolean;
   quota: AccountQuotaSummary;
@@ -432,10 +435,16 @@ export const buildAccountRows = (
     const effectiveFile = inspectionSupersedesRawDisabled
       ? { ...file, disabled: inspection.disabled }
       : file;
-    const codexQuota =
+    const overrideCodexQuotaBySelectionKey = overrides?.codexQuotaBySelectionKey;
+    const storeCodexQuota =
+      provider === 'codex' ? getCredentialScopedQuotaState(stores.codexQuota, file) : undefined;
+    const overrideCodexQuota = overrideCodexQuotaBySelectionKey?.get(selectionKey);
+    const codexQuota = overrideCodexQuota ?? storeCodexQuota;
+    const subscriptionCodexQuota =
       provider === 'codex'
-        ? (overrides?.codexQuotaBySelectionKey?.get(selectionKey) ??
-          getCredentialScopedQuotaState(stores.codexQuota, file))
+        ? overrideCodexQuotaBySelectionKey
+          ? overrideCodexQuota
+          : storeCodexQuota
         : undefined;
     const credentialAuthenticationBoundaryAtMs = Math.max(
       evidenceBoundary?.authenticationAtMs ?? 0,
@@ -493,6 +502,15 @@ export const buildAccountRows = (
         updatedAtMs !== null &&
         authenticationAtMs >= updatedAtMs);
     const quota = resolveAccountQuota(effectiveFile, stores, overrides);
+    const planType = quota.planType ?? readPlanType(file);
+    const subscriptionUntilMs = buildAccountSubscriptionPresentation({
+      row: {
+        provider,
+        planType,
+        raw: file,
+      },
+      codexQuota: subscriptionCodexQuota,
+    }).subscriptionUntilMs;
     return {
       key: file.name,
       selectionKey,
@@ -501,8 +519,8 @@ export const buildAccountRows = (
         ? `${String(file.instanceName)} · ${resolveAccountLabel(file)}`
         : resolveAccountLabel(file),
       provider,
-      planType: quota.planType ?? readPlanType(file),
-      canonicalPlanType: getCanonicalPlanType(provider, quota.planType ?? readPlanType(file)),
+      planType,
+      canonicalPlanType: getCanonicalPlanType(provider, planType),
       disabled: effectiveFile.disabled === true,
       runtimeOnly:
         file.runtimeOnly === true || file.runtimeOnly === 'true' || file.runtime_only === true,
@@ -513,6 +531,7 @@ export const buildAccountRows = (
       priority: readNumber(file.priority),
       createdAtMs: readAuthFileCreatedAtMs(file),
       updatedAtMs,
+      subscriptionUntilMs,
       authenticationAtMs,
       rawCredentialStatusSuperseded,
       quota,
@@ -1030,6 +1049,9 @@ const compareAccountRowsBySort = (left: AccountRow, right: AccountRow, sort: Acc
   }
   if (sort.key === 'created') {
     return compareNullableNumbers(left.createdAtMs, right.createdAtMs, sort.direction);
+  }
+  if (sort.key === 'remaining') {
+    return compareNullableNumbers(left.subscriptionUntilMs, right.subscriptionUntilMs, sort.direction);
   }
   if (sort.key === 'reset') {
     return compareQuotaResets(left.quota, right.quota, sort.direction);

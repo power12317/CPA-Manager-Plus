@@ -44,8 +44,10 @@ import {
   PayloadFilterRulesEditor,
   PayloadRulesEditor,
   PluginStoreAuthEditor,
+  StringListEditor,
 } from './VisualConfigEditorBlocks';
 import type { ApiKeyMutation } from './ApiKeysCardEditor';
+import { CODEX_TICKET_TIMING_FIELDS } from '@/types/visualConfig';
 import styles from './VisualConfigEditor.module.scss';
 
 type VisualSectionId =
@@ -55,6 +57,7 @@ type VisualSectionId =
   | 'auth'
   | 'system'
   | 'network'
+  | 'codexTickets'
   | 'quota'
   | 'streaming'
   | 'payload';
@@ -68,6 +71,7 @@ type VisualSection = {
 };
 
 interface VisualConfigEditorProps {
+  codexTicketSettings?: ReactNode;
   values: VisualConfigValues;
   validationErrors?: VisualConfigValidationErrors;
   hasPayloadValidationErrors?: boolean;
@@ -179,6 +183,7 @@ function FieldShell({
 }
 
 export function VisualConfigEditor({
+  codexTicketSettings,
   values,
   validationErrors,
   hasPayloadValidationErrors = false,
@@ -333,6 +338,17 @@ export function VisualConfigEditor({
           'authAutoRefreshWorkers',
         ]),
       },
+      ...(codexTicketSettings
+        ? [
+            {
+              id: 'codexTickets' as const,
+              title: t('codex_turn_state.settings'),
+              description: t('codex_turn_state.title'),
+              icon: IconTimer,
+              errorCount: countErrors(CODEX_TICKET_TIMING_FIELDS.map(({ field }) => field)),
+            },
+          ]
+        : []),
       {
         id: 'quota',
         title: t('config_management.visual.sections.quota.title'),
@@ -359,7 +375,7 @@ export function VisualConfigEditor({
         errorCount: hasPayloadValidationErrors ? 1 : 0,
       },
     ],
-    [countErrors, hasPayloadValidationErrors, t]
+    [countErrors, hasPayloadValidationErrors, t, codexTicketSettings]
   );
 
   useEffect(() => {
@@ -955,6 +971,34 @@ export function VisualConfigEditor({
                   error={redisUsageQueueRetentionError}
                 />
               </SectionGrid>
+
+              <SectionSubsection
+                title={t('config_management.visual.sections.system.devin_title')}
+                description={t(
+                  'config_management.visual.sections.system.devin_sensitive_words_desc'
+                )}
+              >
+                <FieldShell
+                  label={t(
+                    'config_management.visual.sections.system.devin_sensitive_words_label'
+                  )}
+                  hint={t(
+                    'config_management.visual.sections.system.devin_sensitive_words_hint'
+                  )}
+                >
+                  <StringListEditor
+                    value={values.devinSensitiveWords}
+                    disabled={disabled}
+                    placeholder={t(
+                      'config_management.visual.sections.system.devin_sensitive_words_placeholder'
+                    )}
+                    inputAriaLabel={t(
+                      'config_management.visual.sections.system.devin_sensitive_words_label'
+                    )}
+                    onChange={(devinSensitiveWords) => onChange({ devinSensitiveWords })}
+                  />
+                </FieldShell>
+              </SectionSubsection>
             </SectionStack>
           </ConfigSection>
 
@@ -1299,6 +1343,15 @@ export function VisualConfigEditor({
                         disabled={disabled}
                         onChange={(codexIdentityConfuse) => onChange({ codexIdentityConfuse })}
                       />
+                      <ToggleRow
+                        title={t('config_management.visual.sections.headers.device_convergence')}
+                        description={t(
+                          'config_management.visual.sections.headers.device_convergence_desc'
+                        )}
+                        checked={values.codexDeviceConvergence}
+                        disabled={disabled}
+                        onChange={(codexDeviceConvergence) => onChange({ codexDeviceConvergence })}
+                      />
                     </SectionGrid>
                   </SectionSubsection>
                 </SectionStack>
@@ -1306,6 +1359,16 @@ export function VisualConfigEditor({
             </SectionStack>
           </ConfigSection>
 
+          {codexTicketSettings ? (
+            <div
+              id="codexTickets"
+              ref={(node) => {
+                sectionRefs.current.codexTickets = node;
+              }}
+            >
+              {codexTicketSettings}
+            </div>
+          ) : null}
           <ConfigSection
             id="quota"
             ref={(node) => {

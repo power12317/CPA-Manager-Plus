@@ -42,6 +42,95 @@ beforeEach(() => {
   mocks.delete.mockReset();
 });
 
+describe('authFilesApi OAuth excluded model normalization', () => {
+  it('凭证列表保留原生门票公开字段但去掉意外原文，不影响旧服务', async () => {
+    mocks.get.mockResolvedValue({
+      files: [
+        {
+          name: 'codex.json',
+          type: 'codex',
+          codex_turn_tickets: [
+            {
+              model: 'astra',
+              ready: true,
+              remaining_seconds: 60,
+              blocked: false,
+              token: 'secret-ticket',
+            },
+          ],
+        },
+        { name: 'legacy.json', type: 'codex' },
+      ],
+    });
+    const response = await authFilesApi.list();
+    const ticket = response.files.find((file) => file.name === 'codex.json')!
+      .codex_turn_tickets![0];
+    expect(ticket).toMatchObject({
+      model: 'astra',
+      ready: true,
+      remaining_seconds: 60,
+      observedAtMs: expect.any(Number),
+    });
+    expect(ticket).not.toHaveProperty('token');
+    expect(response.files.find((file) => file.name === 'legacy.json')).not.toHaveProperty(
+      'codex_turn_tickets'
+    );
+  });
+  it.each([
+    { 'oauth-excluded-models': null },
+    { 'oauth-excluded-models': {} },
+    { items: null },
+    { items: {} },
+    {},
+    null,
+  ])('returns an empty map for %j', async (payload) => {
+    mocks.get.mockResolvedValue(payload);
+
+    await expect(authFilesApi.getOauthExcludedModels()).resolves.toEqual({});
+    expect(mocks.get).toHaveBeenCalledWith('/oauth-excluded-models');
+  });
+
+  it.each([
+    { 'oauth-excluded-models': { ' Codex ': [' model-a ', 'MODEL-A', 'model-b'] } },
+    { items: { ' Codex ': [' model-a ', 'MODEL-A', 'model-b'] } },
+    { ' Codex ': [' model-a ', 'MODEL-A', 'model-b'] },
+    { codex: ' model-a, MODEL-A\nmodel-b ' },
+  ])('preserves supported response formats and normalization for %j', async (payload) => {
+    mocks.get.mockResolvedValue(payload);
+
+    await expect(authFilesApi.getOauthExcludedModels()).resolves.toEqual({
+      codex: ['model-a', 'model-b'],
+    });
+  });
+
+  it('does not fall through an explicit null wrapper to items or provider keys', async () => {
+    mocks.get.mockResolvedValue({
+      'oauth-excluded-models': null,
+      items: { codex: ['model-a'] },
+      codex: ['model-b'],
+    });
+
+    await expect(authFilesApi.getOauthExcludedModels()).resolves.toEqual({});
+  });
+
+  it('does not fall through an explicit null items wrapper to provider keys', async () => {
+    mocks.get.mockResolvedValue({ items: null, codex: ['model-a'] });
+
+    await expect(authFilesApi.getOauthExcludedModels()).resolves.toEqual({});
+  });
+
+  it('prefers the canonical wrapper over items', async () => {
+    mocks.get.mockResolvedValue({
+      'oauth-excluded-models': { codex: ['model-a'] },
+      items: { codex: ['model-b'] },
+    });
+
+    await expect(authFilesApi.getOauthExcludedModels()).resolves.toEqual({
+      codex: ['model-a'],
+    });
+  });
+});
+
 describe('authFilesApi OAuth model alias normalization', () => {
   it('preserves display-name and force-mapping returned by CPA', async () => {
     mocks.get.mockResolvedValue({
@@ -215,6 +304,54 @@ describe('authFilesApi list normalization', () => {
       headers: { Authorization: 'Bearer old-cpa-key' },
       cpampScopedRequest: true,
     });
+  });
+
+  it('scopes credential lookups and filters full responses from older CPA builds', async () => {
+    mocks.get.mockResolvedValue({
+      files: [
+        {
+          name: 'shared.json',
+          id: 'runtime-1',
+          auth_index: 'auth-1',
+          type: 'codex',
+        },
+        {
+          name: 'shared.json',
+          id: 'runtime-2',
+          auth_index: 'auth-2',
+          type: 'codex',
+        },
+        {
+          name: 'unrelated.json',
+          id: 'runtime-3',
+          auth_index: 'auth-2',
+          type: 'codex',
+        },
+      ],
+    });
+    const requestScope = {
+      apiBase: 'http://old-cpa.local:8317',
+      managementKey: 'old-cpa-key',
+    };
+
+    const result = await authFilesApi.lookup(
+      { name: 'shared.json', authIndex: 'auth-2' },
+      requestScope
+    );
+
+    expect(mocks.get).toHaveBeenCalledWith('/auth-files', {
+      baseURL: 'http://old-cpa.local:8317/v0/management',
+      headers: { Authorization: 'Bearer old-cpa-key' },
+      cpampScopedRequest: true,
+      params: { name: 'shared.json', auth_index: 'auth-2' },
+    });
+    expect(result).toEqual([
+      expect.objectContaining({
+        name: 'shared.json',
+        id: 'runtime-2',
+        auth_index: 'auth-2',
+      }),
+    ]);
   });
 
   it('preserves same-name auth file rows when authIndex differs', async () => {

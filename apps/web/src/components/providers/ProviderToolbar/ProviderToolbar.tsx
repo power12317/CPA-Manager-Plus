@@ -37,8 +37,6 @@ interface ProviderToolbarProps {
   disabled: boolean;
   resolvedTheme: string;
   onAdd: (kind: ProviderKind) => void;
-  codexSystemScopedOAuth?: boolean;
-  onAddCodexOAuth?: (system: 'mac' | 'windows') => void;
   onHealthCheck: () => void;
   healthCheckDisabled?: boolean;
 }
@@ -70,8 +68,6 @@ export function ProviderToolbar({
   disabled,
   resolvedTheme,
   onAdd,
-  codexSystemScopedOAuth = false,
-  onAddCodexOAuth,
   onHealthCheck,
   healthCheckDisabled = false,
 }: ProviderToolbarProps) {
@@ -566,28 +562,6 @@ export function ProviderToolbar({
           <IconShield size={14} />
           {t('ai_providers.health_check_button')}
         </Button>
-        {codexSystemScopedOAuth && onAddCodexOAuth && (kind === 'all' || kind === 'codex') && (
-          <div className={styles.codexOAuthActions}>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => onAddCodexOAuth('mac')}
-              disabled={disabled}
-              className={styles.codexOAuthButton}
-            >
-              {t('auth_login.codex_macos_oauth_button')}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => onAddCodexOAuth('windows')}
-              disabled={disabled}
-              className={styles.codexOAuthButton}
-            >
-              {t('auth_login.codex_windows_oauth_button')}
-            </Button>
-          </div>
-        )}
         {kind === 'all' ? (
           <DropdownMenu
             ariaLabel={t('ai_providers.add_config_menu_aria')}

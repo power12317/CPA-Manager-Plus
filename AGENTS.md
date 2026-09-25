@@ -119,7 +119,9 @@ components -> entities / services / stores / hooks / utils
 
 ## Git And PRs
 
-- No direct commits to `main`.
+- Direct commits and pushes to this fork's `main` are allowed.
+- A user request to commit and push defaults to `power12317/CPA-Manager-Plus` on `main`, unless the user specifies another destination; no feature branch, PR, or additional confirmation is required.
+- Push only to `power12317/CPA-Manager-Plus`; never push this fork's changes to the official upstream repository.
 - Conventional subjects: `feat(web): ...`, `feat(manager-server): ...`, `fix(login): ...`, `docs: ...`.
 - Keep commits scoped; no AI markers.
 - PRs: purpose, tests, linked issues, UI screenshots/recordings when relevant, affected modes (`frontend-only`, `CPA panel`, `full Docker`, `native packages`).

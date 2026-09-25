@@ -111,10 +111,25 @@ export const buildEventRows = (
       const endpointMethod = readString(detail.__endpointMethod) || '-';
       const endpointPath = readString(detail.__endpointPath) || endpoint;
       const requestedModel = readString(detail.__requestedModel);
+      const requestId = readString(detail.request_id ?? detail.requestId);
       const clientIp = readString(detail.client_ip ?? detail.clientIp);
       const xForwardedFor = readString(detail.x_forwarded_for ?? detail.xForwardedFor);
       const userAgent = readString(detail.user_agent ?? detail.userAgent);
       const resolvedModel = readString(detail.__resolvedModel);
+      const responseModel = readString(
+        detail.__responseModel ?? detail.response_model ?? detail.responseModel
+      );
+      const sessionId = readString(detail.session_id ?? detail.sessionId);
+      const turnId = readString(detail.turn_id ?? detail.turnId);
+      const rawSystem = readString(detail.system);
+      const parentSessionId = readString(
+        detail.parent_session_id ?? detail.parentSessionId
+      );
+      const accessTokenSha256 = readString(
+        detail.access_token_sha256 ?? detail.accessTokenSha256
+      );
+      const generate = typeof detail.generate === 'boolean' ? detail.generate : undefined;
+      const stream = typeof detail.stream === 'boolean' ? detail.stream : undefined;
       const accountId = readString(
         detail.auth_account_id_snapshot ?? detail.authAccountIdSnapshot
       );
@@ -161,6 +176,8 @@ export const buildEventRows = (
         readString(detail.service_tier ?? detail.serviceTier) ||
         responseServiceTier;
       const executorType = readString(detail.executor_type ?? detail.executorType);
+      const system = /^(mac|windows)$/i.test(rawSystem) ? rawSystem : '';
+      const turnStateLen = readString(detail.turn_state_len ?? detail.turnStateLen);
       const failStatusCodeRaw = detail.fail_status_code ?? detail.failStatusCode;
       const failStatusCode =
         failStatusCodeRaw === null || failStatusCodeRaw === undefined
@@ -210,6 +227,7 @@ export const buildEventRows = (
         timestampMs,
         dayKey,
         hourLabel,
+        requestId: requestId || undefined,
         model: readString(detail.__modelName) || '-',
         requestedModel: requestedModel || undefined,
         resolvedModel: resolvedModel || undefined,
@@ -256,6 +274,15 @@ export const buildEventRows = (
         cacheCreationTokens,
         totalTokens,
         totalCost,
+        responseModel,
+        sessionId,
+        turnId: turnId || undefined,
+        system: system || undefined,
+        turnStateLen: turnStateLen || undefined,
+        parentSessionId,
+        accessTokenSha256,
+        generate,
+        stream,
         reasoningEffort,
         serviceTier,
         requestServiceTier,

@@ -8,7 +8,7 @@ import type {
   VisualConfigValues,
   VisualConfigValidationErrors,
 } from '@/types/visualConfig';
-import { DEFAULT_VISUAL_VALUES } from '@/types/visualConfig';
+import { CODEX_TICKET_TIMING_FIELDS, DEFAULT_VISUAL_VALUES } from '@/types/visualConfig';
 import { normalizeRoutingStrategy } from '@/utils/routingStrategy';
 import {
   arePayloadFilterRulesEqual,
@@ -305,6 +305,20 @@ function getIntegerError(value: string): 'integer' | undefined {
   return /^-?\d+$/.test(trimmed) ? undefined : 'integer';
 }
 
+function getPositiveIntegerError(value: string): 'positive_integer' | undefined {
+  const text = value.trim();
+  if (!text) return undefined;
+  return /^\d+$/.test(text) && Number.isSafeInteger(Number(text)) && Number(text) > 0
+    ? undefined
+    : 'positive_integer';
+}
+
+// CPA 将未配置或非正数解释为默认时间；只在用户修改字段时写回。
+function readTicketTimingValue(value: unknown, fallback: string): string {
+  if (value == null || (typeof value === 'number' && value <= 0)) return fallback;
+  return String(value);
+}
+
 function getPortError(value: string): 'port_range' | undefined {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
@@ -337,6 +351,9 @@ export function getVisualConfigValidationErrors(
 ): VisualConfigValidationErrors {
   return {
     port: getPortError(values.port),
+    ...Object.fromEntries(
+      CODEX_TICKET_TIMING_FIELDS.map(({ field }) => [field, getPositiveIntegerError(values[field])])
+    ),
     errorLogsMaxFiles: getNonNegativeIntegerError(values.errorLogsMaxFiles),
     logsMaxTotalSizeMb: getNonNegativeIntegerError(values.logsMaxTotalSizeMb),
     redisUsageQueueRetentionSeconds: getRedisUsageQueueRetentionError(
@@ -468,6 +485,12 @@ function getNextDirtyFields(
       'codexHeaderUserAgent',
       'codexHeaderBetaFeatures',
       'codexIdentityConfuse',
+      'codexDeviceConvergence',
+      'codexTicketEnabled',
+      'codexTicketFailClosed',
+      'codexTicketModels',
+      'codexTicketHarvestProxy',
+      ...CODEX_TICKET_TIMING_FIELDS.map(({ field }) => field),
     ] as Array<keyof VisualConfigValues>
   ).forEach(updateScalarDirty);
 
@@ -656,6 +679,12 @@ function getNextDirtyFields(
       arePayloadFilterRulesEqual(nextValues.payloadFilterRules, baselineValues.payloadFilterRules)
     );
   }
+  if (Object.prototype.hasOwnProperty.call(patch, 'devinSensitiveWords')) {
+    updateDirty(
+      'devinSensitiveWords',
+      areStringArraysEqual(nextValues.devinSensitiveWords, baselineValues.devinSensitiveWords)
+    );
+  }
   if (patch.streaming) {
     const streamingPatch = patch.streaming;
     if (Object.prototype.hasOwnProperty.call(streamingPatch, 'keepaliveSeconds')) {
@@ -782,6 +811,8 @@ export function useVisualConfig() {
       const claudeHeaderDefaults = asRecord(parsed['claude-header-defaults']);
       const codexHeaderDefaults = asRecord(parsed['codex-header-defaults']);
       const codex = asRecord(parsed.codex);
+      const codexTicket = asRecord(codex?.['turn-state-ticket']);
+      const devin = asRecord(parsed.devin);
 
       const newValues: VisualConfigValues = {
         host: typeof parsed.host === 'string' ? parsed.host : '',
@@ -888,6 +919,34 @@ export function useVisualConfig() {
             ? codexHeaderDefaults['beta-features']
             : '',
         codexIdentityConfuse: Boolean(codex?.['identity-confuse'] ?? codex?.identityConfuse),
+        codexDeviceConvergence: codex?.['device-convergence'] !== false,
+        codexTicketEnabled: codexTicket?.enabled === true,
+        codexTicketFailClosed: codexTicket?.['fail-closed'] === true,
+        codexTicketModels:
+          Array.isArray(codexTicket?.models) && codexTicket.models.length
+            ? parseStringArrayText(codexTicket.models)
+            : DEFAULT_VISUAL_VALUES.codexTicketModels,
+        codexTicketHarvestProxy:
+          typeof codexTicket?.['harvest-proxy-url'] === 'string'
+            ? codexTicket['harvest-proxy-url']
+            : '',
+        codexTicketTTLSeconds: readTicketTimingValue(
+          codexTicket?.['ttl-seconds'],
+          DEFAULT_VISUAL_VALUES.codexTicketTTLSeconds
+        ),
+        codexTicketRefreshBeforeSeconds: readTicketTimingValue(
+          codexTicket?.['refresh-before-seconds'],
+          DEFAULT_VISUAL_VALUES.codexTicketRefreshBeforeSeconds
+        ),
+        codexTicketProbeIntervalSeconds: readTicketTimingValue(
+          codexTicket?.['probe-interval-seconds'],
+          DEFAULT_VISUAL_VALUES.codexTicketProbeIntervalSeconds
+        ),
+        codexTicketAttemptTimeoutSeconds: readTicketTimingValue(
+          codexTicket?.['attempt-timeout-seconds'],
+          DEFAULT_VISUAL_VALUES.codexTicketAttemptTimeoutSeconds
+        ),
+        devinSensitiveWords: parseStringList(devin?.['sensitive-words']),
 
         quotaSwitchProject: Boolean(quotaExceeded?.['switch-project'] ?? false),
         quotaSwitchPreviewModel: Boolean(quotaExceeded?.['switch-preview-model'] ?? false),
@@ -1234,7 +1293,46 @@ export function useVisualConfig() {
           deleteIfMapEmpty(doc, ['codex-header-defaults']);
         }
 
+        if (isDirty('codexDeviceConvergence')) {
+          ensureMapInDoc(doc, ['codex']);
+          // Absence defaults to true in CPA, so disabling must persist an explicit false.
+          doc.setIn(['codex', 'device-convergence'], values.codexDeviceConvergence);
+        }
+
         const codexIdentityConfusePath = ['codex', 'identity-confuse'];
+        const ticketFields = [
+          ['codexTicketEnabled', 'enabled'],
+          ['codexTicketFailClosed', 'fail-closed'],
+          ['codexTicketHarvestProxy', 'harvest-proxy-url'],
+          ['codexTicketModels', 'models'],
+        ] as const;
+        ticketFields.forEach(([field, key]) => {
+          if (!isDirty(field)) return;
+          ensureMapInDoc(doc, ['codex', 'turn-state-ticket']);
+          const value = values[field];
+          doc.setIn(
+            ['codex', 'turn-state-ticket', key],
+            field === 'codexTicketModels'
+              ? Array.from(
+                  new Set(
+                    values.codexTicketModels
+                      .split(/[\n,]/)
+                      .map((item) => item.trim())
+                      .filter(Boolean)
+                  )
+                )
+              : typeof value === 'string'
+                ? value.trim()
+                : value
+          );
+        });
+        CODEX_TICKET_TIMING_FIELDS.forEach(({ field, yamlKey }) => {
+          if (!isDirty(field)) return;
+          ensureMapInDoc(doc, ['codex', 'turn-state-ticket']);
+          setIntFromStringInDoc(doc, ['codex', 'turn-state-ticket', yamlKey], values[field]);
+          deleteIfMapEmpty(doc, ['codex', 'turn-state-ticket']);
+          deleteIfMapEmpty(doc, ['codex']);
+        });
         const codexIdentityConfuseLegacyPath = ['codex', 'identityConfuse'];
         if (isDirty('codexIdentityConfuse')) {
           ensureMapInDoc(doc, ['codex']);
@@ -1243,6 +1341,17 @@ export function useVisualConfig() {
             doc.deleteIn(codexIdentityConfuseLegacyPath);
           }
           deleteIfMapEmpty(doc, ['codex']);
+        }
+
+        if (isDirty('devinSensitiveWords')) {
+          const devinSensitiveWords = serializeStringListForYaml(values.devinSensitiveWords);
+          if (devinSensitiveWords.length > 0) {
+            ensureMapInDoc(doc, ['devin']);
+            doc.setIn(['devin', 'sensitive-words'], devinSensitiveWords);
+          } else if (docHas(doc, ['devin', 'sensitive-words'])) {
+            doc.deleteIn(['devin', 'sensitive-words']);
+          }
+          deleteIfMapEmpty(doc, ['devin']);
         }
 
         const writeQuotaSwitchProject = isDirty('quotaSwitchProject');

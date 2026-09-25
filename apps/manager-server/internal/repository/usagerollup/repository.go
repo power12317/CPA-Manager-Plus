@@ -82,6 +82,7 @@ func New(db *sql.DB) Repository {
 }
 
 type eventRow struct {
+	Historical            bool
 	ID                    int64
 	TimestampMS           int64
 	AccountSnapshot       string
@@ -582,7 +583,7 @@ func eventsAfterCheckpoint(ctx context.Context, tx *sql.Tx, lastEventID, targetE
 	coalesce(cache_tokens, 0),
 	coalesce(cache_read_tokens, 0),
 	coalesce(cache_creation_tokens, 0),
-	coalesce(total_tokens, 0)
+	coalesce(total_tokens, 0), id <= `+usageidentity.SQLCredentialCutover()+`
 from usage_events
 where id > ? and id <= ?
 order by id
@@ -624,9 +625,9 @@ func accountHistoryEventsAfterCheckpoint(
 		coalesce(e.cache_tokens, 0),
 		coalesce(e.cache_read_tokens, 0),
 		coalesce(e.cache_creation_tokens, 0),
-		coalesce(e.total_tokens, 0)
+		coalesce(e.total_tokens, 0), e.id <= ` + usageidentity.SQLCredentialCutover() + `
 	from usage_events e
-	where e.id > ? and ` + usageidentity.SQLAccountKeyExpression("e") + ` in (` + placeholders + `)
+	where e.id > ? and ` + usageidentity.SQLEventAccountKeyExpression("e") + ` in (` + placeholders + `)
 	order by e.id`
 	args := make([]any, 0, len(accountKeys)+1)
 	args = append(args, afterEventID)
@@ -670,6 +671,7 @@ func scanAccountHistoryEvents(rows *sql.Rows, capacity int) ([]eventRow, error) 
 			&row.CacheReadTokens,
 			&row.CacheCreationTokens,
 			&row.TotalTokens,
+			&row.Historical,
 		); err != nil {
 			return nil, err
 		}
@@ -695,7 +697,11 @@ type accountRollupKey struct {
 func aggregateAccountHistory(events []eventRow, nowMS int64) []AccountHistoryRow {
 	grouped := map[accountRollupKey]*AccountHistoryRow{}
 	for _, event := range events {
-		accountKey, valid := usageidentity.AccountKey(usageidentity.Fields{
+		keyForEvent := usageidentity.AccountKey
+		if event.Historical {
+			keyForEvent = usageidentity.HistoricalAccountKey
+		}
+		accountKey, valid := keyForEvent(usageidentity.Fields{
 			AuthFileSnapshot:      event.AuthFileSnapshot,
 			AuthIndex:             event.AuthIndex,
 			AuthProviderSnapshot:  event.AuthProviderSnapshot,

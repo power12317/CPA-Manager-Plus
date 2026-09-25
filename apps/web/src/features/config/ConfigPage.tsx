@@ -24,6 +24,7 @@ import {
   IconSearch,
 } from '@/components/ui/icons';
 import { VisualConfigEditor } from '@/components/config/VisualConfigEditor';
+import { CodexTurnStateSettingsCard } from '@/features/codexTurnState/CodexTurnStateSettingsCard';
 import type { ApiKeyMutation } from '@/components/config/ApiKeysCardEditor';
 import { DiffModal } from '@/components/config/DiffModal';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -343,6 +344,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
   const login = useAuthStore((state) => state.login);
   const managerSession = useAuthStore((state) => state.sessionMode === 'manager_embedded');
   const managementKey = useAuthStore((state) => state.managementKey);
+  const configRequestScope = useMemo(() => ({ apiBase, managementKey }), [apiBase, managementKey]);
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
   const setUsageServiceConfig = useUsageServiceStore((state) => state.setUsageServiceConfig);
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -479,7 +481,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
     setLoading(true);
     setError('');
     try {
-      const data = await configFileApi.fetchConfigYaml();
+      const data = await configFileApi.fetchConfigYaml(configRequestScope);
       setContent(data);
       setDirty(false);
       setDiffModalOpen(false);
@@ -495,7 +497,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
     } finally {
       setLoading(false);
     }
-  }, [loadVisualValuesFromYaml, t, updateSourceSnapshotStale]);
+  }, [configRequestScope, loadVisualValuesFromYaml, t, updateSourceSnapshotStale]);
 
   useEffect(() => {
     if (activeTab === 'manager') {
@@ -608,7 +610,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
       return false;
     }
     try {
-      const latestYaml = await configFileApi.fetchConfigYaml();
+      const latestYaml = await configFileApi.fetchConfigYaml(configRequestScope);
       if (dirty) {
         updateSourceSnapshotStale(true);
         return false;
@@ -625,7 +627,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
       updateSourceSnapshotStale(true);
       return false;
     }
-  }, [dirty, updateSourceSnapshotStale]);
+  }, [configRequestScope, dirty, updateSourceSnapshotStale]);
 
   const persistApiKeyMutation = useCallback(
     async (mutation: ApiKeyMutation): Promise<string[]> => {
@@ -799,9 +801,9 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
     const requestAuthKey = managerOnly
       ? managementKey.trim()
       : resolveManagerRequestAuthKey({
-      panelHostedByUsageService,
-      managementKey,
-    });
+          panelHostedByUsageService,
+          managementKey,
+        });
     if (!serviceBase) {
       setManagerError('');
       setManagerConfig(null);
@@ -898,7 +900,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
     savingRef.current = true;
     setSaving(true);
     try {
-      const latestServerYaml = await configFileApi.fetchConfigYaml();
+      const latestServerYaml = await configFileApi.fetchConfigYaml(configRequestScope);
       if (latestServerYaml !== previewServerYaml) {
         const nextMergedYaml =
           previewTab === 'visual' ? applyVisualChangesToYaml(latestServerYaml) : mergedYaml;
@@ -923,8 +925,8 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
       const nextCommercialMode = readCommercialModeFromYaml(mergedYaml);
       const commercialModeChanged = previousCommercialMode !== nextCommercialMode;
 
-      await configFileApi.saveConfigYaml(mergedYaml);
-      const latestContent = await configFileApi.fetchConfigYaml();
+      await configFileApi.saveConfigYaml(mergedYaml, configRequestScope);
+      const latestContent = await configFileApi.fetchConfigYaml(configRequestScope);
       setDirty(false);
       setDiffModalOpen(false);
       setContent(latestContent);
@@ -1193,7 +1195,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
     savingRef.current = true;
     setSaving(true);
     try {
-      const latestServerYaml = await configFileApi.fetchConfigYaml();
+      const latestServerYaml = await configFileApi.fetchConfigYaml(configRequestScope);
       const visualBaseYaml = dirty ? content : latestServerYaml;
 
       if (activeTab !== 'source') {
@@ -1290,7 +1292,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
       if (tab === 'source') {
         if (sourceSnapshotStaleRef.current) {
           try {
-            const latestYaml = await configFileApi.fetchConfigYaml();
+            const latestYaml = await configFileApi.fetchConfigYaml(configRequestScope);
             if (dirty) {
               updateSourceSnapshotStale(true);
               showNotification(t('notification.refresh_failed'), 'error');
@@ -1339,6 +1341,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
     [
       activeTab,
       applyVisualChangesToYaml,
+      configRequestScope,
       content,
       dirty,
       loadVisualValuesFromYaml,
@@ -1748,24 +1751,41 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
               }}
             />
           ) : activeTab === 'visual' ? (
-            <VisualConfigEditor
-              values={visualValues}
-              validationErrors={visualValidationErrors}
-              hasPayloadValidationErrors={visualHasPayloadValidationErrors}
-              disabled={
-                disableControls ||
-                loading ||
-                saving ||
-                managerSaving ||
-                diffModalOpen ||
-                apiKeyMutationInFlight
-              }
-              onChange={setVisualValues}
-              onPersistApiKeyMutation={persistApiKeyMutation}
-              onRefreshApiKeys={refreshApiKeys}
-              onApiKeyOperationStart={beginApiKeyOperation}
-              onApiKeyOperationEnd={endApiKeyOperation}
-            />
+            <>
+              <VisualConfigEditor
+                values={visualValues}
+                validationErrors={visualValidationErrors}
+                hasPayloadValidationErrors={visualHasPayloadValidationErrors}
+                disabled={
+                  disableControls ||
+                  loading ||
+                  saving ||
+                  managerSaving ||
+                  diffModalOpen ||
+                  apiKeyMutationInFlight
+                }
+                onChange={setVisualValues}
+                onPersistApiKeyMutation={persistApiKeyMutation}
+                onRefreshApiKeys={refreshApiKeys}
+                onApiKeyOperationStart={beginApiKeyOperation}
+                onApiKeyOperationEnd={endApiKeyOperation}
+                codexTicketSettings={
+                  <CodexTurnStateSettingsCard
+                    values={visualValues}
+                    validationErrors={visualValidationErrors}
+                    onChange={setVisualValues}
+                    disabled={
+                      disableControls ||
+                      loading ||
+                      saving ||
+                      managerSaving ||
+                      diffModalOpen ||
+                      apiKeyMutationInFlight
+                    }
+                  />
+                }
+              />
+            </>
           ) : (
             <div className={styles.sourceWorkspace}>
               <div className={styles.sourceToolbar}>

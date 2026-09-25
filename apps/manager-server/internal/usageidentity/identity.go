@@ -17,6 +17,9 @@ const (
 	// CodexIdentityRevision changes independently from FormatVersion because
 	// the other providers must retain their existing AccountKey values.
 	CodexIdentityRevision = "2"
+	// New credential keys coexist with the original aggregates. This marker
+	// records the last pre-upgrade event without rewriting historical data.
+	CredentialCutoverSetting = "codex_credential_history_start_after_id"
 )
 
 // CodexAccountIDSnapshot marks a freshly observed, explicit ChatGPT account_id
@@ -100,6 +103,7 @@ func SQLProjectIDSnapshotExpression(alias string) string {
 // account-history request. Display values are deliberately lower priority than
 // credential identity fields so two credentials sharing an email never merge.
 type Fields struct {
+	System                string
 	AuthFileSnapshot      string
 	AuthIndex             string
 	AuthProviderSnapshot  string
@@ -122,11 +126,56 @@ func AccountKey(fields Fields) (string, bool) {
 		// promote an old event into the new stable member bucket.
 		if workspaceOK && strings.Trim(fields.AuthAccountIDSnapshot, " ") != "" {
 			if member, ok := stableCodexMemberSnapshot(fields); ok {
-				return encodeCodexKey("codex-member", provider, workspaceID, member), true
+				authFile := effectiveAuthFile(fields)
+				authIndex := strings.TrimSpace(fields.AuthIndex)
+				if authFile != "" || authIndex != "" {
+					// Account identity alone joins separate credentials (including
+					// Windows/macOS). Keep the physical credential boundary even
+					// when both credentials belong to the same Workspace member.
+					return encodeCodexKey("codex-credential", provider, workspaceID, member, authFile, authIndex), true
+				}
 			}
 		}
 	}
+	key, valid := LegacyAccountKey(fields)
+	if provider == "codex" && valid {
+		return "credential:" + key, true
+	}
+	return key, valid
+}
+
+// HistoricalAccountKey preserves the key written by releases before credential
+// separation. Only the default Mac credential may read this shared baseline.
+func HistoricalAccountKey(fields Fields) (string, bool) {
+	if normalizeProvider(fields.AuthProviderSnapshot) == "codex" {
+		workspace, ok := ResolveCodexWorkspace(fields)
+		member, memberOK := stableCodexMemberSnapshot(fields)
+		if ok && memberOK && strings.Trim(fields.AuthAccountIDSnapshot, " ") != "" {
+			return encodeCodexKey("codex-member", "codex", workspace, member), true
+		}
+	}
 	return LegacyAccountKey(fields)
+}
+
+func IsWindowsCredential(fields Fields) bool {
+	if system := strings.ToLower(strings.TrimSpace(fields.System)); system != "" {
+		return system == "windows"
+	}
+	return strings.HasSuffix(strings.ToLower(effectiveAuthFile(fields)), "-windows.json")
+}
+
+func SQLCredentialCutover() string {
+	return "coalesce((select cast(value as integer) from settings where key = '" + CredentialCutoverSetting + "'), 0)"
+}
+
+// SQLEventAccountKeyExpression leaves all pre-upgrade events in their original
+// Mac baseline, including the unprocessed tail of an existing checkpoint.
+func SQLEventAccountKeyExpression(alias string) string {
+	id := "id"
+	if alias != "" {
+		id = alias + ".id"
+	}
+	return "case when " + id + " <= " + SQLCredentialCutover() + " then " + sqlAccountKeyExpression(alias, false, true) + " else " + SQLAccountKeyExpression(alias) + " end"
 }
 
 // LegacyAccountKey returns the format-v2 credential identity. Account-window
@@ -202,7 +251,7 @@ func MonitoringProjectionStructureRevision() string {
 }
 
 func SQLAccountKeyExpression(alias string) string {
-	return sqlAccountKeyExpression(alias, false)
+	return sqlAccountKeyExpression(alias, false, false)
 }
 
 // SQLAccountKeyExpressionWithoutProject mirrors SQLAccountKeyExpression for
@@ -211,10 +260,10 @@ func SQLAccountKeyExpression(alias string) string {
 // workspace/member keys, which are the only keys eligible for the
 // account-window daily fast path.
 func SQLAccountKeyExpressionWithoutProject(alias string) string {
-	return sqlAccountKeyExpression(alias, true)
+	return sqlAccountKeyExpression(alias, true, false)
 }
 
-func sqlAccountKeyExpression(alias string, withoutProject bool) string {
+func sqlAccountKeyExpression(alias string, withoutProject, historical bool) string {
 	column := func(name string) string {
 		if alias == "" {
 			return name
@@ -277,8 +326,16 @@ func sqlAccountKeyExpression(alias string, withoutProject bool) string {
 		return strings.Join(parts, " || ")
 	}
 
-	return "case " +
-		"when " + codexMemberValid + " then " + key("codex-member", providerNormalized, codexWorkspaceID, codexMember) + " " +
+	memberClause := "when " + codexMemberValid + " and (" + authFile + " <> '' or " + authIndex + " <> '') then " + key("codex-credential", providerNormalized, codexWorkspaceID, codexMember, authFile, authIndex) + " "
+	if historical {
+		memberClause = "when " + codexMemberValid + " then " + key("codex-member", providerNormalized, codexWorkspaceID, codexMember) + " "
+	} else {
+		originalKey := key
+		key = func(kind string, values ...string) string {
+			return "(case when " + providerNormalized + " = 'codex' then 'credential:' else '' end) || " + originalKey(kind, values...)
+		}
+	}
+	return "case " + memberClause +
 		"when " + authFile + " <> '' and " + authIndex + " <> '' then " + key("file-index", authFile, authIndex) + " " +
 		"when " + providerNormalized + " = 'codex' and " + authFile + " <> '' then " + key("file", authFile, providerNormalized) + " " +
 		"when " + providerNormalized + " <> 'codex' and " + authFile + " <> '' and " + legacyProjectID + " <> '' then " + key("file-project", authFile, providerNormalized, legacyProjectID) + " " +

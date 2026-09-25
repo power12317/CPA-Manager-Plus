@@ -523,7 +523,7 @@ func batchBucketRange(ctx context.Context, tx *sql.Tx, afterID, throughID int64)
 }
 
 func bandedEventsCTE(whereClause string) string {
-	accountKeyExpression := usageidentity.SQLAccountKeyExpression("e")
+	accountKeyExpression := usageidentity.SQLEventAccountKeyExpression("e")
 	requestedModelExpression := usageidentity.SQLEffectiveRequestedModelExpression("e.model", "e.requested_model")
 	analyticsModelExpression := usageidentity.SQLRequestAnalyticsModelExpression("e.model", "e.requested_model")
 	return fmt.Sprintf(`with base_events as (

@@ -31,7 +31,7 @@ import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Select } from '@/components/ui/Select';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
-import { oauthApi, providersApi } from '@/services/api';
+import { providersApi } from '@/services/api';
 import { useAuthStore, useConfigStore, useNotificationStore, useThemeStore } from '@/stores';
 import {
   CloakConfig,
@@ -59,8 +59,6 @@ export function AiProvidersPage() {
   const { showNotification, showConfirmation } = useNotificationStore();
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
-  const apiBase = useAuthStore((state) => state.apiBase);
-  const managementKey = useAuthStore((state) => state.managementKey);
 
   const config = useConfigStore((state) => state.config);
   const fetchConfig = useConfigStore((state) => state.fetchConfig);
@@ -120,35 +118,9 @@ export function AiProvidersPage() {
   const disableControls = connectionStatus !== 'connected';
   const isSwitching = Boolean(configSwitchingKey);
   const actionsDisabled = disableControls || loading || isSwitching;
-  const [codexSystemScopedOAuth, setCodexSystemScopedOAuth] = useState(false);
 
   const pageTransitionLayer = usePageTransitionLayer();
   const isCurrentLayer = pageTransitionLayer ? pageTransitionLayer.status === 'current' : true;
-
-  useEffect(() => {
-    if (connectionStatus !== 'connected' || !apiBase || !managementKey) {
-      setCodexSystemScopedOAuth(false);
-      return;
-    }
-    let cancelled = false;
-    setCodexSystemScopedOAuth(false);
-    oauthApi
-      .getCodexCapabilities({ apiBase, managementKey })
-      .then((capabilities) => {
-        if (!cancelled) setCodexSystemScopedOAuth(capabilities.system_scoped_oauth === true);
-      })
-      .catch(() => {
-        if (!cancelled) setCodexSystemScopedOAuth(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [apiBase, connectionStatus, managementKey]);
-
-  const openCodexOAuth = useCallback((system: 'mac' | 'windows') => {
-    const params = new URLSearchParams({ provider: 'codex', client_system: system });
-    window.location.hash = `/oauth?${params.toString()}`;
-  }, []);
 
   const { usageByProvider, loadRecentRequests, refreshRecentRequests } = useProviderRecentRequests({
     enabled: isCurrentLayer,
@@ -1540,8 +1512,6 @@ export function AiProvidersPage() {
             disabled={actionsDisabled}
             resolvedTheme={resolvedTheme}
             onAdd={handleAdd}
-            codexSystemScopedOAuth={codexSystemScopedOAuth}
-            onAddCodexOAuth={openCodexOAuth}
             onHealthCheck={() => setHealthCheckOpen(true)}
             healthCheckDisabled={visibleRows.length === 0}
           />

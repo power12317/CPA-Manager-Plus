@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { isUsageServiceId, usageServiceApi } from '@/services/api/usageService';
 import { detectApiBaseFromLocation } from '@/utils/connection';
+import { resolveLoginProbeFailureMode } from '@/features/login/loginMode';
 
 export function ProtectedRoute({ children }: { children: ReactElement }) {
   const location = useLocation();
@@ -24,20 +25,20 @@ export function ProtectedRoute({ children }: { children: ReactElement }) {
           try {
             const info = await usageServiceApi.getInfo(detectedBase);
             detectedUsageService = isUsageServiceId(info.service);
-          } catch {
-            detectedUsageService = false;
+          } catch (error) {
+            detectedUsageService =
+              resolveLoginProbeFailureMode(error, detectedBase, useAuthStore.getState()) ===
+              'manager_embedded';
           }
           const hostedManagementPage =
-            typeof window !== 'undefined' &&
-            /\/management\.html$/i.test(window.location.pathname);
+            typeof window !== 'undefined' && /\/management\.html$/i.test(window.location.pathname);
           const result = await restoreSession({
             expectedMode: detectedUsageService ? 'manager_embedded' : 'external_panel',
             expectedPanelBase:
               detectedUsageService || hostedManagementPage ? detectedBase : undefined,
           });
           if (result && result.recoveryMode === 'manager_config') {
-            localStorage.setItem('config-management:tab', 'manager');
-            navigate('/config', { replace: true });
+            navigate('/manager-config', { replace: true });
           }
         } finally {
           setChecking(false);

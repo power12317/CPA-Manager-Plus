@@ -3,6 +3,7 @@ import { create, type ReactTestRenderer } from 'react-test-renderer';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 import { useVisualConfig } from './useVisualConfig';
+import { CODEX_TICKET_TIMING_FIELDS } from '@/types/visualConfig';
 
 type UseVisualConfigResult = ReturnType<typeof useVisualConfig>;
 
@@ -42,6 +43,62 @@ const mountUseVisualConfig = (): UseVisualConfigHarness => {
 };
 
 describe('useVisualConfig', () => {
+  it('preserves ticket probing and device settings while toggling Basispoints and WebSocket', () => {
+    const harness = mountUseVisualConfig();
+    const yaml = [
+      'codex:',
+      '  force-websocket: false',
+      '  basispoints: { enabled: false }',
+      '  device-convergence: false',
+      '  identity-confuse: true',
+      '  turn-state-ticket:',
+      '    enabled: true',
+      '    fail-closed: true',
+      '    ttl-seconds: 1800',
+      '    refresh-before-seconds: 300',
+      '    probe-interval-seconds: 60',
+      '    attempt-timeout-seconds: 30',
+      '    harvest-proxy-url: socks5://probe.example:1080',
+      '    models: [gpt-6-astra]',
+      '    cache-all-models: false',
+      '    target-length: 780',
+      '',
+    ].join('\n');
+    act(() => harness.getCurrent().loadVisualValuesFromYaml(yaml));
+    act(() => harness.getCurrent().setVisualValues({
+      codexBasispointsEnabled: true,
+      codexForceWebsocket: true,
+    }));
+    const enabled = harness.getCurrent().applyVisualChangesToYaml(yaml);
+    expect(parseYaml(enabled)).toEqual({
+      codex: { ...parseYaml(yaml).codex, basispoints: { enabled: true }, 'force-websocket': true },
+    });
+    act(() => harness.getCurrent().loadVisualValuesFromYaml(enabled));
+    expect(harness.getCurrent().visualValues).toMatchObject({
+      codexBasispointsEnabled: true,
+      codexForceWebsocket: true,
+      codexTicketEnabled: true,
+      codexDeviceConvergence: false,
+    });
+    act(() => harness.getCurrent().setVisualValues({ codexTicketProbeIntervalSeconds: '90' }));
+    const changed = harness.getCurrent().applyVisualChangesToYaml(enabled);
+    expect(parseYaml(changed)).toEqual({
+      codex: {
+        ...parseYaml(enabled).codex,
+        'turn-state-ticket': {
+          ...parseYaml(yaml).codex['turn-state-ticket'],
+          'probe-interval-seconds': 90,
+        },
+      },
+    });
+    act(() => harness.getCurrent().loadVisualValuesFromYaml(changed));
+    act(() => harness.getCurrent().setVisualValues({ codexBasispointsEnabled: false }));
+    expect(parseYaml(harness.getCurrent().applyVisualChangesToYaml(changed))).toEqual({
+      codex: { ...parseYaml(changed).codex, basispoints: { enabled: false } },
+    });
+    harness.unmount();
+  });
+
   it('round trips the Basispoints switch without changing models, effort or unrelated YAML', () => {
     const harness = mountUseVisualConfig();
     const yaml = 'codex:\n  force-websocket: true\n  future-setting: keep\n';
@@ -96,6 +153,259 @@ describe('useVisualConfig', () => {
     ).toBe(false);
     harness.unmount();
   });
+  it('加载门票时间默认值时不写入配置，不改变账号目标长度', () => {
+    const harness = mountUseVisualConfig();
+    const yaml = 'codex:\n  turn-state-ticket:\n    enabled: false\n    target-length: 999\n';
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(yaml);
+    });
+    for (const { field, defaultSeconds } of CODEX_TICKET_TIMING_FIELDS) {
+      expect(harness.getCurrent().visualValues[field]).toBe(String(defaultSeconds));
+    }
+    expect(harness.getCurrent().visualDirty).toBe(false);
+    expect(harness.getCurrent().visualValues.codexTicketProbeIntervalSeconds).toBe('60');
+    expect(harness.getCurrent().applyVisualChangesToYaml(yaml)).toBe(yaml);
+    harness.unmount();
+  });
+
+  it('加载自定义时间、统一保存为数值，清空恢复默认并保留其他 YAML', () => {
+    const harness = mountUseVisualConfig();
+    const yaml =
+      'codex:\n  turn-state-ticket:\n    ttl-seconds: 1800\n    refresh-before-seconds: 300\n    probe-interval-seconds: 9\n    attempt-timeout-seconds: 30\n    fail-closed: false\n    harvest-proxy-url: socks5://proxy.example:1080\n# 原注释\nfuture: keep\n';
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(yaml);
+    });
+    expect(harness.getCurrent().visualValues).toMatchObject({
+      codexTicketTTLSeconds: '1800',
+      codexTicketRefreshBeforeSeconds: '300',
+      codexTicketProbeIntervalSeconds: '9',
+      codexTicketAttemptTimeoutSeconds: '30',
+    });
+    act(() => {
+      harness.getCurrent().setVisualValues({
+        codexTicketTTLSeconds: '7200',
+        codexTicketRefreshBeforeSeconds: '900',
+        codexTicketProbeIntervalSeconds: '12',
+        codexTicketAttemptTimeoutSeconds: '45',
+      });
+    });
+    const saved = harness.getCurrent().applyVisualChangesToYaml(yaml);
+    expect(parseYaml(saved)).toMatchObject({
+      codex: {
+        'turn-state-ticket': {
+          'ttl-seconds': 7200,
+          'refresh-before-seconds': 900,
+          'probe-interval-seconds': 12,
+          'attempt-timeout-seconds': 45,
+          'fail-closed': false,
+          'harvest-proxy-url': 'socks5://proxy.example:1080',
+        },
+      },
+      future: 'keep',
+    });
+    expect(saved).toContain('# 原注释');
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(saved);
+    });
+    expect(harness.getCurrent().visualDirty).toBe(false);
+    act(() => {
+      harness.getCurrent().setVisualValues({
+        codexTicketTTLSeconds: '',
+        codexTicketRefreshBeforeSeconds: '',
+        codexTicketProbeIntervalSeconds: '',
+        codexTicketAttemptTimeoutSeconds: '',
+      });
+    });
+    const cleared = harness.getCurrent().applyVisualChangesToYaml(saved);
+    const ticket = parseYaml(cleared).codex['turn-state-ticket'];
+    for (const { yamlKey } of CODEX_TICKET_TIMING_FIELDS)
+      expect(ticket).not.toHaveProperty(yamlKey);
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(cleared);
+    });
+    for (const { field, defaultSeconds } of CODEX_TICKET_TIMING_FIELDS) {
+      expect(harness.getCurrent().visualValues[field]).toBe(String(defaultSeconds));
+    }
+    harness.unmount();
+  });
+
+  it.each(CODEX_TICKET_TIMING_FIELDS)(
+    '校验 $yamlKey、恢复原值清除脏状态且只合并已改字段',
+    ({ field, yamlKey, defaultSeconds }) => {
+      const harness = mountUseVisualConfig();
+      const yaml = 'codex:\n  turn-state-ticket:\n    models: [gpt-6-astra]\n';
+      act(() => {
+        harness.getCurrent().loadVisualValuesFromYaml(yaml);
+      });
+      for (const invalid of ['-1', '0', '1.5', 'abc', '1e3', '9007199254740992']) {
+        act(() => {
+          harness.getCurrent().setVisualValues({ [field]: invalid });
+        });
+        expect(harness.getCurrent().visualValidationErrors[field]).toBe('positive_integer');
+      }
+      for (const valid of ['1', ' 42 ', '']) {
+        act(() => {
+          harness.getCurrent().setVisualValues({ [field]: valid });
+        });
+        expect(harness.getCurrent().visualValidationErrors[field]).toBeUndefined();
+      }
+      act(() => {
+        harness.getCurrent().setVisualValues({ [field]: String(defaultSeconds) });
+      });
+      expect(harness.getCurrent().visualDirty).toBe(false);
+      act(() => {
+        harness.getCurrent().setVisualValues({ [field]: '42' });
+      });
+      const latest = yaml + '    enabled: true\n';
+      expect(
+        parseYaml(harness.getCurrent().applyVisualChangesToYaml(latest)).codex['turn-state-ticket']
+      ).toEqual({ models: ['gpt-6-astra'], enabled: true, [yamlKey]: 42 });
+      harness.unmount();
+    }
+  );
+
+  it('后端非正数时间按默认值显示，不在未编辑时改写源码', () => {
+    const harness = mountUseVisualConfig();
+    const yaml =
+      'codex:\n  turn-state-ticket:\n    ttl-seconds: 0\n    refresh-before-seconds: -1\n';
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(yaml);
+    });
+    expect(harness.getCurrent().visualValues.codexTicketTTLSeconds).toBe('3600');
+    expect(harness.getCurrent().visualValues.codexTicketRefreshBeforeSeconds).toBe('600');
+    expect(harness.getCurrent().applyVisualChangesToYaml(yaml)).toBe(yaml);
+    harness.unmount();
+  });
+  it('将门票字段纳入统一草稿，只更新修改的字段并保留高级配置和源码修改', () => {
+    const harness = mountUseVisualConfig();
+    const yaml =
+      'codex:\n  turn-state-ticket:\n    enabled: false\n    fail-closed: false\n    harvest-proxy-url: socks5://saved:secret@proxy:1080\n    ttl-seconds: 2700\n    models: [gpt-6-astra]\n# 保留注释\n';
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(yaml);
+    });
+    expect(harness.getCurrent().visualValues.codexTicketModels).toBe('gpt-6-astra');
+    expect(harness.getCurrent().visualDirty).toBe(false);
+    act(() => {
+      harness
+        .getCurrent()
+        .setVisualValues({
+          codexTicketEnabled: true,
+          codexTicketFailClosed: true,
+          codexTicketModels: 'gpt-6-astra,gpt-5.6-sol\ngpt-6-astra',
+          proxyUrl: 'http://business:8080',
+        });
+    });
+    expect(harness.getCurrent().visualDirty).toBe(true);
+    const next = harness.getCurrent().applyVisualChangesToYaml(yaml + 'future: preserved\n');
+    expect(parseYaml(next)).toMatchObject({
+      codex: {
+        'turn-state-ticket': {
+          enabled: true,
+          'fail-closed': true,
+          'ttl-seconds': 2700,
+          'harvest-proxy-url': 'socks5://saved:secret@proxy:1080',
+          models: ['gpt-6-astra', 'gpt-5.6-sol'],
+        },
+      },
+      future: 'preserved',
+      'proxy-url': 'http://business:8080',
+    });
+    expect(next).toContain('# 保留注释');
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(next);
+    });
+    expect(harness.getCurrent().visualDirty).toBe(false);
+    act(() => {
+      harness.getCurrent().setVisualValues({ codexTicketHarvestProxy: '', codexTicketModels: '' });
+    });
+    expect(
+      parseYaml(harness.getCurrent().applyVisualChangesToYaml(next)).codex['turn-state-ticket']
+    ).toMatchObject({ 'harvest-proxy-url': '', models: [] });
+    harness.unmount();
+  });
+
+  it('旧配置不自动写入门票默认值，恢复原值后清除脏状态', () => {
+    const harness = mountUseVisualConfig();
+    const yaml = 'debug: false\n';
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(yaml);
+    });
+    expect(harness.getCurrent().applyVisualChangesToYaml(yaml)).toBe(yaml);
+    act(() => {
+      harness.getCurrent().setVisualValues({ codexTicketEnabled: true });
+    });
+    expect(harness.getCurrent().visualDirty).toBe(true);
+    act(() => {
+      harness.getCurrent().setVisualValues({ codexTicketEnabled: false });
+    });
+    expect(harness.getCurrent().visualDirty).toBe(false);
+    harness.unmount();
+  });
+
+  it.each([
+    ['', true],
+    ['codex: {}\n', true],
+    ['codex:\n  identity-confuse: false\n', true],
+    ['codex:\n  device-convergence: true\n', true],
+    ['codex:\n  device-convergence: false\n', false],
+  ])('loads device convergence from YAML with an enabled default: %s', (yaml, expected) => {
+    const harness = mountUseVisualConfig();
+    act(() => { harness.getCurrent().loadVisualValuesFromYaml(yaml); });
+    expect(harness.getCurrent().visualValues.codexDeviceConvergence).toBe(expected);
+    expect(harness.getCurrent().visualDirty).toBe(false);
+    expect(harness.getCurrent().applyVisualChangesToYaml(yaml)).toBe(yaml || '{}\n');
+    harness.unmount();
+  });
+
+  it('persists explicit false when the Codex section is missing, then reloads and enables', () => {
+    const harness = mountUseVisualConfig();
+    const yaml = 'debug: false\n';
+    act(() => { harness.getCurrent().loadVisualValuesFromYaml(yaml); });
+    act(() => { harness.getCurrent().setVisualValues({ codexDeviceConvergence: false }); });
+    expect(harness.getCurrent().visualDirty).toBe(true);
+    const disabledYaml = harness.getCurrent().applyVisualChangesToYaml(yaml);
+    expect(parseYaml(disabledYaml)).toEqual({ debug: false, codex: { 'device-convergence': false } });
+    act(() => { harness.getCurrent().loadVisualValuesFromYaml(disabledYaml); });
+    expect(harness.getCurrent().visualValues.codexDeviceConvergence).toBe(false);
+    expect(harness.getCurrent().visualDirty).toBe(false);
+    act(() => { harness.getCurrent().setVisualValues({ codexDeviceConvergence: true }); });
+    const enabledYaml = harness.getCurrent().applyVisualChangesToYaml(disabledYaml);
+    expect(parseYaml(enabledYaml).codex['device-convergence']).toBe(true);
+    act(() => { harness.getCurrent().loadVisualValuesFromYaml(enabledYaml); });
+    expect(harness.getCurrent().visualValues.codexDeviceConvergence).toBe(true);
+    harness.unmount();
+  });
+
+  it('leaves device convergence absent when saving unrelated settings on an older CPA', () => {
+    const harness = mountUseVisualConfig();
+    const yaml = '# existing config\ncodex:\n  identity-confuse: true\nclaude-header-defaults:\n  stabilize-device-profile: true\n';
+    act(() => { harness.getCurrent().loadVisualValuesFromYaml(yaml); });
+    act(() => { harness.getCurrent().setVisualValues({ debug: true }); });
+    const saved = harness.getCurrent().applyVisualChangesToYaml(yaml);
+    expect(saved).not.toContain('device-convergence');
+    expect(parseYaml(saved)).toEqual({ debug: true, codex: { 'identity-confuse': true }, 'claude-header-defaults': { 'stabilize-device-profile': true } });
+    expect(saved).toContain('# existing config');
+    harness.unmount();
+  });
+
+  it('changes only device convergence while preserving independent settings and latest YAML', () => {
+    const harness = mountUseVisualConfig();
+    const yaml = 'codex:\n  identity-confuse: true\n  future-setting: kept\nclaude-header-defaults:\n  stabilize-device-profile: true\n';
+    act(() => { harness.getCurrent().loadVisualValuesFromYaml(yaml); });
+    act(() => { harness.getCurrent().setVisualValues({ codexDeviceConvergence: false }); });
+    const latest = yaml + 'proxy-url: http://updated-proxy.local\n';
+    expect(parseYaml(harness.getCurrent().applyVisualChangesToYaml(latest))).toEqual({
+      codex: { 'identity-confuse': true, 'future-setting': 'kept', 'device-convergence': false },
+      'claude-header-defaults': { 'stabilize-device-profile': true },
+      'proxy-url': 'http://updated-proxy.local',
+    });
+    // Loading another instance establishes a new baseline, including its default value.
+    act(() => { harness.getCurrent().loadVisualValuesFromYaml('codex:\n  identity-confuse: false\n'); });
+    expect(harness.getCurrent().visualValues.codexDeviceConvergence).toBe(true);
+    expect(harness.getCurrent().visualDirty).toBe(false);
+    harness.unmount();
+  });
+
   it('clears the page dirty state when API keys are the only changed field', () => {
     const harness = mountUseVisualConfig();
     const initialYaml = ['proxy-url: http://proxy.local:8080', 'api-keys:', '  - old-key', ''].join(
@@ -742,5 +1052,248 @@ describe('useVisualConfig', () => {
     expect(parsed['video-result-auth-cache-ttl']).toBe('3h');
 
     harness.unmount();
+  });
+
+  describe('devin sensitive words', () => {
+    it('parses devin.sensitive-words with trimming, filtering empty items, and preserving order', () => {
+      const harness = mountUseVisualConfig();
+      const yaml = [
+        'devin:',
+        '  sensitive-words:',
+        '    - "  forbidden-token  "',
+        '    - ""',
+        '    - "   "',
+        '    - "system prompt leak"',
+        '    - "secret-key"',
+        '',
+      ].join('\n');
+
+      act(() => {
+        expect(harness.getCurrent().loadVisualValuesFromYaml(yaml).ok).toBe(true);
+      });
+
+      expect(harness.getCurrent().visualValues.devinSensitiveWords).toEqual([
+        'forbidden-token',
+        'system prompt leak',
+        'secret-key',
+      ]);
+
+      // Verify non-canonical keys are ignored
+      const nonCanonicalYaml = [
+        'devin:',
+        '  sensitiveWords:',
+        '    - "bad1"',
+        'devin-sensitive-words:',
+        '  - "bad2"',
+        '',
+      ].join('\n');
+
+      act(() => {
+        expect(harness.getCurrent().loadVisualValuesFromYaml(nonCanonicalYaml).ok).toBe(true);
+      });
+      expect(harness.getCurrent().visualValues.devinSensitiveWords).toEqual([]);
+
+      harness.unmount();
+    });
+
+    it('canonically writes devin.sensitive-words into yaml', () => {
+      const harness = mountUseVisualConfig();
+      const initialYaml = ['port: 8080', ''].join('\n');
+
+      act(() => {
+        expect(harness.getCurrent().loadVisualValuesFromYaml(initialYaml).ok).toBe(true);
+        harness.getCurrent().setVisualValues({
+          devinSensitiveWords: ['word1', 'word2'],
+        });
+      });
+
+      const resultYaml = harness.getCurrent().applyVisualChangesToYaml(initialYaml);
+      const parsed = parseYaml(resultYaml) as Record<string, unknown>;
+      expect(parsed.devin).toEqual({
+        'sensitive-words': ['word1', 'word2'],
+      });
+
+      harness.unmount();
+    });
+
+    it('canonically writes devin.sensitive-words trimming items and dropping empty strings', () => {
+      const harness = mountUseVisualConfig();
+      const initialYaml = ['port: 8080', ''].join('\n');
+
+      act(() => {
+        expect(harness.getCurrent().loadVisualValuesFromYaml(initialYaml).ok).toBe(true);
+        harness.getCurrent().setVisualValues({
+          devinSensitiveWords: [' API ', '', 'Claude Code'],
+        });
+      });
+
+      const resultYaml = harness.getCurrent().applyVisualChangesToYaml(initialYaml);
+      const parsed = parseYaml(resultYaml) as Record<string, unknown>;
+      expect(parsed.devin).toEqual({
+        'sensitive-words': ['API', 'Claude Code'],
+      });
+
+      harness.unmount();
+    });
+
+    it('removes the devin map completely when clearing sensitive words and no other fields exist', () => {
+      const harness = mountUseVisualConfig();
+      const yaml = [
+        'devin:',
+        '  sensitive-words:',
+        '    - secret',
+        'port: 8080',
+        '',
+      ].join('\n');
+
+      act(() => {
+        expect(harness.getCurrent().loadVisualValuesFromYaml(yaml).ok).toBe(true);
+        harness.getCurrent().setVisualValues({
+          devinSensitiveWords: [],
+        });
+      });
+
+      const resultYaml = harness.getCurrent().applyVisualChangesToYaml(yaml);
+      const parsed = parseYaml(resultYaml) as Record<string, unknown>;
+      expect(parsed.devin).toBeUndefined();
+      expect(parsed.port).toBe(8080);
+
+      harness.unmount();
+    });
+
+    it('preserves unknown future sibling properties under devin when editing sensitive words', () => {
+      const harness = mountUseVisualConfig();
+      const yaml = [
+        'devin:',
+        '  sensitive-words:',
+        '    - old-secret',
+        '  future-option: true',
+        '  nested-config:',
+        '    feature-flag: enabled',
+        'port: 8080',
+        '',
+      ].join('\n');
+
+      act(() => {
+        expect(harness.getCurrent().loadVisualValuesFromYaml(yaml).ok).toBe(true);
+        harness.getCurrent().setVisualValues({
+          devinSensitiveWords: ['new-secret'],
+        });
+      });
+
+      const resultYaml = harness.getCurrent().applyVisualChangesToYaml(yaml);
+      const parsed = parseYaml(resultYaml) as Record<string, unknown>;
+      expect(parsed.devin).toEqual({
+        'sensitive-words': ['new-secret'],
+        'future-option': true,
+        'nested-config': {
+          'feature-flag': 'enabled',
+        },
+      });
+
+      harness.unmount();
+    });
+
+    it('preserves future sibling properties when clearing devin.sensitive-words', () => {
+      const harness = mountUseVisualConfig();
+      const yaml = [
+        'devin:',
+        '  sensitive-words:',
+        '    - secret',
+        '  future-option: "keep-me"',
+        'port: 8080',
+        '',
+      ].join('\n');
+
+      act(() => {
+        expect(harness.getCurrent().loadVisualValuesFromYaml(yaml).ok).toBe(true);
+        harness.getCurrent().setVisualValues({
+          devinSensitiveWords: [],
+        });
+      });
+
+      const resultYaml = harness.getCurrent().applyVisualChangesToYaml(yaml);
+      const parsed = parseYaml(resultYaml) as Record<string, unknown>;
+      expect(parsed.devin).toEqual({
+        'future-option': 'keep-me',
+      });
+      expect(parsed.port).toBe(8080);
+
+      harness.unmount();
+    });
+
+    it('does not touch or modify the devin subtree on unrelated visual edits', () => {
+      const harness = mountUseVisualConfig();
+      const yaml = [
+        '# Custom devin comment',
+        'devin:',
+        '  sensitive-words:',
+        '    - do-not-touch',
+        '  custom-flag: 123',
+        'port: 8080',
+        '',
+      ].join('\n');
+
+      act(() => {
+        expect(harness.getCurrent().loadVisualValuesFromYaml(yaml).ok).toBe(true);
+        harness.getCurrent().setVisualValues({
+          port: '9090',
+        });
+      });
+
+      const resultYaml = harness.getCurrent().applyVisualChangesToYaml(yaml);
+      expect(resultYaml).toContain('# Custom devin comment');
+      expect(resultYaml).toContain('custom-flag: 123');
+      const parsed = parseYaml(resultYaml) as Record<string, unknown>;
+      expect(parsed.port).toBe(9090);
+      expect(parsed.devin).toEqual({
+        'sensitive-words': ['do-not-touch'],
+        'custom-flag': 123,
+      });
+
+      harness.unmount();
+    });
+
+    it('tracks the dirty lifecycle accurately for devinSensitiveWords', () => {
+      const harness = mountUseVisualConfig();
+      const yaml = [
+        'devin:',
+        '  sensitive-words:',
+        '    - foo',
+        '    - bar',
+        '',
+      ].join('\n');
+
+      act(() => {
+        expect(harness.getCurrent().loadVisualValuesFromYaml(yaml).ok).toBe(true);
+      });
+      expect(harness.getCurrent().visualDirty).toBe(false);
+
+      // Setting to identical values does not mark dirty
+      act(() => {
+        harness.getCurrent().setVisualValues({
+          devinSensitiveWords: ['foo', 'bar'],
+        });
+      });
+      expect(harness.getCurrent().visualDirty).toBe(false);
+
+      // Editing marks dirty
+      act(() => {
+        harness.getCurrent().setVisualValues({
+          devinSensitiveWords: ['foo', 'bar', 'baz'],
+        });
+      });
+      expect(harness.getCurrent().visualDirty).toBe(true);
+
+      // Reverting clears dirty
+      act(() => {
+        harness.getCurrent().setVisualValues({
+          devinSensitiveWords: ['foo', 'bar'],
+        });
+      });
+      expect(harness.getCurrent().visualDirty).toBe(false);
+
+      harness.unmount();
+    });
   });
 });

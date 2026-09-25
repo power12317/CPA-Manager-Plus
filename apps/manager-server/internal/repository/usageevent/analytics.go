@@ -227,6 +227,10 @@ type AccountModelStat struct {
 }
 
 type AccountWindowUsageQuery struct {
+	System                string
+	HistoricalAccountKey  string
+	HistoricalLegacyKey   string
+	HistoricalCutoverID   int64
 	RequestIndex          int
 	FromMS                int64
 	ToMS                  int64
@@ -409,6 +413,15 @@ type EventPageItem struct {
 	AnalyticsModel         string
 	RequestedModel         string
 	ResolvedModel          string
+	TurnID                 string
+	System                 string
+	TurnStateLen           string
+	ResponseModel          string
+	SessionID              string
+	ParentSessionID        string
+	AccessTokenSHA256      string
+	Generate               *bool
+	Stream                 *bool
 	Endpoint               string
 	Method                 string
 	Path                   string
@@ -1618,7 +1631,7 @@ func (r *repository) AccountWindowModelStats(ctx context.Context, windows []Acco
 	args := make([]any, 0, len(resolvedWindows)*5)
 	for _, window := range resolvedWindows {
 		accountKey, legacyAccountKey := accountWindowQueryKeys(window)
-		values = append(values, "(?, ?, ?, ?, ?)")
+		values = append(values, "(?, ?, ?, ?, ?, ?, ?)")
 		args = append(
 			args,
 			window.RequestIndex,
@@ -1626,11 +1639,13 @@ func (r *repository) AccountWindowModelStats(ctx context.Context, windows []Acco
 			window.ToMS,
 			accountKey,
 			legacyAccountKey,
+			window.HistoricalAccountKey,
+			window.HistoricalLegacyKey,
 		)
 	}
 
 	rows, err := tx.QueryContext(ctx, pricingBandedUsageEventsCTE+`, window_targets(
-	request_index, from_ms, to_ms, account_key, legacy_account_key
+	request_index, from_ms, to_ms, account_key, legacy_account_key, historical_account_key, historical_legacy_key
 ) as (
 	values `+strings.Join(values, ",")+`
 )
@@ -1660,7 +1675,7 @@ from window_targets w
 	join banded_usage_events e
 		on e.timestamp_ms >= w.from_ms
 		and e.timestamp_ms < w.to_ms
-		and `+usageidentity.SQLAccountKeyExpression("e")+` in (w.account_key, w.legacy_account_key)
+		and `+usageidentity.SQLEventAccountKeyExpression("e")+` in (w.account_key, w.legacy_account_key, w.historical_account_key, w.historical_legacy_key)
 	group by w.request_index, e.analytics_model_value, billing_model, e.pricing_model_value, e.context_threshold_tokens_value, coalesce(e.service_tier, '')
 order by w.request_index, max(e.timestamp_ms) desc`, args...)
 	if err != nil {
@@ -1718,6 +1733,21 @@ func ResolveAccountWindowLegacyKeys(
 	windows []AccountWindowUsageQuery,
 ) ([]AccountWindowUsageQuery, error) {
 	resolved := append([]AccountWindowUsageQuery(nil), windows...)
+	boundaryRows, err := queryer.QueryContext(ctx, "select "+usageidentity.SQLCredentialCutover())
+	if err != nil {
+		return nil, err
+	}
+	var cutover int64
+	if boundaryRows.Next() {
+		err = boundaryRows.Scan(&cutover)
+	}
+	if err == nil {
+		err = boundaryRows.Err()
+	}
+	_ = boundaryRows.Close()
+	if err != nil {
+		return nil, err
+	}
 	cache := make(map[string]struct {
 		key     string
 		allowed bool
@@ -1726,6 +1756,12 @@ func ResolveAccountWindowLegacyKeys(
 	legacyConflicts := make(map[string]struct{})
 	for index := range resolved {
 		window := &resolved[index]
+		if normalizeIdentityProvider(window.AuthProviderSnapshot) == "codex" {
+			window.HistoricalCutoverID = cutover
+			if !usageidentity.IsWindowsCredential(accountWindowIdentityFields(*window)) {
+				window.HistoricalAccountKey, _ = usageidentity.HistoricalAccountKey(accountWindowIdentityFields(*window))
+			}
+		}
 		if !codexLegacyWindowTarget(*window) {
 			continue
 		}
@@ -1755,13 +1791,17 @@ func ResolveAccountWindowLegacyKeys(
 			continue
 		}
 		legacyOwners[result.key] = ownerKey
-		window.LegacyAccountKey = result.key
+		if !usageidentity.IsWindowsCredential(accountWindowIdentityFields(*window)) {
+			window.HistoricalLegacyKey = result.key
+		}
+		window.LegacyAccountKey = "credential:" + result.key
 	}
 	if len(legacyConflicts) > 0 {
 		for index := range resolved {
 			window := &resolved[index]
-			if _, conflicted := legacyConflicts[window.LegacyAccountKey]; conflicted {
+			if _, conflicted := legacyConflicts[strings.TrimPrefix(window.LegacyAccountKey, "credential:")]; conflicted {
 				window.LegacyAccountKey = ""
+				window.HistoricalLegacyKey = ""
 			}
 		}
 	}
@@ -1799,6 +1839,7 @@ func codexLegacyWindowCacheKey(window AccountWindowUsageQuery) string {
 
 func accountWindowIdentityFields(window AccountWindowUsageQuery) usageidentity.Fields {
 	return usageidentity.Fields{
+		System:                window.System,
 		AuthFileSnapshot:      window.AuthFileSnapshot,
 		AuthIndex:             window.AuthIndex,
 		AuthProviderSnapshot:  window.AuthProviderSnapshot,
@@ -2630,6 +2671,9 @@ func (r *repository) EventsPageWithFilter(ctx context.Context, filter AnalyticsF
 		`+usageidentity.SQLRequestAnalyticsModelExpression("model", "requested_model")+` as analytics_model,
 		coalesce(nullif(requested_model, ''), model, ''),
 		coalesce(resolved_model, ''),
+		coalesce(turn_id, ''),
+		coalesce(system, ''),
+		coalesce(turn_state_len, ''),
 	coalesce(endpoint, ''),
 	coalesce(method, ''),
 	coalesce(path, ''),
@@ -2667,7 +2711,13 @@ func (r *repository) EventsPageWithFilter(ctx context.Context, filter AnalyticsF
 	coalesce(header_quota_plan_type, ''),
 	coalesce(header_error_kind, ''),
 	coalesce(header_error_code, ''),
-	coalesce(header_trace_id, '')
+	coalesce(header_trace_id, ''),
+	coalesce(response_model, ''),
+	coalesce(session_id, ''),
+	coalesce(parent_session_id, ''),
+	coalesce(access_token_sha256, ''),
+	generate,
+	stream
 from usage_events `+where+`
 order by timestamp_ms desc, id desc
 limit ?`, args...)
@@ -2681,6 +2731,8 @@ limit ?`, args...)
 		var item EventPageItem
 		var failed int
 		var responseMetadataJSON string
+		var turnID, system, turnStateLen, responseModel, sessionID, parentSessionID, accessTokenSHA256 sql.NullString
+		var generateVal, streamVal sql.NullInt64
 		if err := rows.Scan(
 			&item.ID,
 			&item.RequestID,
@@ -2691,6 +2743,9 @@ limit ?`, args...)
 			&item.AnalyticsModel,
 			&item.RequestedModel,
 			&item.ResolvedModel,
+			&turnID,
+			&system,
+			&turnStateLen,
 			&item.Endpoint,
 			&item.Method,
 			&item.Path,
@@ -2729,10 +2784,31 @@ limit ?`, args...)
 			&item.HeaderErrorKind,
 			&item.HeaderErrorCode,
 			&item.HeaderTraceID,
+			&responseModel,
+			&sessionID,
+			&parentSessionID,
+			&accessTokenSHA256,
+			&generateVal,
+			&streamVal,
 		); err != nil {
 			return EventsPage{}, err
 		}
 		item.Failed = failed != 0
+		item.ResponseModel = responseModel.String
+		item.TurnID = turnID.String
+		item.System = system.String
+		item.TurnStateLen = turnStateLen.String
+		item.SessionID = sessionID.String
+		item.ParentSessionID = parentSessionID.String
+		item.AccessTokenSHA256 = accessTokenSHA256.String
+		if generateVal.Valid {
+			v := generateVal.Int64 != 0
+			item.Generate = &v
+		}
+		if streamVal.Valid {
+			v := streamVal.Int64 != 0
+			item.Stream = &v
+		}
 		item.AuthProjectIDSnapshot = usageidentity.ProjectIDSnapshot(item.AuthProviderSnapshot, item.AuthProjectIDSnapshot)
 		item.ResponseMetadata = usage.ResponseHeaderMetadataFromJSON(responseMetadataJSON)
 		items = append(items, item)

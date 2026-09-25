@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/repository/usagebaseline"
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/usage"
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/usageidentity"
 )
@@ -20,6 +21,7 @@ type Repository interface {
 	Checkpoint(ctx context.Context, name string) (Checkpoint, error)
 	LatestEventID(ctx context.Context) (int64, error)
 	AccountHistoryRows(ctx context.Context, accountKeys []string) ([]AccountHistoryRow, error)
+	AccountHistoryRowsTx(ctx context.Context, tx *sql.Tx, accountKeys []string) ([]AccountHistoryRow, error)
 	DashboardHourlyRows(ctx context.Context, fromMS, toMS int64) ([]DashboardHourlyRow, error)
 	DashboardHourlyModelRows(ctx context.Context, fromMS, toMS int64) ([]DashboardHourlyRow, error)
 	DashboardDailyRows(ctx context.Context, fromMS, toMS int64) ([]DashboardHourlyRow, error)
@@ -230,16 +232,26 @@ func (r *repository) LatestEventID(ctx context.Context) (int64, error) {
 }
 
 func (r *repository) AccountHistoryRows(ctx context.Context, accountKeys []string) ([]AccountHistoryRow, error) {
-	keys := normalizeAccountKeys(accountKeys)
-	if len(keys) == 0 {
-		return []AccountHistoryRow{}, nil
-	}
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback() }()
+	result, err := r.AccountHistoryRowsTx(ctx, tx, accountKeys)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
 
+func (r *repository) AccountHistoryRowsTx(ctx context.Context, tx *sql.Tx, accountKeys []string) ([]AccountHistoryRow, error) {
+	keys := normalizeAccountKeys(accountKeys)
+	if len(keys) == 0 {
+		return []AccountHistoryRow{}, nil
+	}
 	checkpoint, err := checkpointInTx(ctx, tx, AccountHistoryCheckpointName)
 	if err != nil {
 		return nil, err
@@ -252,19 +264,14 @@ func (r *repository) AccountHistoryRows(ctx context.Context, accountKeys []strin
 	afterEventID := checkpoint.LastEventID
 	if rawOnly {
 		afterEventID = 0
-	} else {
-		if err := mergeStoredAccountHistoryRows(ctx, tx, keys, grouped); err != nil {
-			return nil, err
-		}
+	}
+	if err := mergeStoredAccountHistoryRows(ctx, tx, keys, grouped, rawOnly); err != nil {
+		return nil, err
 	}
 	if err := mergeRawAccountHistoryRows(ctx, tx, afterEventID, keys, grouped); err != nil {
 		return nil, err
 	}
-	result := sortedAccountHistoryRows(grouped)
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-	return result, nil
+	return sortedAccountHistoryRows(grouped), nil
 }
 
 func cacheAccountingRawFallbackInTx(ctx context.Context, tx *sql.Tx) (bool, error) {
@@ -287,7 +294,12 @@ func mergeStoredAccountHistoryRows(
 	tx *sql.Tx,
 	accountKeys []string,
 	grouped map[accountRollupKey]*AccountHistoryRow,
+	onlyBaseline bool,
 ) error {
+	condition := "1=1"
+	if onlyBaseline {
+		condition = usagebaseline.KeepHistoryRow()
+	}
 	placeholders := strings.TrimRight(strings.Repeat("?,", len(accountKeys)), ",")
 	args := make([]any, 0, len(accountKeys))
 	for _, key := range accountKeys {
@@ -323,7 +335,7 @@ func mergeStoredAccountHistoryRows(
 	last_seen_ms,
 	updated_at_ms
 from usage_account_model_rollups
-where account_key in (`+placeholders+`)
+where account_key in (`+placeholders+`) and `+condition+`
 order by account_key, last_seen_ms desc`, args...)
 	if err != nil {
 		return err
@@ -585,7 +597,7 @@ func eventsAfterCheckpoint(ctx context.Context, tx *sql.Tx, lastEventID, targetE
 	coalesce(cache_creation_tokens, 0),
 	coalesce(total_tokens, 0), id <= `+usageidentity.SQLCredentialCutover()+`
 from usage_events
-where id > ? and id <= ?
+where id > ? and id <= ? and `+usagebaseline.EventOutsideBaseline("", usagebaseline.HistoryWatermark())+`
 order by id
 limit ?`, lastEventID, targetEventID, limit)
 	if err != nil {
@@ -628,6 +640,7 @@ func accountHistoryEventsAfterCheckpoint(
 		coalesce(e.total_tokens, 0), e.id <= ` + usageidentity.SQLCredentialCutover() + `
 	from usage_events e
 	where e.id > ? and ` + usageidentity.SQLEventAccountKeyExpression("e") + ` in (` + placeholders + `)
+	and ` + usagebaseline.EventOutsideBaseline("e", usagebaseline.HistoryWatermark()) + `
 	order by e.id`
 	args := make([]any, 0, len(accountKeys)+1)
 	args = append(args, afterEventID)
@@ -921,6 +934,9 @@ on conflict(name) do update set
 		nullPositiveInt64(startedAtMS),
 		nullPositiveInt64(finishedAtMS),
 	)
+	if err == nil && name == AccountHistoryCheckpointName {
+		return usagebaseline.ReleaseHistory(ctx, tx, lastEventID)
+	}
 	return err
 }
 

@@ -43,7 +43,7 @@ const info = (tag: string) =>
       breaking: false,
       migration_required: false,
       minimum_direct_upgrade_version: null,
-      upgrade_guide_url: 'https://github.com/seakee/CPA-Manager-Plus/releases/tag/' + tag,
+      upgrade_guide_url: 'https://github.com/power12317/CPA-Manager-Plus/releases/tag/' + tag,
     },
     distribution: {
       docker: { image: 'seakee/cpa-manager-plus', version_tag: tag },

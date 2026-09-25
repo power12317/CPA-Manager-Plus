@@ -5,20 +5,27 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/repository/usageaggregate"
+	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/repository/usagebaseline"
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/usage"
+	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/usageidentity"
 )
 
-const UsageCacheAccountingMigrationName = "usage_cache_accounting_v2"
+const (
+	UsageCacheAccountingMigrationName            = "usage_cache_accounting_v2"
+	UsageCacheAccountingSemanticsRevisionKey     = "usage_cache_accounting_semantics_revision"
+	CurrentUsageCacheAccountingSemanticsRevision = 2
+)
 
 const usageCacheAccountingCandidatePredicate = `(coalesce(cached_tokens, 0) != 0
 	or coalesce(cache_tokens, 0) != 0
 	or coalesce(cache_read_tokens, 0) != 0
 	or coalesce(cache_creation_tokens, 0) != 0
-	or lower(trim(coalesce(cache_input_mode, ''))) not in ('included_in_input', 'separate_from_input')
+	or lower(trim(coalesce(cache_input_mode, ''))) not in ('included_in_input', 'separate_from_input', 'read_included_creation_separate')
 	or normalized_uncached_input_tokens is null
 	or normalized_total_input_tokens is null
 	or normalized_cache_read_tokens is null
@@ -119,6 +126,10 @@ func (r *repository) DiscoverUsageCacheAccounting(ctx context.Context) (State, e
 	if err != nil {
 		return State{}, err
 	}
+	semanticsChanged, err := reconcileSemanticsRevisionInTx(ctx, tx, &state)
+	if err != nil {
+		return State{}, err
+	}
 	if state.Status == StatusFailed {
 		nowMS := time.Now().UnixMilli()
 		resumeStatus := StatusPending
@@ -157,6 +168,11 @@ func (r *repository) DiscoverUsageCacheAccounting(ctx context.Context) (State, e
 	}
 	if state.Status == StatusPending || state.Status == StatusRunning ||
 		state.Status == StatusApplying || state.Status == StatusClearing {
+		if semanticsChanged {
+			if err := tx.Commit(); err != nil {
+				return State{}, err
+			}
+		}
 		return state, nil
 	}
 	if state.Status != StatusDiscovering {
@@ -279,7 +295,20 @@ func (r *repository) RunUsageCacheAccountingBatch(ctx context.Context, batchSize
 	}
 
 	changedRows := int64(0)
+	var cutover int64
+	if err := tx.QueryRowContext(ctx, "select "+usageidentity.SQLCredentialCutover()).Scan(&cutover); err != nil {
+		return BatchResult{}, err
+	}
 	for _, row := range rows {
+		provider := row.ProviderSnapshot
+		if strings.TrimSpace(provider) == "" {
+			provider = row.Provider
+		}
+		// The shared pre-upgrade Codex total is an immutable Mac baseline.
+		// Devin's accounting correction must not rewrite those raw records.
+		if row.ID <= cutover && strings.EqualFold(strings.TrimSpace(provider), "codex") {
+			continue
+		}
 		changed, err := stageCacheAccountingRow(ctx, tx, row)
 		if err != nil {
 			return BatchResult{}, err
@@ -659,6 +688,9 @@ func applyChangesBatchInTx(ctx context.Context, tx *sql.Tx, state State, batchSi
 }
 
 func invalidateDerivedDataInTx(ctx context.Context, tx *sql.Tx, state State) error {
+	if err := usagebaseline.Capture(ctx, tx); err != nil {
+		return err
+	}
 	var latestEventID int64
 	if err := tx.QueryRowContext(ctx, `select coalesce(max(id), 0) from usage_events`).Scan(&latestEventID); err != nil {
 		return err
@@ -728,7 +760,7 @@ func clearDerivedBatchInTx(ctx context.Context, tx *sql.Tx, state State, batchSi
 			clearedRows += deleted
 		}
 		var pending int
-		if err := tx.QueryRowContext(ctx, `select exists(select 1 from `+tableName+` limit 1)`).Scan(&pending); err != nil {
+		if err := tx.QueryRowContext(ctx, `select exists(select 1 from `+tableName+` where `+clearableDerivedRows(tableName)+` limit 1)`).Scan(&pending); err != nil {
 			return BatchResult{}, err
 		}
 		if pending != 0 {
@@ -750,9 +782,16 @@ func clearDerivedBatchInTx(ctx context.Context, tx *sql.Tx, state State, batchSi
 	return BatchResult{State: completed, Processed: clearedRows, Completed: true}, nil
 }
 
+func clearableDerivedRows(tableName string) string {
+	if tableName == "usage_account_model_rollups" {
+		return "not (" + usagebaseline.KeepHistoryRow() + ")"
+	}
+	return "1=1"
+}
+
 func deleteDerivedRowsBatch(ctx context.Context, tx *sql.Tx, tableName string, limit int) (int64, error) {
 	result, err := tx.ExecContext(ctx, `delete from `+tableName+` where rowid in (
-		select rowid from `+tableName+` limit ?
+		select rowid from `+tableName+` where `+clearableDerivedRows(tableName)+` limit ?
 	)`, limit)
 	if err != nil {
 		return 0, fmt.Errorf("clear derived rows from %s: %w", tableName, err)
@@ -880,4 +919,86 @@ func derivedRebuildStatus(latestEventID int64) string {
 		return "ready"
 	}
 	return "pending"
+}
+
+func reconcileSemanticsRevisionInTx(ctx context.Context, tx *sql.Tx, state *State) (bool, error) {
+	var revisionStr string
+	var currentRevision int
+	err := tx.QueryRowContext(ctx, `select value from settings where key = ?`, UsageCacheAccountingSemanticsRevisionKey).Scan(&revisionStr)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return false, err
+	}
+	if err == nil {
+		currentRevision, _ = strconv.Atoi(strings.TrimSpace(revisionStr))
+	}
+	if currentRevision >= CurrentUsageCacheAccountingSemanticsRevision {
+		return false, nil
+	}
+
+	var hasAffectedDevinRow bool
+	query := `select exists(
+		select 1 from usage_events
+		where (
+			coalesce(cached_tokens, 0) != 0
+			or coalesce(cache_tokens, 0) != 0
+			or coalesce(cache_read_tokens, 0) != 0
+			or coalesce(cache_creation_tokens, 0) != 0
+		) and (
+			lower(trim(coalesce(executor_type, ''))) = 'devinexecutor'
+			or lower(trim(coalesce(provider, ''))) = 'devin'
+			or lower(trim(coalesce(provider, ''))) like 'devin/%'
+			or lower(trim(coalesce(auth_provider_snapshot, ''))) = 'devin'
+			or lower(trim(coalesce(auth_provider_snapshot, ''))) like 'devin/%'
+			or lower(trim(coalesce(resolved_model, ''))) = 'devin'
+			or lower(trim(coalesce(resolved_model, ''))) like 'devin/%'
+			or lower(trim(coalesce(requested_model, ''))) = 'devin'
+			or lower(trim(coalesce(requested_model, ''))) like 'devin/%'
+			or lower(trim(coalesce(model, ''))) = 'devin'
+			or lower(trim(coalesce(model, ''))) like 'devin/%'
+		)
+		limit 1
+	)`
+	if err := tx.QueryRowContext(ctx, query).Scan(&hasAffectedDevinRow); err != nil {
+		return false, err
+	}
+
+	nowMS := time.Now().UnixMilli()
+	if !hasAffectedDevinRow {
+		if _, err := tx.ExecContext(ctx, `insert into settings(key, value, updated_at_ms) values (?, ?, ?)
+			on conflict(key) do update set value = excluded.value, updated_at_ms = excluded.updated_at_ms`,
+			UsageCacheAccountingSemanticsRevisionKey, strconv.Itoa(CurrentUsageCacheAccountingSemanticsRevision), nowMS); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+
+	if state.Status == StatusCompleted || (state.AppliedRows == 0 && state.Status != StatusClearing) {
+		if _, err := tx.ExecContext(ctx, `delete from usage_cache_accounting_v2_changes`); err != nil {
+			return false, err
+		}
+		if _, err := tx.ExecContext(ctx, `update usage_data_migrations set
+			status = ?, last_event_id = 0, target_event_id = 0, processed_rows = 0, changed_rows = 0, applied_rows = 0,
+			started_at_ms = null, updated_at_ms = ?, finished_at_ms = null, last_error = null
+		where name = ?`, StatusDiscovering, nowMS, UsageCacheAccountingMigrationName); err != nil {
+			return false, err
+		}
+		if _, err := tx.ExecContext(ctx, `insert into settings(key, value, updated_at_ms) values (?, ?, ?)
+			on conflict(key) do update set value = excluded.value, updated_at_ms = excluded.updated_at_ms`,
+			UsageCacheAccountingSemanticsRevisionKey, strconv.Itoa(CurrentUsageCacheAccountingSemanticsRevision), nowMS); err != nil {
+			return false, err
+		}
+		state.Status = StatusDiscovering
+		state.LastEventID = 0
+		state.TargetEventID = 0
+		state.ProcessedRows = 0
+		state.ChangedRows = 0
+		state.AppliedRows = 0
+		state.StartedAtMS = 0
+		state.FinishedAtMS = 0
+		state.LastError = ""
+		state.UpdatedAtMS = nowMS
+		return true, nil
+	}
+
+	return false, nil
 }

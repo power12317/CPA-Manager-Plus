@@ -27,6 +27,7 @@ export type AuthFileType =
   | 'iflow'
   | 'vertex'
   | 'devin'
+  | 'meta'
   | 'empty'
   | 'unknown';
 

@@ -20,6 +20,9 @@ const (
 	// New credential keys coexist with the original aggregates. This marker
 	// records the last pre-upgrade event without rewriting historical data.
 	CredentialCutoverSetting = "codex_credential_history_start_after_id"
+	// CodexLegacyIdentityEvidenceSchemaVersion changes independently from
+	// monitoring SchemaVersion.
+	CodexLegacyIdentityEvidenceSchemaVersion = 1
 )
 
 // CodexAccountIDSnapshot marks a freshly observed, explicit ChatGPT account_id

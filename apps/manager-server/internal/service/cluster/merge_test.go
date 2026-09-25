@@ -36,3 +36,19 @@ func TestFederationRecomputesRatesAndKeepsBucketIdentity(t *testing.T) {
 		t.Fatalf("failure counts were discarded: %#v", health)
 	}
 }
+
+func TestFederationPreservesArchiveCoverageAcrossInstances(t *testing.T) {
+	a := jsonValue(t, `{"coverage":{"mode":"aggregate_only","raw_complete":false,"raw_deleted_event_count":2,"min_deleted_timestamp_ms":200,"max_deleted_timestamp_ms":300,"comparison_min_deleted_timestamp_ms":90,"fidelity_limitations":["event_details_require_raw_events"],"auxiliary_ranges":[{"scope":"rolling_30m","from_ms":10,"to_ms":500,"raw_deleted_event_count":1,"min_deleted_timestamp_ms":300}]}}`)
+	b := jsonValue(t, `{"coverage":{"mode":"mixed","raw_complete":true,"raw_deleted_event_count":3,"min_deleted_timestamp_ms":100,"max_deleted_timestamp_ms":400,"comparison_min_deleted_timestamp_ms":60,"fidelity_limitations":["event_details_require_raw_events","filter_options_require_raw_events"],"auxiliary_ranges":[{"scope":"rolling_30m","from_ms":10,"to_ms":500,"raw_deleted_event_count":2,"min_deleted_timestamp_ms":200}]}}`)
+	result := mergePayload(a, b, "", "/v0/management/monitoring/analytics").(map[string]any)["coverage"].(map[string]any)
+	if result["raw_complete"] != false || result["mode"] != "mixed" || number(result["raw_deleted_event_count"]) != 5 || number(result["min_deleted_timestamp_ms"]) != 100 || number(result["max_deleted_timestamp_ms"]) != 400 || number(result["comparison_min_deleted_timestamp_ms"]) != 60 {
+		t.Fatalf("incorrect coverage: %#v", result)
+	}
+	if len(result["fidelity_limitations"].([]any)) != 2 {
+		t.Fatal("lost or duplicated limitations")
+	}
+	ranges := result["auxiliary_ranges"].([]any)
+	if len(ranges) != 1 || number(ranges[0].(map[string]any)["raw_deleted_event_count"]) != 3 || number(ranges[0].(map[string]any)["min_deleted_timestamp_ms"]) != 200 {
+		t.Fatalf("incorrect auxiliary ranges: %#v", ranges)
+	}
+}

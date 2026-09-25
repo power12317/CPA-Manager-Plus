@@ -16,6 +16,10 @@ func (h *Handler) aggregate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	next := clustersvc.StripAggregatePath(r)
+	if clustersvc.RequiresInstance(next.URL.Path) {
+		response.Error(w, http.StatusConflict, clustersvc.ErrInstanceRequired)
+		return
+	}
 	if next.Method == http.MethodGet && next.URL.Path == "/v0/management/usage/export" {
 		file, err := h.Service.ExportAll(next)
 		if err != nil {

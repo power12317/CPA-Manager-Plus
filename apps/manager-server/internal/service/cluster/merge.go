@@ -36,7 +36,8 @@ func ratio(a, b float64) float64 {
 }
 
 var grouping = map[string][]string{
-	"timeline": {"bucket_ms"}, "traffic_timeline": {"bucket_ms"}, "points": {"bucket_ms"},
+	"auxiliary_ranges": {"scope", "from_ms", "to_ms"},
+	"timeline":         {"bucket_ms"}, "traffic_timeline": {"bucket_ms"}, "points": {"bucket_ms"},
 	"hourly_distribution": {"hour"}, "hourly_activity": {"bucket_ms"}, "heatmap": {"weekday", "hour"},
 	"model_share": {"model"}, "model_stats": {"model"}, "top_models_today": {"model"}, "model_cost_rank": {"model"},
 	"models": {"model"}, "token_mix": {"key"}, "model_contributors": {"key"}, "provider_contributors": {"key"}, "api_key_contributors": {"key"},
@@ -74,6 +75,14 @@ func mergePayload(left, right any, parent, path string) any {
 		aCount, bCount := count(a), count(b)
 		aLatencySamples, bLatencySamples := number(a["latency_samples"]), number(b["latency_samples"])
 		for key, value := range b {
+			if key == "raw_complete" {
+				a[key] = a[key] == true && value == true
+				continue
+			}
+			if parent == "coverage" && key == "mode" && a[key] != value {
+				a[key] = "mixed"
+				continue
+			}
 			if key == "success_rate" || key == "failure_rate" {
 				a[key] = ratio(number(a[key])*aCount+number(value)*bCount, aCount+bCount)
 				continue
@@ -164,7 +173,7 @@ func mergePayload(left, right any, parent, path string) any {
 		if parent == "id" || parent == "hour" || parent == "hour_index" || parent == "weekday" || parent == "bucket_ms" || parent == "bucket_end_ms" || parent == "now_ms" || parent == "today_start_ms" || parent == "from_ms" || parent == "to_ms" || parent == "limit" || parent == "version" || parent == "batchSize" || parent == "pollIntervalMs" || parent == "queryLimit" || parent == "queueRetentionSeconds" {
 			return a
 		}
-		if strings.HasPrefix(parent, "first_") || parent == "startedAt" {
+		if strings.HasPrefix(parent, "first_") || parent == "startedAt" || parent == "min_deleted_timestamp_ms" || parent == "comparison_min_deleted_timestamp_ms" {
 			if a == 0 {
 				return b
 			}

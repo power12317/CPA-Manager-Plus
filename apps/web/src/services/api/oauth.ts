@@ -11,12 +11,16 @@ export type BuiltInOAuthProvider =
   | 'antigravity'
   | 'kimi'
   | 'xai'
-  | 'devin';
+  | 'devin'
+  | 'meta';
 export type OAuthProvider = BuiltInOAuthProvider | (string & {});
 
 export interface OAuthStartResponse {
   url: string;
   state?: string;
+  user_code?: string;
+  flow?: string;
+  expires_in?: number;
 }
 
 export interface OAuthCallbackResponse {
@@ -55,7 +59,7 @@ export const oauthApi = {
     if (WEBUI_SUPPORTED.includes(provider)) {
       params.is_webui = true;
     }
-    if (options?.clientSystem) params.client_system = options.clientSystem;
+    if (provider === 'codex' && options?.clientSystem) params.client_system = options.clientSystem;
     if (options?.authIndex !== undefined && options.authIndex !== null) {
       const authIndex = String(options.authIndex).trim();
       if (authIndex) params.auth_index = authIndex;

@@ -63,6 +63,7 @@ func TestClusterScopedProxyCredentialsEncryptionAndRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := config.Config{DBPath: filepath.Join(t.TempDir(), "usage.sqlite"), BasePath: "/tools/cpamp", Queue: "usage", PopSide: "right", CollectorMode: "http", PollInterval: time.Second, BatchSize: 100}
+	cfg.UsageArchiveDir = filepath.Join(filepath.Dir(cfg.DBPath), "root-archives")
 	db, err := store.Open(cfg.DBPath, protector)
 	if err != nil {
 		t.Fatal(err)
@@ -167,6 +168,14 @@ func TestClusterScopedProxyCredentialsEncryptionAndRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	childStore := child.(*instanceRuntime).server.appCtx.Store
+	childRuntime := child.(*instanceRuntime)
+	if childRuntime.server.appCtx.Config.UsageArchiveDir != filepath.Join(filepath.Dir(childDBPath), "usage-archives") {
+		t.Fatal("child archive directory inherited root storage")
+	}
+	childRuntime.startup.Wait()
+	if childRuntime.retention != nil {
+		t.Fatal("automatic archive deletion must be disabled by default")
+	}
 	count, _, err := childStore.Counts(ctx)
 	if err != nil || count != 0 {
 		t.Fatalf("history leaked into B: count=%d err=%v", count, err)
@@ -186,6 +195,37 @@ func TestClusterScopedProxyCredentialsEncryptionAndRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	analyticsPath := "/api/aggregate/v0/management/monitoring/analytics"
+	// Previews and job IDs must remain bound to one database. Even a write
+	// carrying an instance hint must not enter the aggregate maintenance API.
+	previewBody := fmt.Sprintf(`{"cutoff_timestamp_ms":%d}`, now+2000)
+	for _, preview := range []struct {
+		prefix string
+		count  int64
+	}{{"/api/instances/default", 1}, {path, 2}} {
+		response := request("POST", preview.prefix+"/v0/management/usage/archives/preview", previewBody, "admin-secret")
+		testutil.RequireStatus(t, response, 200)
+		var result struct {
+			EventCount int64 `json:"event_count"`
+		}
+		testutil.DecodeJSON(t, response, &result)
+		if result.EventCount != preview.count {
+			t.Fatalf("preview crossed instance boundary: %s", response.Body.String())
+		}
+	}
+	for _, endpoint := range []string{"usage/maintenance", "usage/archives", "usage/archives/preview", "usage/archives/same-id/delete", "usage/import-sessions", "usage/import-sessions/same-id/complete"} {
+		for _, method := range []string{"GET", "POST", "DELETE", "HEAD"} {
+			testutil.RequireStatus(t, request(method, "/api/aggregate/v0/management/"+endpoint, "", "admin-secret"), http.StatusConflict)
+		}
+	}
+	archive, err := childRuntime.server.appCtx.UsageService.CreateArchive(ctx, now+2000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.RequireStatus(t, request("GET", path+"/v0/management/usage/archives/"+archive.Run.ID, "", "admin-secret"), 200)
+	testutil.RequireStatus(t, request("GET", "/api/instances/default/v0/management/usage/archives/"+archive.Run.ID, "", "admin-secret"), 404)
+	if _, err := childRuntime.server.appCtx.UsageService.CancelArchive(ctx, archive.Run.ID); err != nil {
+		t.Fatal(err)
+	}
 	query := fmt.Sprintf(`{"from_ms":%d,"to_ms":%d,"include":{"summary":true,"summary_percentiles":true,"timeline":true,"events_page":{"limit":2}}}`, now-1000, now+1000)
 	analytics := request("POST", analyticsPath, query, "admin-secret")
 	testutil.RequireStatus(t, analytics, 200)

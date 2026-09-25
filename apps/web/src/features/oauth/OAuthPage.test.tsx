@@ -307,7 +307,7 @@ describe('OAuthPage request lifecycle', () => {
   });
 });
 
-const builtInProviderIds = new Set(['codex', 'anthropic', 'antigravity', 'kimi', 'xai', 'devin']);
+const builtInProviderIds = new Set(['codex', 'anthropic', 'antigravity', 'kimi', 'xai', 'devin', 'meta']);
 
 describe('plugin OAuth provider helpers', () => {
   it('uses explicit plugin OAuth provider ids when present', () => {
@@ -333,6 +333,16 @@ describe('plugin OAuth provider helpers', () => {
         {
           id: 'custom-plugin',
           oauthProvider: 'devin',
+          supportsOAuth: true,
+        },
+        builtInProviderIds
+      )
+    ).toBe(false);
+    expect(
+      shouldShowPluginOAuthProvider(
+        {
+          id: 'custom-plugin',
+          oauthProvider: 'meta',
           supportsOAuth: true,
         },
         builtInProviderIds

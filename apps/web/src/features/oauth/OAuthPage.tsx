@@ -61,10 +61,12 @@ import iconGrok from '@/assets/icons/grok.svg';
 import iconGrokDark from '@/assets/icons/grok-dark.svg';
 import iconDevin from '@/assets/icons/devin.svg';
 import iconDevinDark from '@/assets/icons/devin-dark.svg';
+import iconMeta from '@/assets/icons/meta.svg';
 
 interface ProviderState {
   url?: string;
   state?: string;
+  userCode?: string;
   status?: 'idle' | 'waiting' | 'success' | 'error';
   error?: string;
   polling?: boolean;
@@ -172,6 +174,13 @@ const BUILT_IN_PROVIDERS: BuiltInProviderDefinition[] = [
     hintKey: 'auth_login.devin_oauth_hint',
     urlLabelKey: 'auth_login.devin_oauth_url_label',
     icon: { light: iconDevin, dark: iconDevinDark },
+  },
+  {
+    id: 'meta',
+    titleKey: 'auth_login.meta_oauth_title',
+    hintKey: 'auth_login.meta_oauth_hint',
+    urlLabelKey: 'auth_login.meta_oauth_url_label',
+    icon: iconMeta,
   },
 ];
 
@@ -596,6 +605,7 @@ export function OAuthPage() {
     updateProviderState(provider, {
       url: undefined,
       state: undefined,
+      userCode: undefined,
       status: 'success',
       error: undefined,
       polling: false,
@@ -644,6 +654,7 @@ export function OAuthPage() {
               cancelError: undefined,
             }
           : {}),
+        userCode: undefined,
         status: 'error',
         error: response.error,
         polling: false,
@@ -713,6 +724,7 @@ export function OAuthPage() {
         }
         finishProviderAttempt(provider, attempt);
         updateProviderState(provider, {
+          userCode: undefined,
           status: 'error',
           error: getErrorMessage(err),
           polling: false,
@@ -739,6 +751,7 @@ export function OAuthPage() {
     updateProviderState(provider, {
       url: undefined,
       state: undefined,
+      userCode: undefined,
       status: 'waiting',
       polling: true,
       error: undefined,
@@ -775,6 +788,7 @@ export function OAuthPage() {
         updateProviderState(provider, {
           url: res.url,
           state: undefined,
+          userCode: undefined,
           status: 'error',
           error: message,
           polling: false,
@@ -785,6 +799,7 @@ export function OAuthPage() {
       updateProviderState(provider, {
         url: res.url,
         state: res.state,
+        userCode: res.user_code,
         status: 'waiting',
         polling: true,
       });
@@ -793,7 +808,12 @@ export function OAuthPage() {
       if (!isProviderAttemptCurrent(provider, attempt)) return;
       const message = getErrorMessage(err);
       finishProviderAttempt(provider, attempt);
-      updateProviderState(provider, { status: 'error', error: message, polling: false });
+      updateProviderState(provider, {
+        status: 'error',
+        error: message,
+        polling: false,
+        userCode: undefined,
+      });
       showNotification(
         `${getProviderActionText(provider, 'oauth_start_error')}${message ? ` ${message}` : ''}`,
         'error'
@@ -890,6 +910,17 @@ export function OAuthPage() {
     const copied = await copyToClipboard(url);
     showNotification(
       t(copied ? 'notification.link_copied' : 'notification.copy_failed'),
+      copied ? 'success' : 'error'
+    );
+  };
+
+  const copyCode = async (code?: string) => {
+    if (!code) return;
+    const copied = await copyToClipboard(code);
+    showNotification(
+      t(copied ? 'auth_login.device_code_copied' : 'notification.copy_failed', {
+        defaultValue: copied ? t('notification.link_copied') : t('notification.copy_failed'),
+      }),
       copied ? 'success' : 'error'
     );
   };
@@ -1175,6 +1206,27 @@ export function OAuthPage() {
                     <div className={styles.authUrlBox}>
                       <div className={styles.authUrlLabel}>{provider.urlLabel}</div>
                       <div className={styles.authUrlValue}>{state.url}</div>
+                      {state.userCode && (
+                        <div className={styles.deviceCodeSection}>
+                          <div className={styles.authUrlLabel}>{t('auth_login.device_code_label')}</div>
+                          <div className={styles.deviceCodeRow}>
+                            <span
+                              className={styles.deviceCodeValue}
+                              aria-label={t('auth_login.device_code_label')}
+                            >
+                              {state.userCode}
+                            </span>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => copyCode(state.userCode)}
+                              aria-label={t('auth_login.device_code_copy')}
+                            >
+                              {t('auth_login.device_code_copy')}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                       <div className={styles.authUrlActions}>
                         <Button variant="secondary" size="sm" onClick={() => copyLink(state.url!)}>
                           {getProviderActionText(provider.id, 'copy_link')}

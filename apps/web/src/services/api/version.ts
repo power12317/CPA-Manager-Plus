@@ -7,7 +7,7 @@ import { REQUEST_TIMEOUT_MS } from '@/utils/constants';
 import { apiClient } from './client';
 
 export const CPA_MANAGER_UPDATE_INDEX_URL =
-  'https://raw.githubusercontent.com/seakee/CPA-Manager-Plus/update-channel/update-index.json';
+  'https://raw.githubusercontent.com/power12317/CPA-Manager-Plus/update-channel/update-index.json';
 
 export interface ManagerLatestRelease {
   tag_name?: string;

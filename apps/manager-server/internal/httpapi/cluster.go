@@ -36,6 +36,8 @@ func (s *Server) EnableCluster(protector *security.Protector) *clustersvc.Servic
 		cfg := s.appCtx.Config
 		cfg.DataDir = filepath.Join(filepath.Dir(cfg.DBPath), "instances", id)
 		cfg.DBPath = filepath.Join(cfg.DataDir, "usage.sqlite")
+		// Archive jobs and manifests belong to the same instance as its database.
+		cfg.UsageArchiveDir = filepath.Join(cfg.DataDir, "usage-archives")
 		cfg.CPAUpstreamURL = ""
 		cfg.ManagementKey = ""
 		lock, err := processlock.Acquire(cfg.DBPath)
@@ -80,6 +82,8 @@ type instanceRuntime struct {
 	startup    sync.WaitGroup
 	inspection *worker.CodexInspectionWorker
 	wal        *sqliterepo.WALMaintenance
+	retention  *worker.UsageArchiveRetentionWorker
+	migration  *worker.UsageCacheAccountingMigrationWorker
 }
 
 func (r *instanceRuntime) Connection(ctx context.Context) (model.ManagerCPAConnectionConfig, error) {
@@ -223,6 +227,12 @@ func (r *instanceRuntime) Start(parent context.Context) {
 	if app.Config.DashboardHourlyRollupEnabled {
 		hourly = worker.NewUsageHourlyAggregateWorker(app.Store)
 	}
+	r.retention = nil
+	if app.Config.UsageArchiveRetentionEnabled && app.Config.UsageArchiveRetentionDays > 0 && app.Config.DashboardHourlyRollupEnabled {
+		r.retention = worker.NewUsageArchiveRetentionWorker(app.UsageService, app.Config.UsageArchiveRetentionDays)
+	}
+	retention := r.retention
+	r.migration = nil
 	app.ModelPriceService.SetPricesChangedNotifier(pricing.Wake)
 	app.UsageService.SetEventsInsertedNotifier(func() {
 		history.Wake()
@@ -237,6 +247,9 @@ func (r *instanceRuntime) Start(parent context.Context) {
 	go func() {
 		defer r.startup.Done()
 		log.Printf("[instance] starting workers database=%s", app.Config.DBPath)
+		if err := app.UsageService.StartArchiveJobs(ctx); err != nil && ctx.Err() == nil {
+			log.Printf("[instance] start archive jobs: %v", err)
+		}
 		if err := app.Store.RunDerivedStartupMaintenance(ctx); err != nil && ctx.Err() == nil {
 			log.Printf("[instance] derived startup maintenance: %v", err)
 		}
@@ -260,13 +273,21 @@ func (r *instanceRuntime) Start(parent context.Context) {
 		app.Store.StartDerivedMaintenance(ctx)
 		worker.NewCollectorWorker(app.Config, app.Store, app.CollectorService).Start(ctx)
 		worker.NewLegacyQuotaSnapshotMigrationWorker(app.Store).Start(ctx)
-		worker.NewUsageCacheAccountingMigrationWorker(app.Store, func() {
+		r.migration = worker.NewUsageCacheAccountingMigrationWorker(app.Store, func() {
 			history.Wake()
 			pricing.Wake()
 			if hourly != nil {
 				hourly.Wake()
 			}
-		}).Start(ctx)
+			if err := worker.WaitForUsageResponseMetadataBackfill(ctx, app.Store); err != nil {
+				if ctx.Err() == nil {
+					log.Printf("[instance] usage response metadata backfill: %v", err)
+				}
+				return
+			}
+			retention.Start(ctx)
+		})
+		r.migration.Start(ctx)
 	}()
 }
 
@@ -291,6 +312,15 @@ func (r *instanceRuntime) Stop(ctx context.Context) error {
 		if err := r.inspection.StopAndWait(ctx); err != nil {
 			return err
 		}
+	}
+	if err := r.migration.StopAndWait(ctx); err != nil {
+		return err
+	}
+	if err := r.retention.StopAndWait(ctx); err != nil {
+		return err
+	}
+	if err := r.server.appCtx.UsageService.WaitArchiveJobs(ctx); err != nil {
+		return err
 	}
 	if err := r.server.appCtx.CollectorService.Stop(ctx); err != nil {
 		return err

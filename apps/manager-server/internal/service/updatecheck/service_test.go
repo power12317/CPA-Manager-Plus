@@ -63,7 +63,7 @@ func fixture(tag string) ReleaseInfo {
 		info.Content.Notes[lang] = Repository + "/blob/" + tag + "/docs/release-notes/" + tag + "-" + lang + ".md"
 	}
 	info.Update.UpgradeGuideURL = info.Content.Notes["zh"]
-	info.Distribution.Docker.Image = "seakee/cpa-manager-plus"
+	info.Distribution.Docker.Image = "ghcr.io/power12317/cpa-manager-plus"
 	info.Distribution.Docker.VersionTag = tag
 	for _, os := range []string{"darwin", "linux", "windows"} {
 		for _, arch := range []string{"amd64", "arm64"} {
@@ -552,8 +552,8 @@ func TestReleasePolicyAndLinksFailClosed(t *testing.T) {
 		Repository + "/../../untrusted/guide",
 		Repository + "/%2e%2e/%2e%2e/untrusted/guide",
 		Repository + `/\..\..\untrusted/guide`,
-		"http://github.com/seakee/CPA-Manager-Plus/releases",
-		"https://github.com.example/seakee/CPA-Manager-Plus/releases",
+		"http://github.com/power12317/CPA-Manager-Plus/releases",
+		"https://github.com.example/power12317/CPA-Manager-Plus/releases",
 	} {
 		info := fixture("v2.0.0")
 		info.Update.UpgradeGuideURL = guide

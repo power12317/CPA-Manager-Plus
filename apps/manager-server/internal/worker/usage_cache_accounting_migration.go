@@ -25,7 +25,10 @@ type UsageCacheAccountingMigrationWorker struct {
 	delay        time.Duration
 	retryDelay   time.Duration
 	onCompletion func()
-	start        sync.Once
+	lifecycleMu  sync.Mutex
+	cancel       context.CancelFunc
+	done         chan struct{}
+	stopped      bool
 	logStarted   sync.Once
 	completion   sync.Once
 	lastStatus   string
@@ -46,9 +49,43 @@ func (w *UsageCacheAccountingMigrationWorker) Start(ctx context.Context) {
 	if w == nil || w.store == nil {
 		return
 	}
-	w.start.Do(func() {
-		go w.run(ctx)
-	})
+	w.lifecycleMu.Lock()
+	defer w.lifecycleMu.Unlock()
+	if w.done != nil || w.stopped || ctx.Err() != nil {
+		return
+	}
+	workerCtx, cancel := context.WithCancel(ctx)
+	w.cancel = cancel
+	w.done = make(chan struct{})
+	done := w.done
+	go func() {
+		defer close(done)
+		defer cancel()
+		w.run(workerCtx)
+	}()
+}
+
+// StopAndWait also drains completion work before a per-instance store closes.
+func (w *UsageCacheAccountingMigrationWorker) StopAndWait(ctx context.Context) error {
+	if w == nil {
+		return nil
+	}
+	w.lifecycleMu.Lock()
+	w.stopped = true
+	cancel, done := w.cancel, w.done
+	w.lifecycleMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+	if done == nil {
+		return nil
+	}
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (w *UsageCacheAccountingMigrationWorker) run(ctx context.Context) {
@@ -83,8 +120,7 @@ func (w *UsageCacheAccountingMigrationWorker) run(ctx context.Context) {
 		}
 		w.logProgress(result)
 		if result.Completed {
-			w.complete(result.State)
-			return
+			continue
 		}
 		if !waitFor(ctx, w.delay) {
 			return

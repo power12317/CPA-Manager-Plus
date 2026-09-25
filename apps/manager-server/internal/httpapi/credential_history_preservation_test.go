@@ -19,7 +19,7 @@ import (
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/usageidentity"
 )
 
-func verifyMacBaselinePreservedWithoutRebuild(t *testing.T, count int) {
+func verifyMacBaselinePreservedWithoutRebuild(t *testing.T, count int, withDevin ...bool) {
 	t.Helper()
 	ctx := context.Background()
 	cfg := testutil.NewConfig(t)
@@ -60,7 +60,14 @@ func verifyMacBaselinePreservedWithoutRebuild(t *testing.T, count int) {
 	exec(`delete from settings where key=?`, usageidentity.CredentialCutoverSetting)
 	for _, table := range []string{"usage_events", "usage_account_model_rollups", "usage_pricing_account_rollups_v1"} {
 		for _, operation := range []string{"update", "delete"} {
-			exec(fmt.Sprintf(`create trigger protect_%s_%s before %s on %s begin select raise(abort,'must not modify old history'); end`, table, operation, operation, table))
+			condition := ""
+			if len(withDevin) > 0 && withDevin[0] {
+				condition = fmt.Sprintf("when old.account_key = '%s'", oldKey)
+				if table == "usage_events" {
+					condition = fmt.Sprintf("when old.provider = 'codex' and old.id <= %d", count)
+				}
+			}
+			exec(fmt.Sprintf(`create trigger protect_%s_%s before %s on %s %s begin select raise(abort,'must not modify old history'); end`, table, operation, operation, table, condition))
 		}
 	}
 	if err := st.Close(); err != nil {
@@ -150,6 +157,115 @@ func verifyMacBaselinePreservedWithoutRebuild(t *testing.T, count int) {
 		}
 	}
 	check(oldTokens+100, 200)
+	if len(withDevin) > 0 && withDevin[0] {
+		// Reproduce the official Devin semantics upgrade beside an existing
+		// Codex baseline whose full raw history is no longer retained.
+		exec(`update usage_data_migrations set status='completed',last_event_id=0,target_event_id=0,processed_rows=0,changed_rows=0,applied_rows=0 where name='usage_cache_accounting_v2'`)
+		exec(`insert into settings(key,value,updated_at_ms) values ('usage_cache_accounting_semantics_revision','1',0) on conflict(key) do update set value='1'`)
+		for i, system := range []string{"mac", "windows"} {
+			exec(`insert into usage_events(event_hash,timestamp_ms,timestamp,model,provider,executor_type,auth_provider_snapshot,auth_file_snapshot,auth_index,system,input_tokens,output_tokens,cached_tokens,cache_read_tokens,cache_input_mode,normalized_uncached_input_tokens,normalized_total_input_tokens,normalized_cache_read_tokens,normalized_cache_creation_tokens,total_tokens,raw_json,created_at_ms)
+			values (?,?,'2027-01-15T00:00:01Z','devin-model','devin','DevinExecutor','devin','devin.json','devin-auth',?,100,5,80,80,'separate_from_input',100,180,80,0,105,'{"tokens":{"input_tokens":100,"output_tokens":5,"cached_tokens":80,"cache_read_tokens":80,"total_tokens":105}}',1)`, canonicalCompatEventHash(fmt.Sprintf("devin-%d", i)), from+int64(count)+3+int64(i), system)
+		}
+		if _, err := st.CatchUpAccountHistoryRollups(ctx, 100, time.Now().UnixMilli()); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := st.CatchUpUsagePricing(ctx, 100, time.Now().UnixMilli()); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := st.DiscoverUsageCacheAccounting(ctx); err != nil {
+			t.Fatal(err)
+		}
+		live := httptest.NewServer(New(cfg, st, collector.NewManager(cfg, st)).Handler())
+		defer func() { live.Close() }()
+		probe := func() {
+			t.Helper()
+			for _, path := range []string{"/health", "/management.html"} {
+				response, err := live.Client().Get(live.URL + path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				response.Body.Close()
+				if response.StatusCode != http.StatusOK {
+					t.Fatalf("listener unavailable during accounting update: %d", response.StatusCode)
+				}
+			}
+		}
+		probe()
+		restarted := false
+		for batch := 0; batch < count/256+100; batch++ {
+			result, err := st.RunUsageCacheAccountingBatch(ctx, 256)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.State.AppliedRows > 0 && !restarted {
+				check(oldTokens+100, 200)
+				probe()
+				cancelled, cancel := context.WithCancel(ctx)
+				cancel()
+				if _, err := st.RunUsageCacheAccountingBatch(cancelled, 256); err == nil {
+					t.Fatal("cancelled migration unexpectedly ran")
+				}
+				live.Close()
+				if err := st.Close(); err != nil {
+					t.Fatal(err)
+				}
+				st, err = store.Open(cfg.DBPath)
+				if err != nil {
+					t.Fatal(err)
+				}
+				live = httptest.NewServer(New(cfg, st, collector.NewManager(cfg, st)).Handler())
+				probe()
+				state, err := st.DiscoverUsageCacheAccounting(ctx)
+				if err != nil || state.AppliedRows != result.State.AppliedRows {
+					t.Fatalf("restart lost progress: %+v %v", state, err)
+				}
+				restarted = true
+			}
+			if result.Completed {
+				break
+			}
+		}
+		ready, err := st.UsageCacheAccountingMigrationReady(ctx)
+		if err != nil || !ready || !restarted {
+			t.Fatalf("migration did not resume and complete: ready=%v restarted=%v err=%v", ready, restarted, err)
+		}
+		check(oldTokens+100, 200)
+		for i := 0; i < count/256+100; i++ {
+			history, err := st.CatchUpAccountHistoryRollups(ctx, 256, time.Now().UnixMilli())
+			if err != nil {
+				t.Fatal(err)
+			}
+			pricing, err := st.CatchUpUsagePricing(ctx, 256, time.Now().UnixMilli())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !history.Pending && !pricing.Pending && !pricing.ContinueSoon {
+				break
+			}
+		}
+		check(oldTokens+100, 200)
+		var remaining int
+		if err := db.QueryRow(`select count(*) from usage_rollup_checkpoints where name like 'codex_baseline:%'`).Scan(&remaining); err != nil || remaining != 0 {
+			t.Fatalf("completed rebuild retained preservation markers: %d %v", remaining, err)
+		}
+		var corrected int
+		if err := db.QueryRow(`select count(*) from usage_events where provider='devin' and cache_input_mode='read_included_creation_separate' and normalized_total_input_tokens=100 and normalized_uncached_input_tokens=20 and total_tokens=105`).Scan(&corrected); err != nil || corrected != 2 {
+			t.Fatalf("Devin correction failed: %d %v", corrected, err)
+		}
+		devin, err := monitoring.New(st).AccountHistory(ctx, monitoring.AccountHistoryRequest{Accounts: []monitoring.AccountHistoryTarget{
+			{RowKey: "a", System: "mac", AuthFileSnapshot: "devin.json", AuthIndex: "devin-auth", AuthProviderSnapshot: "devin"},
+			{RowKey: "b", System: "windows", AuthFileSnapshot: "devin.json", AuthIndex: "devin-auth", AuthProviderSnapshot: "devin"},
+		}})
+		if err != nil || len(devin.Items) != 2 {
+			t.Fatalf("Devin history: %+v %v", devin, err)
+		}
+		for _, item := range devin.Items {
+			if item.TotalRequests != 2 || item.TotalTokens != 210 {
+				t.Fatalf("Devin was platform-split: %+v", item)
+			}
+		}
+		live.Close()
+	}
 	if err := st.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -176,4 +292,8 @@ func verifyMacBaselinePreservedWithoutRebuild(t *testing.T, count int) {
 
 func TestMacBaselinePreservesCheckpointsAndWindowsStartsEmpty(t *testing.T) {
 	verifyMacBaselinePreservedWithoutRebuild(t, 1000)
+}
+
+func TestDevinAccountingPreservesCodexBaselineAcrossRestart(t *testing.T) {
+	verifyMacBaselinePreservedWithoutRebuild(t, 1000, true)
 }

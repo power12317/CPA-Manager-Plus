@@ -11,8 +11,8 @@ import (
 	"time"
 )
 
-const Repository = "https://github.com/seakee/CPA-Manager-Plus"
-const IndexURL = "https://raw.githubusercontent.com/seakee/CPA-Manager-Plus/update-channel/update-index.json"
+const Repository = "https://github.com/power12317/CPA-Manager-Plus"
+const IndexURL = "https://raw.githubusercontent.com/power12317/CPA-Manager-Plus/update-channel/update-index.json"
 
 type Target struct {
 	Version string `json:"version"`
@@ -112,7 +112,7 @@ func (idx Index) Validate() error {
 }
 func safeLink(raw string) bool {
 	u, err := url.Parse(raw)
-	return err == nil && u.Scheme == "https" && u.Host == "github.com" && u.User == nil && !strings.Contains(u.Path, `\`) && strings.HasPrefix(path.Clean(u.Path), "/seakee/CPA-Manager-Plus/")
+	return err == nil && u.Scheme == "https" && u.Host == "github.com" && u.User == nil && !strings.Contains(u.Path, `\`) && strings.HasPrefix(path.Clean(u.Path), "/power12317/CPA-Manager-Plus/")
 }
 func (info ReleaseInfo) Validate(tag string) error {
 	v, err := ParseVersion(tag)
@@ -132,7 +132,7 @@ func (info ReleaseInfo) Validate(tag string) error {
 	if !safeLink(info.Update.UpgradeGuideURL) {
 		return errors.New("invalid upgrade guide")
 	}
-	if info.Distribution.Docker.Image != "seakee/cpa-manager-plus" || info.Distribution.Docker.VersionTag != tag {
+	if info.Distribution.Docker.Image != "ghcr.io/power12317/cpa-manager-plus" || info.Distribution.Docker.VersionTag != tag {
 		return errors.New("invalid docker distribution")
 	}
 	if len(info.Distribution.Native.Assets) != 6 {

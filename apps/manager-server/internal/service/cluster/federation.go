@@ -23,6 +23,19 @@ import (
 const eventStride int64 = 1_000_000_000_000
 const machinePrefix = "@cpamp/"
 
+// Archive and import IDs are local to one database; these operations must
+// never use aggregate hints or broadcast across instances.
+var ErrInstanceRequired = errors.New("select one instance for usage maintenance")
+
+func RequiresInstance(path string) bool {
+	for _, prefix := range []string{"/v0/management/usage/maintenance", "/v0/management/usage/archives", "/v0/management/usage/import-sessions"} {
+		if path == prefix || strings.HasPrefix(path, prefix+"/") {
+			return true
+		}
+	}
+	return false
+}
+
 type FederatedResult struct {
 	Data      any      `json:"-"`
 	Total     int      `json:"total"`
@@ -442,6 +455,9 @@ func scopeOutput(value any, item Instance, ordinal int64, parent, path string) a
 }
 
 func (s *Service) Federate(r *http.Request, body []byte) (FederatedResult, error) {
+	if RequiresInstance(r.URL.Path) {
+		return FederatedResult{}, ErrInstanceRequired
+	}
 	nowMS := time.Now().UnixMilli()
 	if requested, err := strconv.ParseInt(r.URL.Query().Get("now_ms"), 10, 64); err == nil && requested > 0 {
 		nowMS = requested

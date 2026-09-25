@@ -1601,9 +1601,31 @@
 }
 
 .realtimeRequestStatusCell {
-  display: inline-grid;
-  justify-items: center;
-  gap: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.realtimeRequestLogDownload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--monitor-muted);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--monitor-accent);
+    background: var(--monitor-surface-hover);
+  }
 }
 
 .realtimeTurnStateLength {

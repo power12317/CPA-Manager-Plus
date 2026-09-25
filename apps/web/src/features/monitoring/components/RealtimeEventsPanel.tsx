@@ -12,7 +12,7 @@ import {
 import { createPortal } from 'react-dom';
 import type { TFunction } from 'i18next';
 import { Button } from '@/components/ui/Button';
-import { IconCopy, IconEye, IconEyeOff, IconFilter } from '@/components/ui/icons';
+import { IconCopy, IconDownload, IconEye, IconEyeOff, IconFilter } from '@/components/ui/icons';
 import {
   PaginationControls,
   RecentPattern,
@@ -22,9 +22,12 @@ import { formatPercent } from '@/features/monitoring/components/accountOverviewP
 import { buildRealtimeSourceDisplay } from '@/features/monitoring/realtimeSourceDisplay';
 import type { MonitoringEventRow } from '@/features/monitoring/hooks/useMonitoringData';
 import type { AccountDisplayMode } from '@/features/monitoring/accountOverviewState';
+import { logsApi } from '@/services/api/logs';
 import { useNotificationStore } from '@/stores';
 import { copyToClipboard } from '@/utils/clipboard';
+import { downloadBlob } from '@/utils/download';
 import { maskSensitiveText, truncateText } from '@/utils/format';
+import { getErrorMessage } from '@/utils/helpers';
 import { getPlanLabel, getPlanPresentation, type PlanDisplayMode } from '@/utils/plans';
 import { formatCompactNumber, formatUsd } from '@/utils/usage';
 import styles from '../MonitoringCenterPage.module.scss';
@@ -1070,6 +1073,14 @@ export function RealtimeEventsPanel({
       copied ? 'success' : 'error'
     );
   };
+  const downloadRequestLog = async (requestId: string) => {
+    try {
+      const response = await logsApi.downloadRequestLogById(requestId);
+      downloadBlob({ filename: `request-${requestId}.log`, blob: response.data });
+    } catch (error) {
+      showNotification(getErrorMessage(error, t('notification.download_failed')), 'error');
+    }
+  };
   const actions = (
     <RealtimeEventsPanelActions
       rowCount={rows.length}
@@ -1152,6 +1163,7 @@ export function RealtimeEventsPanel({
                     : responseServiceTier;
               const system = formatReadableText(row.system);
               const turnStateLen = formatReadableText(row.turnStateLen);
+              const requestId = formatReadableText(row.requestId);
               const requestDiagnosticDetails = buildRequestDiagnosticDetails(row, t, locale);
               const requestDiagnosticTooltipId = requestDiagnosticDetails
                 ? `${tooltipIdPrefix}-request-diagnostic-tooltip-${row.id}`
@@ -1254,18 +1266,18 @@ export function RealtimeEventsPanel({
                   </td>
                   <td className={styles.realtimeCenteredColumn}>
                     <div className={styles.primaryCell}>
-                      {requestDiagnosticDetails ? (
-                        <RealtimeRequestDiagnosticStatus
-                          details={requestDiagnosticDetails}
-                          tooltipId={
-                            requestDiagnosticTooltipId ??
-                            `${tooltipIdPrefix}-request-diagnostic-tooltip`
-                          }
-                          t={t}
-                          onCopy={handleCopyFailureDetails}
-                        />
-                      ) : (
-                        <div className={styles.realtimeRequestStatusCell}>
+                      <div className={styles.realtimeRequestStatusCell}>
+                        {requestDiagnosticDetails ? (
+                          <RealtimeRequestDiagnosticStatus
+                            details={requestDiagnosticDetails}
+                            tooltipId={
+                              requestDiagnosticTooltipId ??
+                              `${tooltipIdPrefix}-request-diagnostic-tooltip`
+                            }
+                            t={t}
+                            onCopy={handleCopyFailureDetails}
+                          />
+                        ) : (
                           <span
                             className={[
                               styles.realtimeRequestStatus,
@@ -1280,8 +1292,19 @@ export function RealtimeEventsPanel({
                               ? t('monitoring.result_failed')
                               : t('monitoring.result_success')}
                           </span>
-                        </div>
-                      )}
+                        )}
+                        {requestId ? (
+                          <button
+                            type="button"
+                            className={styles.realtimeRequestLogDownload}
+                            onClick={() => void downloadRequestLog(requestId)}
+                            title={t('logs.request_log_download_title')}
+                            aria-label={t('logs.request_log_download_title')}
+                          >
+                            <IconDownload size={14} aria-hidden="true" />
+                          </button>
+                        ) : null}
+                      </div>
                       {turnStateLen ? (
                         <small
                           className={styles.realtimeTurnStateLength}

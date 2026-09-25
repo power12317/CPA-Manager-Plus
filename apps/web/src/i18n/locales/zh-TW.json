@@ -3689,7 +3689,7 @@
           "session_affinity": "會話黏性路由",
           "codex_force_websocket": "強制上游 WebSocket（ChatGPT）",
           "codex_basispoints": "使用 Basispoints 介面",
-          "codex_basispoints_desc": "開啟後，所有 Codex 模型請求改走 Basispoints，模型名稱與推理強度保持原值。上游不支援的參數直接回傳上游錯誤。",
+          "codex_basispoints_desc": "一般 Codex 請求使用 Basispoints，模型名稱與推理強度保持原值。包含圖片生成、網路搜尋等託管工具的請求使用原生 Codex，保留工具能力。上游不支援的參數直接回傳上游錯誤。",
           "codex_basispoints_unavailable": "目前後端尚未宣告支援 Basispoints，請連線至支援此功能的 CPA 版本。",
           "codex_force_websocket_desc": "ChatGPT Codex 生成請求優先使用 WebSocket，用戶端仍可使用 SSE 或 WebSocket。累計 5 次握手失敗後，本次請求回退 SSE；斷線後按需重連。需要支援此功能的 CPA 後端。",
           "ws_auth": "WebSocket 驗證",

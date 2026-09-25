@@ -2,7 +2,9 @@ package usagemonitoring_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -420,7 +422,7 @@ func TestAccountWindowProjectionMatchesRawAcrossCoverageTailAndIdentity(t *testi
 	}
 }
 
-func TestCodexAccountWindowKeepsHistoryAcrossSameAccountReauth(t *testing.T) {
+func TestCodexAccountWindowKeepsOnlyCurrentCredentialHistoryAcrossSameAccountReauth(t *testing.T) {
 	_, db := newMonitoringRepositoryStore(t)
 	ctx := context.Background()
 	dayStartMS := int64(1_800_057_600_000)
@@ -505,17 +507,17 @@ func TestCodexAccountWindowKeepsHistoryAcrossSameAccountReauth(t *testing.T) {
 		if projected[0].RequestIndex != 0 || projected[0].Calls != currentCalls || projected[0].InputTokens != currentInput {
 			t.Fatalf("%s current stats = %#v", phase, projected[0])
 		}
-		if projected[1].RequestIndex != 1 || projected[1].Calls != 2 || projected[1].InputTokens != 30 {
+		if projected[1].RequestIndex != 1 || projected[1].Calls != 1 || projected[1].InputTokens != 20 {
 			t.Fatalf("%s previous stats = %#v", phase, projected[1])
 		}
 	}
 
-	assertStats("projection complete with daily rollup available", 2, 35)
+	assertStats("projection complete with daily rollup available", 1, 5)
 	rawTail := makeEvent("current-new-credential-tail", currentFromMS+3_000, "codex-a-pro.json", "auth-2", "account-a", 40)
 	if _, err := db.InsertEvents(ctx, []usage.Event{rawTail}); err != nil {
 		t.Fatalf("insert raw reauth tail: %v", err)
 	}
-	assertStats("projection plus raw tail", 3, 75)
+	assertStats("projection plus raw tail", 2, 45)
 }
 
 func TestCodexAccountWindowSeparatesMembersSharingWorkspace(t *testing.T) {
@@ -783,7 +785,7 @@ func TestCodexAccountWindowDoesNotMergeConflictingWorkspaceEvidenceFromDailyRoll
 	valid.AuthAccountIDSnapshot = "workspace-1"
 
 	conflicting := valid
-	conflicting.EventHash = "window-daily-conflicting-workspace-evidence"
+	conflicting.EventHash = canonicalMonitoringEventHash("window-daily-conflicting-workspace-evidence")
 	conflicting.TimestampMS = fromMS + 2_000
 	conflicting.AuthProjectIDSnapshot = usageidentity.CodexAccountIDSnapshot("workspace-2")
 	conflicting.InputTokens = 200
@@ -1007,7 +1009,7 @@ func TestUsageMonitoringSearchDoesNotIndexHistoricalCodexProjectMarker(t *testin
 	// Leave the next event outside the projection coverage so the raw tail
 	// search path is exercised as well.
 	tail := event
-	tail.EventHash = "search-legacy-codex-marker-tail"
+	tail.EventHash = canonicalMonitoringEventHash("search-legacy-codex-marker-tail")
 	tail.TimestampMS = baseMS + 2_000
 	tail.Timestamp = time.UnixMilli(tail.TimestampMS).UTC().Format(time.RFC3339Nano)
 	if _, err := db.InsertEvents(ctx, []usage.Event{tail}); err != nil {
@@ -2110,7 +2112,7 @@ func TestUsageMonitoringMetadataBackfillOlderEventDoesNotReplaceLatestHeader(t *
 	if err != nil || !available {
 		t.Fatalf("load headers after older backfill: available=%v err=%v", available, err)
 	}
-	if len(items) != 1 || items[0].EventHash != "metadata-newer" ||
+	if len(items) != 1 || items[0].EventHash != newer.EventHash ||
 		items[0].HeaderQuotaPlanType != "team" || items[0].HeaderTraceID != "newer-trace" {
 		t.Fatalf("older backfill replaced latest header: %#v", items)
 	}
@@ -2323,6 +2325,14 @@ func catchUpMonitoringRepository(t *testing.T, ctx context.Context, db *store.St
 	}
 }
 
+func canonicalMonitoringEventHash(raw string) string {
+	if len(raw) == 64 {
+		return raw
+	}
+	sum := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(sum[:])
+}
+
 func monitoringRepositoryEvent(
 	hash string,
 	timestampMS int64,
@@ -2339,7 +2349,7 @@ func monitoringRepositoryEvent(
 	usedPercent := 42.5
 	latency := latencyMS
 	event := usage.Event{
-		EventHash:              hash,
+		EventHash:              canonicalMonitoringEventHash(hash),
 		TimestampMS:            timestampMS,
 		Timestamp:              time.UnixMilli(timestampMS).UTC().Format(time.RFC3339Nano),
 		Provider:               "codex",

@@ -48,6 +48,14 @@ const makeRow = (overrides: Partial<AccountRow>): AccountRow =>
   }) as AccountRow;
 
 describe('accountHistoryRows', () => {
+  it('passes an explicit Windows credential system without requiring it from original CPA', () => {
+    const entries = buildAccountHistoryTargetEntries([
+      makeRow({}),
+      makeRow({ raw: { name: 'custom.json', authIndex: 'windows-key', codex_client_system: 'windows' } }),
+    ]);
+    expect(entries[0].target).not.toHaveProperty('system');
+    expect(entries[1].target.system).toBe('windows');
+  });
   it('splits account-history targets at the server request limit', () => {
     const entries = Array.from({ length: ACCOUNT_HISTORY_TARGET_BATCH_SIZE + 1 }, (_, index) => ({
       rowKey: `row-${index}`,

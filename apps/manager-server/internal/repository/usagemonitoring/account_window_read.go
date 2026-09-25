@@ -226,14 +226,14 @@ func accountWindowEventSourceSQL(windows []AccountWindowUsageQuery, coverageEven
 	args := make([]any, 0, len(windows)*8+4)
 	for _, window := range windows {
 		accountKey, legacyAccountKey := accountWindowKeys(window)
-		values = append(values, "(?, ?, ?, ?, ?, ?, ?, ?)")
-		args = append(args, window.RequestIndex, window.FromMS, window.ToMS, ceilDayMS(window.FromMS), floorDayMS(window.ToMS), accountKey, legacyAccountKey, accountWindowCanUseDaily(window))
+		values = append(values, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+		args = append(args, window.RequestIndex, window.FromMS, window.ToMS, ceilDayMS(window.FromMS), floorDayMS(window.ToMS), accountKey, legacyAccountKey, accountWindowCanUseDaily(window), window.HistoricalAccountKey, window.HistoricalLegacyKey)
 	}
-	rawIdentity := usageidentity.SQLAccountKeyExpression("e")
-	query := `with window_targets(request_index, from_ms, to_ms, full_start_ms, full_end_ms, account_key, legacy_account_key, use_daily) as (values ` + strings.Join(values, ",") + `)
+	rawIdentity := usageidentity.SQLEventAccountKeyExpression("e")
+	query := `with window_targets(request_index, from_ms, to_ms, full_start_ms, full_end_ms, account_key, legacy_account_key, use_daily, historical_account_key, historical_legacy_key) as (values ` + strings.Join(values, ",") + `)
 	select w.request_index, p.requested_model as model, p.analytics_model, p.resolved_model, p.service_tier, p.failed,
 		p.normalized_total_input_tokens, p.output_tokens, p.cached_tokens, p.cache_tokens, p.cache_read_tokens, p.cache_creation_tokens, p.total_tokens, p.timestamp_ms
-	from window_targets w join usage_monitoring_event_projection_v1 p on p.event_id <= ? and p.timestamp_ms >= w.from_ms and p.timestamp_ms < w.to_ms and p.account_key in (w.account_key, w.legacy_account_key)`
+	from window_targets w join usage_monitoring_event_projection_v1 p on p.event_id <= ? and p.timestamp_ms >= w.from_ms and p.timestamp_ms < w.to_ms and p.account_key in (w.account_key, w.legacy_account_key, w.historical_account_key, w.historical_legacy_key)`
 	args = append(args, coverageEventID)
 	if dailyAvailable {
 		query += ` and (w.use_daily = 0 or p.timestamp_ms < w.full_start_ms or p.timestamp_ms >= w.full_end_ms or p.event_id > ? or (` + codexAccountDailyExcludedSQL("p") + `))`
@@ -243,7 +243,7 @@ func accountWindowEventSourceSQL(windows []AccountWindowUsageQuery, coverageEven
 		return query, args
 	}
 	query += ` union all select w.request_index, ` + usageidentity.SQLEffectiveRequestedModelExpression("e.model", "e.requested_model") + `, ` + usageidentity.SQLRequestAnalyticsModelExpression("e.model", "e.requested_model") + `, coalesce(e.resolved_model, ''), coalesce(e.service_tier, ''), coalesce(e.failed, 0), coalesce(e.normalized_total_input_tokens, e.input_tokens, 0), coalesce(e.output_tokens, 0), coalesce(e.cached_tokens, 0), coalesce(e.cache_tokens, 0), coalesce(e.cache_read_tokens, 0), coalesce(e.cache_creation_tokens, 0), coalesce(e.total_tokens, 0), e.timestamp_ms
-	from window_targets w join usage_events e on e.id > ? and e.timestamp_ms >= w.from_ms and e.timestamp_ms < w.to_ms and ` + rawIdentity + ` in (w.account_key, w.legacy_account_key)`
+	from window_targets w join usage_events e on e.id > ? and e.timestamp_ms >= w.from_ms and e.timestamp_ms < w.to_ms and ` + rawIdentity + ` in (w.account_key, w.legacy_account_key, w.historical_account_key, w.historical_legacy_key)`
 	args = append(args, coverageEventID)
 	if dailyAvailable {
 		query += ` and (w.use_daily = 0 or e.timestamp_ms < w.full_start_ms or e.timestamp_ms >= w.full_end_ms or e.id > ? or (` + codexAccountDailyExcludedSQL("e") + `))`
@@ -253,6 +253,11 @@ func accountWindowEventSourceSQL(windows []AccountWindowUsageQuery, coverageEven
 }
 
 func accountWindowCanUseDaily(window AccountWindowUsageQuery) bool {
+	// Existing daily rows have no event-id boundary. Preserve them as-is and
+	// use the already stored event projection for affected Codex windows.
+	if normalizeWindowProvider(window.AuthProviderSnapshot) == "codex" && window.HistoricalCutoverID > 0 {
+		return false
+	}
 	authFile := strings.TrimSpace(window.AuthFileSnapshot)
 	authIndex := strings.TrimSpace(window.AuthIndex)
 	if authFile == "" || authIndex == "" {
@@ -316,6 +321,7 @@ func accountWindowKey(window AccountWindowUsageQuery) string {
 
 func accountWindowIdentityFields(window AccountWindowUsageQuery) usageidentity.Fields {
 	return usageidentity.Fields{
+		System:                window.System,
 		AuthFileSnapshot:      window.AuthFileSnapshot,
 		AuthIndex:             window.AuthIndex,
 		AuthProviderSnapshot:  window.AuthProviderSnapshot,

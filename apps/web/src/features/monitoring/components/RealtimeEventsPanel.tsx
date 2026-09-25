@@ -1119,9 +1119,27 @@ export function RealtimeEventsPanel({
             {pagination.pageItems.map((row) => {
               const sourceDisplay = buildRealtimeSourceDisplay(row, t, accountDisplayMode);
               const apiKeyDisplay = buildRealtimeApiKeyDisplay(row, t);
-              const requestedModel = row.requestedModel?.trim() || row.model;
+              const requestedModel = row.requestedModel?.trim() || row.model || '—';
               const resolvedModel = row.resolvedModel?.trim() || '';
+              const responseModel = row.responseModel?.trim() || '';
               const showResolvedModel = Boolean(resolvedModel && resolvedModel !== requestedModel);
+              const showResponseModel = Boolean(responseModel);
+              const hasResponseModelMismatch = Boolean(
+                responseModel && resolvedModel && responseModel !== resolvedModel
+              );
+              const modelTooltipLines: string[] = [];
+              if (requestedModel) {
+                modelTooltipLines.push(`${t('monitoring.requested_model')}: ${requestedModel}`);
+              }
+              if (showResolvedModel) {
+                modelTooltipLines.push(`${t('monitoring.resolved_model')}: ${resolvedModel}`);
+              }
+              if (showResponseModel) {
+                modelTooltipLines.push(`${t('monitoring.response_model')}: ${responseModel}`);
+              }
+              if (hasResponseModelMismatch) {
+                modelTooltipLines.push(t('monitoring.model_mismatch'));
+              }
               const reasoningEffort = formatOptionalText(row.reasoningEffort);
               const serviceTier = formatOptionalText(row.serviceTier);
               const requestServiceTier = formatOptionalText(row.requestServiceTier);
@@ -1132,6 +1150,8 @@ export function RealtimeEventsPanel({
                   : serviceTier !== '-'
                     ? serviceTier
                     : responseServiceTier;
+              const system = formatReadableText(row.system);
+              const turnStateLen = formatReadableText(row.turnStateLen);
               const requestDiagnosticDetails = buildRequestDiagnosticDetails(row, t, locale);
               const requestDiagnosticTooltipId = requestDiagnosticDetails
                 ? `${tooltipIdPrefix}-request-diagnostic-tooltip-${row.id}`
@@ -1169,17 +1189,29 @@ export function RealtimeEventsPanel({
                   <td>
                     <div
                       className={`${styles.primaryCell} ${styles.realtimeModelCell}`}
-                      title={[requestedModel, showResolvedModel ? resolvedModel : '']
-                        .filter(Boolean)
-                        .join('\n')}
+                      title={modelTooltipLines.join('\n')}
                     >
                       <span className={`${styles.monoCell} ${styles.realtimeModelText}`}>
                         {requestedModel}
                       </span>
                       {showResolvedModel ? (
-                        <small className={`${styles.monoCell} ${styles.realtimeModelText}`}>
-                          {resolvedModel}
+                        <small className={`${styles.monoCell} ${styles.realtimeModelRoutedText}`}>
+                          {`→ ${resolvedModel}`}
                         </small>
+                      ) : null}
+                      {showResponseModel ? (
+                        <div className={styles.realtimeModelResponseLine}>
+                          <small
+                            className={`${styles.monoCell} ${styles.realtimeModelResponseText}`}
+                          >
+                            {`↳ ${responseModel}`}
+                          </small>
+                          {hasResponseModelMismatch ? (
+                            <span className={styles.realtimeModelMismatchBadge}>
+                              {t('monitoring.model_mismatch')}
+                            </span>
+                          ) : null}
+                        </div>
                       ) : null}
                     </div>
                   </td>
@@ -1205,6 +1237,14 @@ export function RealtimeEventsPanel({
                           {effectiveServiceTier}
                         </span>
                       </span>
+                      {system ? (
+                        <span className={styles.realtimeSettingLine}>
+                          <span className={styles.realtimeSettingLabel}>
+                            {t('monitoring.realtime_system_label')}
+                          </span>
+                          <span className={styles.realtimeSettingValue}>{system}</span>
+                        </span>
+                      ) : null}
                     </div>
                   </td>
                   <td className={styles.realtimeCenteredColumn}>
@@ -1225,21 +1265,31 @@ export function RealtimeEventsPanel({
                           onCopy={handleCopyFailureDetails}
                         />
                       ) : (
-                        <span
-                          className={[
-                            styles.realtimeRequestStatus,
-                            row.failed
-                              ? styles.realtimeRequestStatusBad
-                              : styles.realtimeRequestStatusGood,
-                          ]
-                            .filter(Boolean)
-                            .join(' ')}
-                        >
-                          {row.failed
-                            ? t('monitoring.result_failed')
-                            : t('monitoring.result_success')}
-                        </span>
+                        <div className={styles.realtimeRequestStatusCell}>
+                          <span
+                            className={[
+                              styles.realtimeRequestStatus,
+                              row.failed
+                                ? styles.realtimeRequestStatusBad
+                                : styles.realtimeRequestStatusGood,
+                            ]
+                              .filter(Boolean)
+                              .join(' ')}
+                          >
+                            {row.failed
+                              ? t('monitoring.result_failed')
+                              : t('monitoring.result_success')}
+                          </span>
+                        </div>
                       )}
+                      {turnStateLen ? (
+                        <small
+                          className={styles.realtimeTurnStateLength}
+                          title={`${t('monitoring.turn_state_len')}: ${turnStateLen}`}
+                        >
+                          {turnStateLen}
+                        </small>
+                      ) : null}
                     </div>
                   </td>
                   <td

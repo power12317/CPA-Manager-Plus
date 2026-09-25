@@ -9,14 +9,17 @@ import {
   readAuthFileStatusAccountId,
   readAuthFileStatusAccountIdInvalid,
   readAuthFileStatusAccountSnapshot,
+  readAuthFileStatusAuthIndex,
   readAuthFileStatusCodexMember,
   readAuthFileStatusCodexMemberInvalid,
+  readAuthFileStatusPhysicalName,
   readAuthFileStatusProvider,
   readAuthFileStatusRuntimeId,
   normalizeCodexMemberSnapshot,
 } from '@/utils/authFileStatusMutation';
 import { sha256RawTextHex } from '@/utils/apiKeyHash';
 import { parseTimestampMs } from '@/utils/timestamp';
+import { normalizeAuthFileTickets } from '@/utils/codexTurnTickets';
 
 type StatusError = { status?: number };
 export type AuthFilesApiRequestScope = ApiClientRequestScope;
@@ -33,6 +36,7 @@ export type AuthFileStatusTarget = {
   accountSnapshot?: string | null;
 };
 export type AuthFileDeleteIdentityTarget = AuthFileStatusTarget;
+export type AuthFileLookupTarget = Pick<AuthFileStatusTarget, 'name' | 'authIndex'>;
 export type AuthFilePluginSourceFallbackVerifier = () => Promise<void>;
 export type AuthFileStatusPluginSourceFallbackVerifier = () => Promise<AuthFileStatusTarget[]>;
 type AuthFileEntry = AuthFilesResponse['files'][number];
@@ -542,7 +546,14 @@ const dedupeAuthFilesResponse = (payload: AuthFilesResponse): AuthFilesResponse 
     grouped.set(key, [entry]);
   });
 
-  const normalizedFiles = Array.from(grouped.values()).map(mergeAuthFileEntries);
+  const observedAtMs = Date.now();
+  const normalizedFiles = Array.from(grouped.values()).map((entries) => {
+    const file = mergeAuthFileEntries(entries);
+    if (file.codex_turn_tickets !== undefined) {
+      file.codex_turn_tickets = normalizeAuthFileTickets(file.codex_turn_tickets, observedAtMs);
+    }
+    return file;
+  });
   normalizedFiles.sort((left, right) => {
     const nameDiff = readTextField(left, 'name').localeCompare(
       readTextField(right, 'name'),
@@ -564,6 +575,27 @@ const dedupeAuthFilesResponse = (payload: AuthFilesResponse): AuthFilesResponse 
     files: normalizedFiles,
     total: normalizedFiles.length,
   };
+};
+
+const filterAuthFileLookupResponse = (
+  files: AuthFileItem[],
+  target: AuthFileLookupTarget
+): AuthFileItem[] => {
+  const name = String(target.name ?? '').trim();
+  const authIndex =
+    target.authIndex === undefined || target.authIndex === null
+      ? ''
+      : String(target.authIndex).trim();
+  if (!name) return [];
+  return files.filter((file) => {
+    if (
+      readAuthFileStatusRuntimeId(file) !== name &&
+      readAuthFileStatusPhysicalName(file) !== name
+    ) {
+      return false;
+    }
+    return !authIndex || readAuthFileStatusAuthIndex(file) === authIndex;
+  });
 };
 
 const parseAuthFileJsonObject = (rawText: string): Record<string, unknown> => {
@@ -962,7 +994,12 @@ const normalizeOauthExcludedModels = (payload: unknown): Record<string, string[]
   if (!payload || typeof payload !== 'object') return {};
 
   const record = payload as Record<string, unknown>;
-  const source = record['oauth-excluded-models'] ?? record.items ?? payload;
+  // An explicit null wrapper means no exclusions, not a bare provider map.
+  const source = Object.prototype.hasOwnProperty.call(record, 'oauth-excluded-models')
+    ? record['oauth-excluded-models']
+    : Object.prototype.hasOwnProperty.call(record, 'items')
+      ? record.items
+      : payload;
   if (!source || typeof source !== 'object') return {};
 
   const result: Record<string, string[]> = {};
@@ -1140,6 +1177,32 @@ export const authFilesApi = {
         )
       : await apiClient.get<AuthFilesResponse>('/auth-files');
     return dedupeAuthFilesResponse(response);
+  },
+
+  lookup: async (
+    target: AuthFileLookupTarget,
+    requestScope?: AuthFilesApiRequestScope
+  ): Promise<AuthFileItem[]> => {
+    const name = String(target.name ?? '').trim();
+    if (!name) return [];
+    const authIndex =
+      target.authIndex === undefined || target.authIndex === null
+        ? ''
+        : String(target.authIndex).trim();
+    const config = {
+      ...(requestScope ? createScopedApiRequestConfig(requestScope) : {}),
+      params: {
+        name,
+        ...(authIndex ? { auth_index: authIndex } : {}),
+      },
+    };
+    const response = await apiClient.get<AuthFilesResponse>('/auth-files', config);
+    // Older CPA builds may ignore lookup parameters. Always filter the response
+    // locally so a caller cannot mistake a full inventory for a scoped result.
+    return filterAuthFileLookupResponse(dedupeAuthFilesResponse(response).files, {
+      name,
+      ...(authIndex ? { authIndex } : {}),
+    });
   },
 
   setStatus: (

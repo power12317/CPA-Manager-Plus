@@ -8,7 +8,37 @@ export type PayloadParamValidationErrorCode =
   | 'payload_invalid_boolean'
   | 'payload_invalid_json';
 
+export const CODEX_TICKET_TIMING_FIELDS = [
+  {
+    field: 'codexTicketTTLSeconds',
+    yamlKey: 'ttl-seconds',
+    labelKey: 'ttl_seconds',
+    defaultSeconds: 3600,
+  },
+  {
+    field: 'codexTicketRefreshBeforeSeconds',
+    yamlKey: 'refresh-before-seconds',
+    labelKey: 'refresh_before_seconds',
+    defaultSeconds: 600,
+  },
+  {
+    field: 'codexTicketProbeIntervalSeconds',
+    yamlKey: 'probe-interval-seconds',
+    labelKey: 'probe_interval_seconds',
+    defaultSeconds: 60,
+  },
+  {
+    field: 'codexTicketAttemptTimeoutSeconds',
+    yamlKey: 'attempt-timeout-seconds',
+    labelKey: 'attempt_timeout_seconds',
+    defaultSeconds: 25,
+  },
+] as const;
+
+export type CodexTicketTimingField = (typeof CODEX_TICKET_TIMING_FIELDS)[number]['field'];
+
 export type VisualConfigFieldPath =
+  | CodexTicketTimingField
   | 'port'
   | 'errorLogsMaxFiles'
   | 'logsMaxTotalSizeMb'
@@ -24,6 +54,7 @@ export type VisualConfigFieldPath =
 
 export type VisualConfigValidationErrorCode =
   | 'port_range'
+  | 'positive_integer'
   | 'non_negative_integer'
   | 'integer'
   | 'retention_seconds_range';
@@ -151,6 +182,16 @@ export type VisualConfigValues = {
   codexHeaderUserAgent: string;
   codexHeaderBetaFeatures: string;
   codexIdentityConfuse: boolean;
+  codexDeviceConvergence: boolean;
+  codexTicketEnabled: boolean;
+  codexTicketFailClosed: boolean;
+  codexTicketModels: string;
+  codexTicketHarvestProxy: string;
+  codexTicketTTLSeconds: string;
+  codexTicketRefreshBeforeSeconds: string;
+  codexTicketProbeIntervalSeconds: string;
+  codexTicketAttemptTimeoutSeconds: string;
+  devinSensitiveWords: string[];
   payloadDefaultRules: PayloadRule[];
   payloadDefaultRawRules: PayloadRule[];
   payloadOverrideRules: PayloadRule[];
@@ -227,6 +268,16 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   codexHeaderUserAgent: '',
   codexHeaderBetaFeatures: '',
   codexIdentityConfuse: false,
+  codexDeviceConvergence: true,
+  codexTicketEnabled: false,
+  codexTicketFailClosed: false,
+  codexTicketModels: 'gpt-6-astra\ngpt-5.6-sol',
+  codexTicketHarvestProxy: '',
+  codexTicketTTLSeconds: '3600',
+  codexTicketRefreshBeforeSeconds: '600',
+  codexTicketProbeIntervalSeconds: '60',
+  codexTicketAttemptTimeoutSeconds: '25',
+  devinSensitiveWords: [],
   payloadDefaultRules: [],
   payloadDefaultRawRules: [],
   payloadOverrideRules: [],

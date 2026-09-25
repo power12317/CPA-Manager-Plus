@@ -9,6 +9,7 @@ vi.mock('react-dom', () => ({
 }));
 
 const mocks = vi.hoisted(() => ({
+  apiBase: 'https://manager.local/api/instances/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   fetchConfigYaml: vi.fn(),
   saveConfigYaml: vi.fn(),
   apiKeysList: vi.fn(),
@@ -134,7 +135,8 @@ vi.mock('./components/ManagerConfigPanel', () => ({
 }));
 
 vi.mock('@/components/config/DiffModal', () => ({
-  DiffModal: () => null,
+  DiffModal: ({ open, onConfirm }: { open: boolean; onConfirm: () => Promise<void> }) =>
+    open ? <button data-test="confirm-yaml" onClick={onConfirm} /> : null,
 }));
 
 vi.mock('@/components/config/ConfigSourceEditor', () => ({
@@ -185,8 +187,17 @@ vi.mock('@/components/ui/SegmentedTabs', () => ({
 
 vi.mock('@/stores', () => ({
   useAuthStore: (
-    selector: (state: { connectionStatus: string; managementKey: string }) => unknown
-  ) => selector({ connectionStatus: 'connected', managementKey: 'management-key' }),
+    selector: (state: {
+      connectionStatus: string;
+      managementKey: string;
+      apiBase: string;
+    }) => unknown
+  ) =>
+    selector({
+      connectionStatus: 'connected',
+      managementKey: 'management-key',
+      apiBase: mocks.apiBase,
+    }),
   useNotificationStore: (
     selector: (state: {
       showNotification: typeof mocks.showNotification;
@@ -391,6 +402,7 @@ const configureManagerMode = () => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.apiBase = 'https://manager.local/api/instances/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
   Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,
     value: {
@@ -447,6 +459,43 @@ afterEach(() => {
       value: originalDocument,
     });
   }
+});
+
+describe('ConfigPage YAML instance isolation', () => {
+  it('pins save preflight, PUT and readback to the original CPA during an instance switch', async () => {
+    const originalScope = { apiBase: mocks.apiBase, managementKey: 'management-key' };
+    const originalYaml = 'codex:\n  identity-confuse: true\n';
+    const disabledYaml = 'codex:\n  identity-confuse: true\n  device-convergence: false\n';
+    mocks.fetchConfigYaml.mockReset().mockResolvedValue(originalYaml);
+    mocks.visualState.dirty = true;
+    mocks.applyVisualChangesToYaml.mockReturnValue(disabledYaml);
+    await mountPage();
+    await clickSave();
+    const preflight = createDeferred<string>();
+    mocks.fetchConfigYaml.mockImplementationOnce(() => preflight.promise);
+    let pending!: Promise<void>;
+    await act(async () => {
+      pending = renderer!.root.findByProps({ 'data-test': 'confirm-yaml' }).props.onClick();
+      await Promise.resolve();
+    });
+    expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
+
+    // The router remounts ConfigPage per CPA base while the old request is pending.
+    act(() => renderer!.unmount());
+    mocks.apiBase = 'https://manager.local/api/instances/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+    mocks.fetchConfigYaml.mockResolvedValue('codex:\n  device-convergence: true\n');
+    await mountPage();
+    expect(mocks.fetchConfigYaml).toHaveBeenLastCalledWith({
+      apiBase: mocks.apiBase,
+      managementKey: 'management-key',
+    });
+    await act(async () => {
+      preflight.resolve(originalYaml);
+      await pending;
+    });
+    expect(mocks.saveConfigYaml).toHaveBeenCalledExactlyOnceWith(disabledYaml, originalScope);
+    expect(mocks.fetchConfigYaml).toHaveBeenLastCalledWith(originalScope);
+  });
 });
 
 describe('ConfigPage API-key source snapshot safety', () => {

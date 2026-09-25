@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildPluginConfigPatch, createPluginConfigDraft } from './pluginConfigDraft';
+import {
+  buildPluginConfigPatch,
+  createPluginConfigDraft,
+  isSensitivePluginConfigField,
+} from './pluginConfigDraft';
 
 const t = (key: string) => key;
 
@@ -32,5 +36,11 @@ describe('pluginConfigDraft', () => {
     draft.priority = '';
     draft.touched.add('priority');
     expect(buildPluginConfigPatch(draft, [], t).patch).toEqual({ priority: 0 });
+  });
+
+  it('keeps Codex turn-state bearer fields out of the generic editor', () => {
+    expect(isSensitivePluginConfigField('codex-turn-state', 'probe_api_key')).toBe(true);
+    expect(isSensitivePluginConfigField('codex-turn-state', 'probe_management_key')).toBe(true);
+    expect(isSensitivePluginConfigField('demo-plugin', 'probe_api_key')).toBe(false);
   });
 });

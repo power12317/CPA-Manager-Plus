@@ -258,6 +258,9 @@ func Migrate(db *sql.DB) error {
 			auth_snapshot_at_ms integer,
 			requested_model text,
 			resolved_model text,
+			turn_id text,
+			system text,
+			turn_state_len text,
 			reasoning_effort text,
 			service_tier text,
 			request_service_tier text,
@@ -289,6 +292,12 @@ func Migrate(db *sql.DB) error {
 			header_trace_id text,
 			fail_body text,
 			raw_json text,
+			response_model text,
+			session_id text,
+			parent_session_id text,
+			access_token_sha256 text,
+			generate integer,
+			stream integer,
 			created_at_ms integer not null
 		)`,
 		`create table if not exists usage_rollup_checkpoints (
@@ -977,6 +986,12 @@ func Migrate(db *sql.DB) error {
 	}
 	if err := ensureUsageHourlyAggregateSchemaVersion(db, usageHourlyAggregateSnapshot, monitoringSnapshot.sourceTableMissing()); err != nil {
 		return err
+	}
+	// Record a boundary with an indexed MAX(id), preserving rows and checkpoints.
+	if _, err := db.Exec(`insert into settings (key, value, updated_at_ms)
+		select ?, cast(coalesce(max(id), 0) as text), 0 from usage_events where true
+		on conflict(key) do nothing`, usageidentity.CredentialCutoverSetting); err != nil {
+		return fmt.Errorf("record credential history boundary: %w", err)
 	}
 	if err := ensureAccountHistoryIdentityFormatVersion(db); err != nil {
 		return err
@@ -2872,6 +2887,9 @@ func ensureUsageEventSnapshotColumns(db *sql.DB) error {
 		{name: "executor_type", definition: "text"},
 		{name: "requested_model", definition: "text"},
 		{name: "resolved_model", definition: "text"},
+		{name: "turn_id", definition: "text"},
+		{name: "system", definition: "text"},
+		{name: "turn_state_len", definition: "text"},
 		{name: "client_ip", definition: "text"},
 		{name: "x_forwarded_for", definition: "text"},
 		{name: "user_agent", definition: "text"},
@@ -2897,6 +2915,12 @@ func ensureUsageEventSnapshotColumns(db *sql.DB) error {
 		{name: "header_error_code", definition: "text"},
 		{name: "header_trace_id", definition: "text"},
 		{name: "fail_body", definition: "text"},
+		{name: "response_model", definition: "text"},
+		{name: "session_id", definition: "text"},
+		{name: "parent_session_id", definition: "text"},
+		{name: "access_token_sha256", definition: "text"},
+		{name: "generate", definition: "integer"},
+		{name: "stream", definition: "integer"},
 	}
 	for _, column := range columns {
 		if _, ok := existing[column.name]; ok {

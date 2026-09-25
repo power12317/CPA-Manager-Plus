@@ -100,6 +100,8 @@ vi.mock('@/features/monitoring/codexInspection', () => ({
 
 vi.mock('@/features/accounts/model/accountReauthSession', () => ({
   completeAccountOAuthReauthSessionFromSearch: pageMocks.completeReauth,
+  readAccountOAuthReauthInstanceId: (search: string) =>
+    new URLSearchParams(search).get('scope'),
   readAccountOAuthReauthSessionId: (search: string) =>
     new URLSearchParams(search).get('accountReauth'),
 }));
@@ -305,7 +307,7 @@ describe('OAuthPage request lifecycle', () => {
   });
 });
 
-const builtInProviderIds = new Set(['codex', 'anthropic', 'antigravity', 'kimi', 'xai']);
+const builtInProviderIds = new Set(['codex', 'anthropic', 'antigravity', 'kimi', 'xai', 'devin']);
 
 describe('plugin OAuth provider helpers', () => {
   it('uses explicit plugin OAuth provider ids when present', () => {
@@ -321,6 +323,16 @@ describe('plugin OAuth provider helpers', () => {
         {
           id: 'custom-plugin',
           oauthProvider: 'codex',
+          supportsOAuth: true,
+        },
+        builtInProviderIds
+      )
+    ).toBe(false);
+    expect(
+      shouldShowPluginOAuthProvider(
+        {
+          id: 'custom-plugin',
+          oauthProvider: 'devin',
           supportsOAuth: true,
         },
         builtInProviderIds

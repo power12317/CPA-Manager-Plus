@@ -240,6 +240,7 @@ function MainLayoutContent({ routeBase = '', demoMode = false }: MainLayoutProps
   const logout = useAuthStore((state) => state.logout);
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const apiBase = useAuthStore((state) => state.apiBase);
+  const managerSession = useAuthStore((state) => state.sessionMode === 'manager_embedded');
   const supportsPlugin = useAuthStore((state) => state.supportsPlugin);
 
   const config = useConfigStore((state) => state.config);
@@ -480,14 +481,15 @@ function MainLayoutContent({ routeBase = '', demoMode = false }: MainLayoutProps
 
     try {
       const plugins = await pluginsApi.list();
-      setPluginResources(
-        isPluginResourceNavVisible({
-          supportsPlugin,
-          pluginsEnabled: plugins.pluginsEnabled,
-        })
-          ? collectPluginResourceEntries(plugins.plugins)
-          : []
-      );
+      const resources = isPluginResourceNavVisible({
+        supportsPlugin,
+        pluginsEnabled: plugins.pluginsEnabled,
+      })
+        ? collectPluginResourceEntries(plugins.plugins).filter(
+            (resource) => resource.pluginID !== 'codex-turn-state'
+          )
+        : [];
+      setPluginResources(resources);
     } catch {
       setPluginResources([]);
     }
@@ -567,10 +569,12 @@ function MainLayoutContent({ routeBase = '', demoMode = false }: MainLayoutProps
     ],
     [
       {
-        path: '/instances',
-        label: t('nav.instances'),
-        shortLabel: navShortLabel('nav.instances', t('nav.instances')),
-        icon: sidebarIcons.system,
+        path: managerSession ? '/instances' : '/config',
+        label: t(managerSession ? 'nav.instances' : 'nav.instance_config'),
+        shortLabel: managerSession
+          ? navShortLabel('nav.instances', t('nav.instances'))
+          : t('nav.config_management_short'),
+        icon: managerSession ? sidebarIcons.system : sidebarIcons.config,
       },
       {
         path: '/ai-providers',
@@ -600,12 +604,16 @@ function MainLayoutContent({ routeBase = '', demoMode = false }: MainLayoutProps
     operationNavItems,
     pluginResourceNavItems,
     [
-      {
-        path: '/manager-config',
-        label: t('nav.manager_config'),
-        shortLabel: navShortLabel('nav.manager_config', t('nav.manager_config')),
-        icon: sidebarIcons.config,
-      },
+      ...(managerSession
+        ? [
+            {
+              path: '/manager-config',
+              label: t('nav.manager_config'),
+              shortLabel: navShortLabel('nav.manager_config', t('nav.manager_config')),
+              icon: sidebarIcons.config,
+            },
+          ]
+        : []),
       {
         path: '/system',
         label: t('nav.system_info'),
@@ -994,7 +1002,7 @@ function MainLayoutContent({ routeBase = '', demoMode = false }: MainLayoutProps
               .join(' ')}
           >
             <DatabaseMaintenanceBanner />
-            <InstanceBar />
+            {managerSession && <InstanceBar />}
             <PageTransition
               render={(location) => <MainRoutes location={location} routeBase={routeBase} />}
               getRouteOrder={(pathname) => getRouteOrder(stripRouteBase(pathname, routeBase))}

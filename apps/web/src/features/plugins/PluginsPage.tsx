@@ -32,11 +32,7 @@ import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { pluginsApi, pluginStoreApi } from '@/services/api';
 import { useAuthStore, useConfigStore, useNotificationStore } from '@/stores';
 import { getErrorMessage, isRecord } from '@/utils/helpers';
-import type {
-  PluginConfigField,
-  PluginListEntry,
-  PluginListResponse,
-} from '@/types';
+import type { PluginConfigField, PluginListEntry, PluginListResponse } from '@/types';
 import {
   buildRepositoryURL,
   getPluginTitle,
@@ -49,6 +45,7 @@ import { PluginStorePage } from './PluginStorePage';
 import {
   buildPluginConfigPatch,
   createPluginConfigDraft,
+  isSensitivePluginConfigField,
   type PluginConfigDraftState,
 } from './pluginConfigDraft';
 import styles from './PluginsPage.module.scss';
@@ -534,6 +531,7 @@ function InstalledPluginsView({
 
   const renderFieldEditor = (field: PluginConfigField) => {
     if (!draft) return null;
+    if (editingPlugin && isSensitivePluginConfigField(editingPlugin.id, field.name)) return null;
     const fieldType = normalizeFieldType(field);
     const value = draft.values[field.name];
     const textValue = typeof value === 'string' ? value : '';

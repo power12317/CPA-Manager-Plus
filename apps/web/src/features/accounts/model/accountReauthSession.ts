@@ -10,6 +10,7 @@ type AccountOAuthReauthSession = {
   id: string;
   connectionFingerprint: string;
   oauthProvider: string;
+  instanceId?: string;
   resultKeys: string[];
   createdAtMs: number;
   completedAtMs?: number;
@@ -18,6 +19,7 @@ type AccountOAuthReauthSession = {
 type AccountOAuthReauthSessionInput = {
   connectionFingerprint: string | null;
   oauthProvider: string;
+  instanceId?: string;
   resultKeys: Iterable<string>;
   createdAtMs?: number;
   sessionId?: string;
@@ -26,6 +28,7 @@ type AccountOAuthReauthSessionInput = {
 type CompleteAccountOAuthReauthSessionInput = {
   connectionFingerprint: string | null;
   oauthProvider: string;
+  instanceId?: string | null;
   sessionId: string | null;
   completedAtMs?: number;
 };
@@ -65,6 +68,7 @@ const parseSession = (value: unknown): AccountOAuthReauthSession | null => {
   const id = normalizeString(record.id);
   const connectionFingerprint = normalizeString(record.connectionFingerprint);
   const oauthProvider = normalizeProvider(record.oauthProvider);
+  const instanceId = normalizeString(record.instanceId);
   const resultKeys = Array.isArray(record.resultKeys)
     ? normalizeResultKeys(
         record.resultKeys.filter((item): item is string => typeof item === 'string')
@@ -79,6 +83,7 @@ const parseSession = (value: unknown): AccountOAuthReauthSession | null => {
     id,
     connectionFingerprint,
     oauthProvider,
+    ...(instanceId ? { instanceId } : {}),
     resultKeys,
     createdAtMs,
     ...(completedAtMs ? { completedAtMs } : {}),
@@ -139,6 +144,7 @@ const createSession = (
 ): AccountOAuthReauthSession | null => {
   const connectionFingerprint = normalizeString(input.connectionFingerprint);
   const oauthProvider = normalizeProvider(input.oauthProvider);
+  const instanceId = normalizeString(input.instanceId);
   const resultKeys = normalizeResultKeys(input.resultKeys);
   const createdAtMs = normalizeTimestamp(input.createdAtMs ?? Date.now());
   const id = normalizeString(input.sessionId) || createSessionId();
@@ -150,6 +156,7 @@ const createSession = (
     id,
     connectionFingerprint,
     oauthProvider,
+    ...(instanceId ? { instanceId } : {}),
     resultKeys,
     createdAtMs,
     ...(normalizedCompletedAtMs ? { completedAtMs: normalizedCompletedAtMs } : {}),
@@ -158,19 +165,31 @@ const createSession = (
 
 export const buildAccountOAuthReauthPath = (
   oauthProvider: string,
-  sessionId?: string | null
+  sessionId?: string | null,
+  instanceId?: string | null
 ): string => {
   const normalizedProvider = normalizeProvider(oauthProvider);
   const normalizedSessionId = normalizeString(sessionId);
-  const query = normalizedSessionId
-    ? `?${ACCOUNT_OAUTH_REAUTH_SESSION_PARAM}=${encodeURIComponent(normalizedSessionId)}`
-    : '';
+  const params = new URLSearchParams();
+  if (normalizedSessionId) params.set(ACCOUNT_OAUTH_REAUTH_SESSION_PARAM, normalizedSessionId);
+  const normalizedInstanceId = normalizeString(instanceId);
+  if (normalizedInstanceId) params.set('scope', normalizedInstanceId);
+  const query = params.toString() ? `?${params.toString()}` : '';
   return `/oauth${query}#oauth-provider-${encodeURIComponent(normalizedProvider)}`;
 };
 
 export const readAccountOAuthReauthSessionId = (search: string): string | null => {
   try {
     const value = new URLSearchParams(search).get(ACCOUNT_OAUTH_REAUTH_SESSION_PARAM);
+    return normalizeString(value) || null;
+  } catch {
+    return null;
+  }
+};
+
+export const readAccountOAuthReauthInstanceId = (search: string): string | null => {
+  try {
+    const value = new URLSearchParams(search).get('scope');
     return normalizeString(value) || null;
   } catch {
     return null;
@@ -197,6 +216,7 @@ export const completeAccountOAuthReauthSession = (
   const sessionId = normalizeString(input.sessionId);
   const connectionFingerprint = normalizeString(input.connectionFingerprint);
   const oauthProvider = normalizeProvider(input.oauthProvider);
+  const instanceId = normalizeString(input.instanceId);
   const completedAtMs = normalizeTimestamp(input.completedAtMs ?? Date.now());
   if (!sessionId || !connectionFingerprint || !oauthProvider || !completedAtMs) return false;
 
@@ -204,8 +224,10 @@ export const completeAccountOAuthReauthSession = (
   const index = sessions.findIndex(
     (session) =>
       session.id === sessionId &&
-      session.connectionFingerprint === connectionFingerprint &&
-      session.oauthProvider === oauthProvider
+      (session.connectionFingerprint === connectionFingerprint ||
+        (Boolean(session.instanceId) && session.instanceId === instanceId)) &&
+      session.oauthProvider === oauthProvider &&
+      (!session.instanceId || session.instanceId === instanceId)
   );
   if (index < 0) return false;
   if (sessions[index]?.completedAtMs) return true;
@@ -218,12 +240,14 @@ export const completeAccountOAuthReauthSessionFromSearch = (
   oauthProvider: string,
   connectionFingerprint: string | null,
   storage: SessionStorageLike | null = getBrowserSessionStorage(),
-  completedAtMs = Date.now()
+  completedAtMs = Date.now(),
+  instanceId?: string | null
 ): boolean =>
   completeAccountOAuthReauthSession(
     {
       connectionFingerprint,
       oauthProvider,
+      instanceId,
       sessionId: readAccountOAuthReauthSessionId(search),
       completedAtMs,
     },

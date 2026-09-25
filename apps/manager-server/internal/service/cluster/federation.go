@@ -99,7 +99,7 @@ func originOf(value string, items []Instance) (string, string, bool) {
 // write without an origin is never broadcast across every CPA.
 func identityField(key string) bool {
 	switch key {
-	case "", "name", "names", "fileName", "file_name", "filename", "id", "ids", "runtimeId", "runtime_id", "auth_index", "authIndex", "auth_indices", "auth_files", "auth_file_snapshot", "authFileSnapshot", "account_snapshot", "accountSnapshot", "accounts", "source", "sources", "source_hash", "source_hashes", "credential_id", "credential_ids", "account_key", "state":
+	case "", "name", "names", "fileName", "file_name", "filename", "id", "ids", "runtimeId", "runtime_id", "auth_index", "authIndex", "auth_indices", "auth_files", "auth_file_snapshot", "authFileSnapshot", "account_snapshot", "accountSnapshot", "accounts", "source", "sources", "source_hash", "source_hashes", "credential_id", "credential_ids", "account_key", "state", "cpamp_physical_name", "cpamp_runtime_id", "cpamp_account_id", "cpamp_account_snapshot":
 		return true
 	}
 	return false

@@ -11,6 +11,14 @@ export interface PluginConfigDraftState {
   errors: Record<string, string>;
 }
 
+// The turn-state plugin deliberately keeps these bearer credentials out of its
+// dashboard and status responses. Do not render them in the generic config
+// drawer either; source configuration remains the explicit secret-management
+// path and untouched fields are preserved by patch updates.
+export const isSensitivePluginConfigField = (pluginID: string, fieldName: string): boolean =>
+  pluginID === 'codex-turn-state' &&
+  ['probe_api_key', 'probe_management_key'].includes(fieldName.trim().toLowerCase());
+
 const fieldType = (field: PluginConfigField) => field.type.trim().toLowerCase();
 
 const draftValue = (field: PluginConfigField, value: unknown): PluginConfigDraftValue => {
@@ -31,7 +39,9 @@ export const createPluginConfigDraft = (
     typeof config.priority === 'number' || typeof config.priority === 'string'
       ? String(config.priority)
       : '0',
-  values: Object.fromEntries(fields.map((field) => [field.name, draftValue(field, config[field.name])])),
+  values: Object.fromEntries(
+    fields.map((field) => [field.name, draftValue(field, config[field.name])])
+  ),
   touched: new Set<string>(),
   errors: {},
 });

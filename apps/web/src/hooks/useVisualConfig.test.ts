@@ -42,6 +42,30 @@ const mountUseVisualConfig = (): UseVisualConfigHarness => {
 };
 
 describe('useVisualConfig', () => {
+  it('round trips the Basispoints switch without changing models, effort or unrelated YAML', () => {
+    const harness = mountUseVisualConfig();
+    const yaml = 'codex:\n  force-websocket: true\n  future-setting: keep\n';
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(yaml);
+    });
+    expect(harness.getCurrent().visualValues.codexBasispointsEnabled).toBe(false);
+    expect(harness.getCurrent().applyVisualChangesToYaml(yaml)).toBe(yaml);
+    act(() => {
+      harness.getCurrent().setVisualValues({ codexBasispointsEnabled: true });
+    });
+    const updated = harness.getCurrent().applyVisualChangesToYaml(yaml);
+    expect(parseYaml(updated)).toEqual({
+      codex: { 'force-websocket': true, 'future-setting': 'keep', basispoints: { enabled: true } },
+    });
+    act(() => {
+      harness.getCurrent().loadVisualValuesFromYaml(updated);
+      harness.getCurrent().setVisualValues({ codexBasispointsEnabled: false });
+    });
+    expect(
+      parseYaml(harness.getCurrent().applyVisualChangesToYaml(updated)).codex.basispoints
+    ).toEqual({ enabled: false });
+    harness.unmount();
+  });
   it('round trips the upstream WebSocket policy independently of auth and other Codex settings', () => {
     const harness = mountUseVisualConfig();
     const yaml = 'ws-auth: false\ncodex:\n  identity-confuse: true\n';

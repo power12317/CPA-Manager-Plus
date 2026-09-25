@@ -3621,6 +3621,9 @@
           "disable_claude_cloak_mode_desc": "Globally pass Claude system prompts through without the Claude Code disguise unless a credential overrides it",
           "session_affinity": "Session Affinity Routing",
           "codex_force_websocket": "Force upstream WebSocket (ChatGPT)",
+          "codex_basispoints": "Use Basispoints",
+          "codex_basispoints_desc": "Route all Codex model requests through Basispoints. Model names and reasoning effort are preserved; unsupported parameters return the upstream error.",
+          "codex_basispoints_unavailable": "This backend has not declared Basispoints support. Connect to a CPA version that supports it.",
           "codex_force_websocket_desc": "Prefer WebSocket for ChatGPT Codex generation while clients keep SSE or WebSocket. After 5 failed handshakes, this request falls back to SSE. Reconnect on demand. Requires a compatible CPA backend.",
           "ws_auth": "WebSocket Authentication",
           "ws_auth_desc": "Enable WebSocket authentication (/v1/ws)"

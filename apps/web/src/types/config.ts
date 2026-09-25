@@ -43,6 +43,7 @@ export interface Config {
   pluginsEnabled?: boolean;
   wsAuth?: boolean;
   codexForceWebsocket?: boolean;
+  codexBasispointsEnabled?: boolean;
   forceModelPrefix?: boolean;
   routingStrategy?: string;
   apiKeys?: string[];

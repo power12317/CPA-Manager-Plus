@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/icons';
 import { ConfigSection } from '@/components/config/ConfigSection';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { useConfigStore } from '@/stores/useConfigStore';
 import type {
   PayloadFilterRule,
   PayloadParamValidationErrorCode,
@@ -1207,6 +1208,11 @@ export function VisualConfigEditor({
                   disabled={disabled}
                   onChange={(codexForceWebsocket) => onChange({ codexForceWebsocket })}
                 />
+                <BasispointsToggle
+                  checked={values.codexBasispointsEnabled}
+                  disabled={disabled}
+                  onChange={(codexBasispointsEnabled) => onChange({ codexBasispointsEnabled })}
+                />
               </SectionGrid>
 
               <SectionSubsection
@@ -1516,5 +1522,22 @@ export function VisualConfigEditor({
           )
         : null}
     </div>
+  );
+}
+
+function BasispointsToggle(props: Pick<ToggleRowProps, 'checked' | 'disabled' | 'onChange'>) {
+  const { t } = useTranslation();
+  const supported = useConfigStore((state) => state.config?.codexBasispointsEnabled !== undefined);
+  return (
+    <ToggleRow
+      {...props}
+      title={t('config_management.visual.sections.network.codex_basispoints')}
+      description={t(
+        supported
+          ? 'config_management.visual.sections.network.codex_basispoints_desc'
+          : 'config_management.visual.sections.network.codex_basispoints_unavailable'
+      )}
+      disabled={props.disabled || !supported}
+    />
   );
 }

@@ -494,6 +494,7 @@ const initialRawConfig: Record<string, unknown> = {
     codex: ['o1-preview'],
     claude: ['claude-opus-legacy'],
   },
+  codex: { basispoints: { enabled: false } },
 };
 
 const demoAuthFiles: AuthFilesResponse = {

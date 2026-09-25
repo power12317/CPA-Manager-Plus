@@ -500,6 +500,10 @@ export const normalizeConfigResponse = (raw: unknown): Config => {
   config.codexForceWebsocket = isRecord(raw.codex)
     ? normalizeBoolean(raw.codex['force-websocket'])
     : undefined;
+  config.codexBasispointsEnabled =
+    isRecord(raw.codex) && isRecord(raw.codex.basispoints)
+      ? normalizeBoolean(raw.codex.basispoints.enabled)
+      : undefined;
   config.forceModelPrefix = normalizeBoolean(raw['force-model-prefix'] ?? raw.forceModelPrefix);
   const routing = raw.routing;
   const strategyRaw = isRecord(routing)

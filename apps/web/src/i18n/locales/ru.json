@@ -3605,6 +3605,9 @@
           "disable_claude_cloak_mode_desc": "Глобально передавать system prompt Claude без маскировки Claude Code, если учётные данные не переопределяют это",
           "session_affinity": "Маршрутизация с привязкой к сессии",
           "codex_force_websocket": "WebSocket к серверу ChatGPT",
+          "codex_basispoints": "Использовать Basispoints",
+          "codex_basispoints_desc": "Направлять все запросы моделей Codex через Basispoints, сохраняя имена моделей и уровень рассуждений. Неподдерживаемые параметры возвращают ошибку сервера.",
+          "codex_basispoints_unavailable": "Этот сервер не объявляет поддержку Basispoints. Подключитесь к совместимой версии CPA.",
           "codex_force_websocket_desc": "Использовать WebSocket для запросов ChatGPT Codex независимо от протокола клиента. После 5 неудачных подключений текущий запрос использует SSE. Переподключение по запросу. Требуется совместимый сервер CPA.",
           "ws_auth": "Аутентификация WebSocket",
           "ws_auth_desc": "Включить аутентификацию WebSocket (/v1/ws)"

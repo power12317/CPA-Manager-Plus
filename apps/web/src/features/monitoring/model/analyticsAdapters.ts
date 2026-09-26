@@ -1089,6 +1089,7 @@ export const buildUsageDetailsFromAnalyticsEvents = (
       turn_id: readString(item.turn_id),
       system: readString(item.system),
       turn_state_len: readString(item.turn_state_len),
+      oailb_node: item.oailb_node,
       response_model: readString(item.response_model),
       session_id: readString(item.session_id),
       parent_session_id: readString(item.parent_session_id),

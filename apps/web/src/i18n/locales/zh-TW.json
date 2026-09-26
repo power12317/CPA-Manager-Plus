@@ -3886,6 +3886,7 @@
     "session_id": "會話 ID",
     "turn_id": "Turn ID",
     "turn_state_len": "Turn 狀態長度",
+    "oailb_node": "oailb 節點",
     "parent_session_id": "父會話 ID",
     "generate": "生成請求",
     "stream": "串流請求",
@@ -4434,7 +4435,7 @@
     },
     "oailb_borrow": {
       "title": "oailb 借用",
-      "description": "選擇來源執行個體及其啟用的 Codex OAuth 憑證，獨立儲存至目前執行個體。借用在 HTTP 請求或新的 WebSocket 交握時生效，既有連線保持；無法取得有效值時回退自身 Cookie。",
+      "description": "選擇來源執行個體及其啟用的 Codex OAuth 憑證，借用 __oailb 和 __cflb，獨立儲存至目前執行個體。__cflb 不單獨判斷有效期。借用在 HTTP 請求或新的 WebSocket 交握時生效，既有連線保持；某項借用值不可用時使用對應的本機 Cookie。",
       "none": "不借用",
       "source": "來源執行個體",
       "credential": "來源憑證",

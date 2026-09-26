@@ -1964,6 +1964,7 @@ const archiveRecordExpression = `json_patch(
 			'turn_id', coalesce(e.turn_id, ''),
 			'system', coalesce(e.system, ''),
 			'turn_state_len', coalesce(e.turn_state_len, ''),
+			'oailb_node', coalesce(e.oailb_node, ''),
 			'event_hash', e.event_hash,
 			'timestamp_ms', e.timestamp_ms,
 			'timestamp', e.timestamp,

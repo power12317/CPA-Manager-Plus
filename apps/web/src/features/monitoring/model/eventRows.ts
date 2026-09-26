@@ -1,4 +1,5 @@
 import type { CredentialInfo } from '@/types/sourceInfo';
+import { normalizeOailbNode } from '@/utils/oailbNode';
 import { buildSourceInfoMap, resolveSourceDisplay } from '@/utils/sourceResolver';
 import {
   calculateCost,
@@ -279,6 +280,7 @@ export const buildEventRows = (
         turnId: turnId || undefined,
         system: system || undefined,
         turnStateLen: turnStateLen || undefined,
+        oailbNode: normalizeOailbNode(detail.oailb_node ?? detail.oailbNode) || undefined,
         parentSessionId,
         accessTokenSha256,
         generate,

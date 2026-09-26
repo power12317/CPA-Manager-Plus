@@ -813,6 +813,7 @@ func TestUsageArchiveSchemaContractCoversAllUsageEventColumns(t *testing.T) {
 	event.System = "windows"
 	event.TurnID = "turn-archive-test"
 	event.TurnStateLen = "4096"
+	event.OailbNode = "unified-96"
 	if _, err := usageevent.New(db).InsertBatch(ctx, []model.UsageEvent{event}); err != nil {
 		t.Fatalf("insert usage events: %v", err)
 	}
@@ -849,11 +850,15 @@ func TestUsageArchiveSchemaContractCoversAllUsageEventColumns(t *testing.T) {
 			t.Errorf("usage_events column %q (archive key %q) missing from archived payload", col, key)
 		}
 	}
-	for key, expected := range map[string]string{"system": "windows", "turn_id": "turn-archive-test", "turn_state_len": "4096"} {
+	for key, expected := range map[string]string{"system": "windows", "turn_id": "turn-archive-test", "turn_state_len": "4096", "oailb_node": "unified-96"} {
 		var value string
 		if err := json.Unmarshal(payload[key], &value); err != nil || value != expected {
 			t.Fatalf("archive metadata %s = %s, err=%v", key, payload[key], err)
 		}
+	}
+	imported, err := usage.ParseImportPayload(records[0].Payload)
+	if err != nil || len(imported.Events) != 1 || imported.Events[0].OailbNode != event.OailbNode {
+		t.Fatalf("archive/import node: %+v err=%v", imported, err)
 	}
 }
 

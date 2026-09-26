@@ -18,6 +18,7 @@ export type ParsedLogLine = {
   source?: string;
   requestId?: string;
   statusCode?: number;
+  oailbNode?: string;
   latency?: string;
   ip?: string;
   method?: HttpMethod;

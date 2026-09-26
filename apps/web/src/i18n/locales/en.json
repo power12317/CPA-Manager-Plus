@@ -3900,6 +3900,7 @@
     "session_id": "Session ID",
     "turn_id": "Turn ID",
     "turn_state_len": "Turn-state length",
+    "oailb_node": "oailb node",
     "parent_session_id": "Parent session ID",
     "generate": "Generate",
     "stream": "Stream",
@@ -4457,7 +4458,7 @@
     },
     "oailb_borrow": {
       "title": "oailb borrowing",
-      "description": "Select a source instance and an enabled Codex OAuth credential, then save separately to the current instance. Borrowing applies to HTTP requests and new WebSocket handshakes. Existing connections stay open; CPA falls back to its own cookies if no valid borrowed value is available.",
+      "description": "Select a source instance and an enabled Codex OAuth credential to borrow __oailb and __cflb, then save separately to the current instance. __cflb has no separate expiry check. Borrowing applies to HTTP requests and new WebSocket handshakes. Existing connections stay open; unavailable borrowed values fall back to the corresponding local cookies.",
       "none": "Do not borrow",
       "source": "Source instance",
       "credential": "Source credential",

@@ -2059,6 +2059,7 @@ export interface MonitoringAnalyticsEventRow {
   turn_id?: string;
   system?: string;
   turn_state_len?: string;
+  oailb_node?: string;
   response_model?: string;
   session_id?: string;
   parent_session_id?: string;

@@ -79,6 +79,7 @@ func TestManagerConsumesHTTPUsageQueue(t *testing.T) {
 				"model": "gpt-test",
 				"endpoint": "POST /v1/chat/completions",
 				"auth_index": "auth-1",
+				"oailb_node": "unified-96",
 				"input_tokens": 10,
 				"output_tokens": 5
 			}]`))
@@ -120,6 +121,9 @@ func TestManagerConsumesHTTPUsageQueue(t *testing.T) {
 	}
 	if events[0].AccountSnapshot != "alice@example.com" {
 		t.Fatalf("account snapshot = %q", events[0].AccountSnapshot)
+	}
+	if events[0].OailbNode != "unified-96" {
+		t.Fatalf("HTTP queue node lost: %q", events[0].OailbNode)
 	}
 	if events[0].AuthLabelSnapshot != "Alice" {
 		t.Fatalf("auth label snapshot = %q", events[0].AuthLabelSnapshot)

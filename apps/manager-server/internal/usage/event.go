@@ -32,6 +32,7 @@ type Event struct {
 	TurnID            string `json:"turn_id,omitempty"`
 	System            string `json:"system,omitempty"`
 	TurnStateLen      string `json:"turn_state_len,omitempty"`
+	OailbNode         string `json:"oailb_node,omitempty"`
 	ParentSessionID   string `json:"parent_session_id,omitempty"`
 	AccessTokenSHA256 string `json:"access_token_sha256,omitempty"`
 	Generate          *bool  `json:"generate,omitempty"`
@@ -164,6 +165,7 @@ type Detail struct {
 	TurnID                string                  `json:"turn_id,omitempty"`
 	System                string                  `json:"system,omitempty"`
 	TurnStateLen          string                  `json:"turn_state_len,omitempty"`
+	OailbNode             string                  `json:"oailb_node,omitempty"`
 	ParentSessionID       string                  `json:"parent_session_id,omitempty"`
 	AccessTokenSHA256     string                  `json:"access_token_sha256,omitempty"`
 	Generate              *bool                   `json:"generate,omitempty"`
@@ -656,6 +658,7 @@ func NormalizeRaw(raw []byte) (Event, error) {
 		TurnID:                        turnID,
 		System:                        system,
 		TurnStateLen:                  turnStateLen,
+		OailbNode:                     NormalizeOailbNode(readString(record, "oailb_node", "oailbNode")),
 		ParentSessionID:               parentSessionID,
 		AccessTokenSHA256:             accessTokenSHA256,
 		Generate:                      generate,
@@ -775,6 +778,7 @@ func BuildPayload(events []Event) Payload {
 			TurnID:                event.TurnID,
 			System:                event.System,
 			TurnStateLen:          event.TurnStateLen,
+			OailbNode:             NormalizeOailbNode(event.OailbNode),
 			ParentSessionID:       event.ParentSessionID,
 			AccessTokenSHA256:     event.AccessTokenSHA256,
 			Generate:              event.Generate,
@@ -1031,6 +1035,7 @@ func NormalizeRequestMetadata(event *Event) {
 	event.ClientIP = sanitizeRequestMetadata(event.ClientIP, maxClientIPBytes)
 	event.XForwardedFor = sanitizeRequestMetadata(event.XForwardedFor, maxXForwardedForBytes)
 	event.UserAgent = sanitizeRequestMetadata(event.UserAgent, maxUserAgentBytes)
+	event.OailbNode = NormalizeOailbNode(event.OailbNode)
 }
 
 func sanitizeRequestMetadata(value string, maxBytes int) string {

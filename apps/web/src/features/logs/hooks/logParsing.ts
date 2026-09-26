@@ -1,4 +1,5 @@
 import { HTTP_METHODS, type HttpMethod, type LogLevel, type ParsedLogLine } from './logTypes';
+import { normalizeOailbNode } from '@/utils/oailbNode';
 
 const HTTP_METHOD_REGEX = new RegExp(`\\b(${HTTP_METHODS.join('|')})\\b`);
 
@@ -100,6 +101,16 @@ const extractHttpMethodAndPath = (text: string): { method?: HttpMethod; path?: s
 
 export const parseLogLine = (raw: string): ParsedLogLine => {
   let remaining = raw.trim();
+  // Gin appends this to the method/path segment, which is consumed below.
+  // Extract it first so structured logs retain the node without duplicating it.
+  let oailbNode: string | undefined;
+  remaining = remaining.replace(
+    /(^|[\s|])oailb_node=([^\s|]*)/g,
+    (_match, boundary: string, value: string) => {
+      oailbNode = normalizeOailbNode(value) || undefined;
+      return boundary;
+    }
+  );
 
   let timestamp: string | undefined;
   const tsMatch = remaining.match(LOG_TIMESTAMP_REGEX);
@@ -265,6 +276,7 @@ export const parseLogLine = (raw: string): ParsedLogLine => {
     source,
     requestId,
     statusCode,
+    oailbNode,
     latency,
     ip,
     method,
@@ -272,4 +284,3 @@ export const parseLogLine = (raw: string): ParsedLogLine => {
     message,
   };
 };
-

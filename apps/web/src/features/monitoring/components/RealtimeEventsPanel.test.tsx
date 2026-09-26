@@ -90,6 +90,7 @@ const t = ((key: string, options?: Record<string, unknown>) => {
     'monitoring.request_id': 'Request ID (i18n)',
     'monitoring.turn_id': 'Turn ID (i18n)',
     'monitoring.turn_state_len': 'Turn-state length (i18n)',
+    'monitoring.oailb_node': 'oailb node (i18n)',
     'monitoring.parent_session_id': 'Parent session ID (i18n)',
     'monitoring.generate': 'Generate (i18n)',
     'monitoring.stream': 'Stream (i18n)',
@@ -207,6 +208,36 @@ const renderPanel = (row: PanelRow, overrides: PanelOverrides = {}) =>
   );
 
 describe('RealtimeEventsPanel', () => {
+  it.each([false, true])(
+    'shows the node on its own line in the status cell (failed=%s)',
+    (failed) => {
+      const markup = renderPanel(
+        baseRow({ failed, oailbNode: 'unified-96', turnStateLen: '292/312' })
+      );
+      const cell = markup.match(
+        /<td\b[^>]*>(?:(?!<\/td>)[\s\S])*unified-96(?:(?!<\/td>)[\s\S])*<\/td>/
+      )?.[0];
+      expect(cell).toBeDefined();
+      expect(cell).toContain(failed ? 'Failed' : 'Success');
+      expect(cell).toContain('292/312');
+      expect(cell).toContain('aria-label="oailb node (i18n): unified-96"');
+      expect(cell).toMatch(/<small[^>]*>unified-96<\/small>/);
+    }
+  );
+
+  it('does not add a node line for old CPA or invalid node metadata', () => {
+    for (const oailbNode of [
+      undefined,
+      '',
+      'chat.gateway.unified-96.api.openai.com',
+      'jwt.payload.signature',
+    ]) {
+      const markup = renderPanel(baseRow({ oailbNode }));
+      expect(markup).not.toContain('oailb node (i18n)');
+      if (oailbNode) expect(markup).not.toContain(oailbNode);
+    }
+  });
+
   const expectedDate = new Date(baseRow().timestampMs).toLocaleDateString('en-US', {
     year: 'numeric',
     month: '2-digit',

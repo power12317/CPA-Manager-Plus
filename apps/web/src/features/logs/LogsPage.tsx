@@ -871,6 +871,14 @@ export function LogsPage() {
                               </span>
                             )}
 
+                            {line.oailbNode && (
+                              <span
+                                className={styles.pill}
+                                title={`${t('monitoring.oailb_node')}: ${line.oailbNode}`}
+                              >
+                                {line.oailbNode}
+                              </span>
+                            )}
                             {line.latency && <span className={styles.pill}>{line.latency}</span>}
                             {line.ip && <span className={styles.pill}>{line.ip}</span>}
 

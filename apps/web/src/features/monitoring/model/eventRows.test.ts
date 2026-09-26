@@ -41,6 +41,18 @@ const buildRows = (
   );
 
 describe('buildEventRows', () => {
+  it('uses only the per-request node without changing request identity', () => {
+    const [legacy] = buildRows();
+    const [row] = buildRows({ oailb_node: 'UNIFIED-96' });
+    expect(row.oailbNode).toBe('unified-96');
+    expect(row.id).toBe(legacy.id);
+    expect(legacy.oailbNode).toBeUndefined();
+    expect(
+      buildRows({ oailb_node: 'chat.gateway.unified-96.api.openai.com' })[0].oailbNode
+    ).toBeUndefined();
+    expect(buildRows({ oailbNode: 'unified-42' })[0].oailbNode).toBe('unified-42');
+  });
+
   it('preserves persisted account identity fields before display enrichment', () => {
     const [row] = buildRows({
       account_snapshot: '',

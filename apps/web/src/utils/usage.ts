@@ -4,6 +4,7 @@ import { normalizeAuthIndex } from './authIndex';
 import { parseTimestampMs } from './timestamp';
 import { normalizeAnalyticsModel } from './analyticsModel';
 import { sha256Hex } from './apiKeyHash';
+import { normalizeOailbNode } from './oailbNode';
 
 export { normalizeAuthIndex };
 export { normalizeAnalyticsModel } from './analyticsModel';
@@ -234,6 +235,8 @@ export interface UsageDetail {
   system?: string;
   turn_state_len?: string;
   turnStateLen?: string;
+  oailb_node?: string;
+  oailbNode?: string;
   response_model?: string;
   responseModel?: string;
   session_id?: string;
@@ -977,6 +980,7 @@ export function collectUsageDetails(usageData: unknown): UsageDetail[] {
           analytics_model: analyticsModel,
           requested_model: requestedModel,
           resolved_model: readDetailString(detailRaw.resolved_model ?? detailRaw.resolvedModel),
+          oailb_node: normalizeOailbNode(detailRaw.oailb_node ?? detailRaw.oailbNode) || undefined,
           latency_ms: latencyMs ?? undefined,
           ttft_ms: ttftMs ?? undefined,
           request_service_tier: readDetailString(
@@ -1074,6 +1078,7 @@ export function collectUsageDetailsWithEndpoint(usageData: unknown): UsageDetail
         details.push({
           timestamp,
           source: normalizeSourceWithCache(sourceCache, detailRaw.source),
+          oailb_node: normalizeOailbNode(detailRaw.oailb_node ?? detailRaw.oailbNode) || undefined,
           auth_index: (detailRaw.auth_index ??
             detailRaw.authIndex ??
             detailRaw.AuthIndex ??

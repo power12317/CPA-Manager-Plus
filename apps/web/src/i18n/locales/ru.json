@@ -4216,6 +4216,8 @@
           "description": "Заголовки по умолчанию для OAuth-запросов Claude и Codex, когда клиент их не отправил",
           "claude_title": "Claude Header Defaults",
           "codex_title": "Codex Header Defaults",
+          "codex_fast_mode": "Быстрый режим",
+          "codex_fast_mode_desc": "auto: без переопределения; default: удалить service_tier; fast: задать priority; ultrafast: задать ultrafast. Для исходного Codex и Basispoints.",
           "user_agent": "User-Agent",
           "package_version": "Package Version",
           "runtime_version": "Runtime Version",

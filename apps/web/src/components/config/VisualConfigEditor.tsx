@@ -99,6 +99,11 @@ type ToggleRowProps = {
   onChange: (value: boolean) => void;
 };
 
+const CODEX_FAST_MODE_OPTIONS = ['auto', 'default', 'fast', 'ultrafast'].map((value) => ({
+  value,
+  label: value,
+}));
+
 function ToggleRow({ title, description, checked, disabled, onChange }: ToggleRowProps) {
   return (
     <div className={styles.toggleRow}>
@@ -1334,6 +1339,23 @@ export function VisualConfigEditor({
                         onChange={(e) => onChange({ codexHeaderBetaFeatures: e.target.value })}
                         disabled={disabled}
                       />
+                      <FieldShell
+                        label={t('config_management.visual.sections.headers.codex_fast_mode')}
+                        hint={t('config_management.visual.sections.headers.codex_fast_mode_desc')}
+                      >
+                        <Select
+                          value={values.codexFastMode}
+                          options={CODEX_FAST_MODE_OPTIONS}
+                          onChange={(value) =>
+                            onChange({
+                              codexFastMode: value as VisualConfigValues['codexFastMode'],
+                            })
+                          }
+                          disabled={disabled}
+                          ariaLabel={t('config_management.visual.sections.headers.codex_fast_mode')}
+                          fullWidth
+                        />
+                      </FieldShell>
                       <ToggleRow
                         title={t('config_management.visual.sections.headers.identity_confuse')}
                         description={t(

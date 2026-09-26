@@ -484,6 +484,7 @@ function getNextDirtyFields(
       'claudeHeaderStabilizeDeviceProfile',
       'codexHeaderUserAgent',
       'codexHeaderBetaFeatures',
+      'codexFastMode',
       'codexIdentityConfuse',
       'codexDeviceConvergence',
       'codexTicketEnabled',
@@ -810,6 +811,9 @@ export function useVisualConfig() {
       const streaming = asRecord(parsed.streaming);
       const claudeHeaderDefaults = asRecord(parsed['claude-header-defaults']);
       const codexHeaderDefaults = asRecord(parsed['codex-header-defaults']);
+      const codexFastMode = String(codexHeaderDefaults?.['fast-mode'] ?? 'auto')
+        .trim()
+        .toLowerCase();
       const codex = asRecord(parsed.codex);
       const codexTicket = asRecord(codex?.['turn-state-ticket']);
       const devin = asRecord(parsed.devin);
@@ -919,6 +923,10 @@ export function useVisualConfig() {
             ? codexHeaderDefaults['beta-features']
             : '',
         codexIdentityConfuse: Boolean(codex?.['identity-confuse'] ?? codex?.identityConfuse),
+        codexFastMode:
+          codexFastMode === 'default' || codexFastMode === 'fast' || codexFastMode === 'ultrafast'
+            ? codexFastMode
+            : 'auto',
         codexDeviceConvergence: codex?.['device-convergence'] !== false,
         codexTicketEnabled: codexTicket?.enabled === true,
         codexTicketFailClosed: codexTicket?.['fail-closed'] === true,
@@ -1273,7 +1281,9 @@ export function useVisualConfig() {
         }
 
         const codexHeadersDirty =
-          isDirty('codexHeaderUserAgent') || isDirty('codexHeaderBetaFeatures');
+          isDirty('codexHeaderUserAgent') ||
+          isDirty('codexHeaderBetaFeatures') ||
+          isDirty('codexFastMode');
         if (codexHeadersDirty) {
           ensureMapInDoc(doc, ['codex-header-defaults']);
           if (isDirty('codexHeaderUserAgent')) {
@@ -1289,6 +1299,9 @@ export function useVisualConfig() {
               ['codex-header-defaults', 'beta-features'],
               values.codexHeaderBetaFeatures
             );
+          }
+          if (isDirty('codexFastMode')) {
+            doc.setIn(['codex-header-defaults', 'fast-mode'], values.codexFastMode);
           }
           deleteIfMapEmpty(doc, ['codex-header-defaults']);
         }

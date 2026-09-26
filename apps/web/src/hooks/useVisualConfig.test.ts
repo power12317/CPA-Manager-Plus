@@ -43,6 +43,39 @@ const mountUseVisualConfig = (): UseVisualConfigHarness => {
 };
 
 describe('useVisualConfig', () => {
+  it('keeps the default fast mode implicit without modifying existing YAML', () => {
+    const harness = mountUseVisualConfig();
+    const yaml =
+      '# preserved\ncodex-header-defaults:\n  user-agent: test-agent\n  future-option: keep\n';
+    act(() => harness.getCurrent().loadVisualValuesFromYaml(yaml));
+    expect(harness.getCurrent().visualValues.codexFastMode).toBe('auto');
+    expect(harness.getCurrent().applyVisualChangesToYaml(yaml)).toBe(yaml);
+    harness.unmount();
+  });
+
+  it.each(['auto', 'default', 'fast', 'ultrafast'] as const)(
+    'round trips fast mode %s while preserving unrelated settings',
+    (mode) => {
+      const harness = mountUseVisualConfig();
+      const yaml =
+        'codex-header-defaults:\n  user-agent: test-agent\n  beta-features: test-beta\n  fast-mode: ultrafast\n  future-option: keep\ncodex:\n  basispoints: { enabled: true }\n';
+      act(() => harness.getCurrent().loadVisualValuesFromYaml(yaml));
+      act(() => harness.getCurrent().setVisualValues({ codexFastMode: mode }));
+      const saved = harness.getCurrent().applyVisualChangesToYaml(yaml);
+      expect(parseYaml(saved)).toEqual({
+        ...parseYaml(yaml),
+        'codex-header-defaults': {
+          ...parseYaml(yaml)['codex-header-defaults'],
+          'fast-mode': mode,
+        },
+      });
+      act(() => harness.getCurrent().loadVisualValuesFromYaml(saved));
+      expect(harness.getCurrent().visualValues.codexFastMode).toBe(mode);
+      expect(harness.getCurrent().applyVisualChangesToYaml(saved)).toBe(saved);
+      harness.unmount();
+    }
+  );
+
   it('preserves ticket probing and device settings while toggling Basispoints and WebSocket', () => {
     const harness = mountUseVisualConfig();
     const yaml = [

@@ -4235,6 +4235,8 @@
           "description": "Default headers for Claude and Codex OAuth requests when the client omits them",
           "claude_title": "Claude Header Defaults",
           "codex_title": "Codex Header Defaults",
+          "codex_fast_mode": "Fast mode",
+          "codex_fast_mode_desc": "auto: no override; default: remove service_tier; fast: force priority; ultrafast: force ultrafast. Applies to native Codex and Basispoints.",
           "user_agent": "User-Agent",
           "package_version": "Package Version",
           "runtime_version": "Runtime Version",

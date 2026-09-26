@@ -4230,6 +4230,8 @@
           "description": "Claude 与 Codex OAuth 请求在客户端缺少 Header 时使用的默认值",
           "claude_title": "Claude Header Defaults",
           "codex_title": "Codex Header Defaults",
+          "codex_fast_mode": "快速模式",
+          "codex_fast_mode_desc": "auto：不覆盖；default：删除 service_tier；fast：强制 priority；ultrafast：强制 ultrafast。原生 Codex 与 Basispoints 均生效。",
           "user_agent": "User-Agent",
           "package_version": "Package Version",
           "runtime_version": "Runtime Version",

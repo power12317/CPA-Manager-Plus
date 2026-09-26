@@ -182,6 +182,7 @@ export type VisualConfigValues = {
   claudeHeaderStabilizeDeviceProfile: boolean;
   codexHeaderUserAgent: string;
   codexHeaderBetaFeatures: string;
+  codexFastMode: 'auto' | 'default' | 'fast' | 'ultrafast';
   codexIdentityConfuse: boolean;
   codexDeviceConvergence: boolean;
   codexTicketEnabled: boolean;
@@ -269,6 +270,7 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   claudeHeaderStabilizeDeviceProfile: false,
   codexHeaderUserAgent: '',
   codexHeaderBetaFeatures: '',
+  codexFastMode: 'auto',
   codexIdentityConfuse: false,
   codexDeviceConvergence: true,
   codexTicketEnabled: false,

@@ -72,6 +72,7 @@ type VisualSection = {
 
 interface VisualConfigEditorProps {
   codexTicketSettings?: ReactNode;
+  codexOailbBorrowSettings?: ReactNode;
   values: VisualConfigValues;
   validationErrors?: VisualConfigValidationErrors;
   hasPayloadValidationErrors?: boolean;
@@ -189,6 +190,7 @@ function FieldShell({
 
 export function VisualConfigEditor({
   codexTicketSettings,
+  codexOailbBorrowSettings,
   values,
   validationErrors,
   hasPayloadValidationErrors = false,
@@ -1375,6 +1377,7 @@ export function VisualConfigEditor({
                         onChange={(codexDeviceConvergence) => onChange({ codexDeviceConvergence })}
                       />
                     </SectionGrid>
+                    {codexOailbBorrowSettings}
                   </SectionSubsection>
                 </SectionStack>
               </SectionSubsection>

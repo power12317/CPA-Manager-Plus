@@ -125,6 +125,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			response.MethodNotAllowed(w)
 			return
 		}
+		if parts[1] == "oailb-borrow" || parts[1] == "oailb-borrow/credentials" {
+			h.oailbBorrow(w, r, parts[0], parts[1])
+			return
+		}
 		rt, err := h.Service.Runtime(parts[0])
 		if err != nil {
 			status := 503

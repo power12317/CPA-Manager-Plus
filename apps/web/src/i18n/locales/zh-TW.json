@@ -4431,6 +4431,31 @@
         "update": "更新",
         "add": "新增"
       }
+    },
+    "oailb_borrow": {
+      "title": "oailb 借用",
+      "description": "選擇來源執行個體及其啟用的 Codex OAuth 憑證，獨立儲存至目前執行個體。借用在 HTTP 請求或新的 WebSocket 交握時生效，既有連線保持；無法取得有效值時回退自身 Cookie。",
+      "none": "不借用",
+      "source": "來源執行個體",
+      "credential": "來源憑證",
+      "choose_credential": "請選擇憑證檔案",
+      "no_credentials": "此執行個體沒有可用的 Codex OAuth 憑證。",
+      "missing_source": "{{name}}（目前無法選擇）",
+      "save": "儲存借用設定",
+      "saved": "借用設定已儲存至目前執行個體。",
+      "unsupported": "目前 CPA 版本不支援 oailb 借用。",
+      "manager_required": "透過 CPAMP 的執行個體設定選擇借用來源。既有借用設定會保留。",
+      "instance_required": "開啟單個執行個體的設定後可選擇借用來源。",
+      "source_dirty": "原始碼有尚未儲存的修改，請先儲存或還原，再儲存借用設定。",
+      "oailb_borrow_unsupported": "目前 CPA 版本不支援 oailb 借用。",
+      "oailb_borrow_source_unsupported": "來源 CPA 不支援出借，請選擇支援此功能的執行個體。",
+      "oailb_borrow_selection": "請選擇其他已啟用的執行個體及其 Codex OAuth 憑證。",
+      "oailb_borrow_credential": "選擇的憑證已停用、刪除或不再是 Codex OAuth 憑證，請重新整理後選擇。",
+      "oailb_borrow_unavailable": "暫時無法確認借用設定，請重新整理後重試。",
+      "oailb_borrow_source_unavailable": "暫時無法讀取來源執行個體，請重試或選擇其他來源。",
+      "oailb_borrow_target_unavailable": "目前執行個體已停用或不存在，請重新選擇。",
+      "saved_source": "已儲存的來源",
+      "saved_credential": "已儲存的憑證"
     }
   },
   "usage_service_errors": {

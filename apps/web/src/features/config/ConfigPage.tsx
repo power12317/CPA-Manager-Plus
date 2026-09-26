@@ -24,6 +24,7 @@ import {
   IconSearch,
 } from '@/components/ui/icons';
 import { VisualConfigEditor } from '@/components/config/VisualConfigEditor';
+import { CodexOailbBorrowSettings } from './components/CodexOailbBorrowSettings';
 import { CodexTurnStateSettingsCard } from '@/features/codexTurnState/CodexTurnStateSettingsCard';
 import type { ApiKeyMutation } from '@/components/config/ApiKeysCardEditor';
 import { DiffModal } from '@/components/config/DiffModal';
@@ -1769,6 +1770,27 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
                 onRefreshApiKeys={refreshApiKeys}
                 onApiKeyOperationStart={beginApiKeyOperation}
                 onApiKeyOperationEnd={endApiKeyOperation}
+                codexOailbBorrowSettings={
+                  <CodexOailbBorrowSettings
+                    scope={configRequestScope}
+                    managerMode={managerSession}
+                    sourceDirty={dirty}
+                    disabled={
+                      disableControls ||
+                      loading ||
+                      saving ||
+                      managerSaving ||
+                      diffModalOpen ||
+                      apiKeyMutationInFlight
+                    }
+                    onOperationStart={() => {
+                      beginApiKeyOperation();
+                      updateSourceSnapshotStale(true);
+                    }}
+                    onOperationEnd={endApiKeyOperation}
+                    onSaved={refreshCleanSourceSnapshot}
+                  />
+                }
                 codexTicketSettings={
                   <CodexTurnStateSettingsCard
                     values={visualValues}

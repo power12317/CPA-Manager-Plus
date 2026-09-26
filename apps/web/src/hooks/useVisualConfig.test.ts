@@ -43,6 +43,21 @@ const mountUseVisualConfig = (): UseVisualConfigHarness => {
 };
 
 describe('useVisualConfig', () => {
+  it('preserves CPA-encrypted oailb settings and comments through unrelated Header Defaults edits', () => {
+    const harness = mountUseVisualConfig();
+    const yaml =
+      '# keep the source configuration\ncodex-header-defaults:\n  user-agent: old\n  oailb-borrow:\n    source-instance-id: source\n    source-url: https://source.example/prefix\n    source-management-key: enc:v1:nonce:ciphertext\n    source-auth-id: stable-id\n    source-auth-file: codex-windows.json\n';
+    act(() => harness.getCurrent().loadVisualValuesFromYaml(yaml));
+    expect(harness.getCurrent().applyVisualChangesToYaml(yaml)).toBe(yaml);
+    act(() => harness.getCurrent().setVisualValues({ codexHeaderUserAgent: 'new' }));
+    const saved = harness.getCurrent().applyVisualChangesToYaml(yaml);
+    expect(saved).toContain('# keep the source configuration');
+    expect(parseYaml(saved)['codex-header-defaults']['oailb-borrow']).toEqual(
+      parseYaml(yaml)['codex-header-defaults']['oailb-borrow']
+    );
+    expect(parseYaml(saved)['codex-header-defaults']['user-agent']).toBe('new');
+    harness.unmount();
+  });
   it('keeps the default fast mode implicit without modifying existing YAML', () => {
     const harness = mountUseVisualConfig();
     const yaml =

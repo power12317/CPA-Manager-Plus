@@ -32,6 +32,11 @@ const mocks = vi.hoisted(() => ({
   reloadPage: vi.fn(),
   capturedApiKeyOperationStart: null as (() => void) | null,
   capturedApiKeyOperationEnd: null as (() => void) | null,
+  capturedBorrow: null as null | {
+    onOperationStart: () => void;
+    onOperationEnd: () => void;
+    onSaved: () => Promise<unknown>;
+  },
   translate: (key: string) => key,
   visualState: {
     apiKeysText: 'sk-old',
@@ -58,11 +63,14 @@ vi.mock('@/components/config/VisualConfigEditor', () => ({
     onPersistApiKeyMutation,
     onApiKeyOperationStart,
     onApiKeyOperationEnd,
+    codexOailbBorrowSettings,
   }: {
     onPersistApiKeyMutation: (mutation: ApiKeyMutation) => Promise<string[]>;
     onApiKeyOperationStart: () => void;
     onApiKeyOperationEnd: () => void;
+    codexOailbBorrowSettings?: { props: NonNullable<typeof mocks.capturedBorrow> };
   }) => {
+    mocks.capturedBorrow = codexOailbBorrowSettings?.props ?? null;
     mocks.capturedApiKeyOperationStart = onApiKeyOperationStart;
     mocks.capturedApiKeyOperationEnd = onApiKeyOperationEnd;
     const runMutation = async (mutation: ApiKeyMutation) => {
@@ -422,6 +430,7 @@ beforeEach(() => {
   mocks.saveManagerConfig.mockResolvedValue(MANAGER_CONFIG_RESPONSE);
   mocks.capturedApiKeyOperationStart = null;
   mocks.capturedApiKeyOperationEnd = null;
+  mocks.capturedBorrow = null;
   mocks.loadVisualValuesFromYaml.mockReturnValue({ ok: true });
   mocks.applyVisualChangesToYaml.mockImplementation((yaml: string) => yaml);
   mocks.commitApiKeysText.mockImplementation((apiKeysText: string) => {
@@ -462,6 +471,46 @@ afterEach(() => {
 });
 
 describe('ConfigPage YAML instance isolation', () => {
+  it('refreshes the CPA ciphertext after borrowing changes without resetting other visual edits', async () => {
+    await mountPage();
+    const settings = mocks.capturedBorrow!;
+    const initialLoads = mocks.loadVisualValuesFromYaml.mock.calls.length;
+    const refreshed =
+      'codex-header-defaults:\n  oailb-borrow:\n    source-management-key: enc:v1:nonce:ciphertext\n';
+    mocks.fetchConfigYaml.mockResolvedValue(refreshed);
+    mocks.visualState.dirty = true;
+    await act(async () => {
+      settings.onOperationStart();
+    });
+    const readsBeforeSave = mocks.fetchConfigYaml.mock.calls.length;
+    await clickSave();
+    expect(mocks.fetchConfigYaml).toHaveBeenCalledTimes(readsBeforeSave);
+    await act(async () => {
+      await settings.onSaved();
+      settings.onOperationEnd();
+    });
+    expect(mocks.loadVisualValuesFromYaml).toHaveBeenCalledTimes(initialLoads);
+    expect(mocks.visualState.dirty).toBe(true);
+    await clickTab('source');
+    expect(renderer?.root.findByProps({ 'data-test': 'source-editor' }).props.value).toBe(
+      refreshed
+    );
+    expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
+  });
+
+  it('blocks a stale YAML snapshot after borrowing is saved but readback fails', async () => {
+    await mountPage();
+    const settings = mocks.capturedBorrow!;
+    mocks.fetchConfigYaml.mockRejectedValue(new Error('readback failed'));
+    await act(async () => {
+      settings.onOperationStart();
+      await settings.onSaved();
+      settings.onOperationEnd();
+    });
+    await clickTab('source');
+    expect(renderer?.root.findAllByProps({ 'data-test': 'source-editor' })).toHaveLength(0);
+    expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
+  });
   it('pins save preflight, PUT and readback to the original CPA during an instance switch', async () => {
     const originalScope = { apiBase: mocks.apiBase, managementKey: 'management-key' };
     const originalYaml = 'codex:\n  identity-confuse: true\n';

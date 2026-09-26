@@ -4449,6 +4449,31 @@
         "update": "更新",
         "add": "添加"
       }
+    },
+    "oailb_borrow": {
+      "title": "oailb 借用",
+      "description": "选择来源实例及其启用的 Codex OAuth 凭据，单独保存至当前实例。借用在 HTTP 请求或新 WebSocket 握手时生效，已有连接保持；获取不到有效值时回退自身 Cookie。",
+      "none": "不借用",
+      "source": "来源实例",
+      "credential": "来源凭据",
+      "choose_credential": "请选择凭据文件",
+      "no_credentials": "该实例没有可用的 Codex OAuth 凭据。",
+      "missing_source": "{{name}}（当前不可选）",
+      "save": "保存借用设置",
+      "saved": "借用设置已保存至当前实例。",
+      "unsupported": "当前 CPA 版本不支持 oailb 借用。",
+      "manager_required": "通过 CPAMP 的实例配置选择借用来源。当前配置中的借用设置会保留。",
+      "instance_required": "进入单个实例的配置后可设置借用来源。",
+      "source_dirty": "源码中有未保存的修改，请先保存或还原，再保存借用设置。",
+      "oailb_borrow_unsupported": "当前 CPA 版本不支持 oailb 借用。",
+      "oailb_borrow_source_unsupported": "来源 CPA 不支持出借，请选择支持此功能的实例。",
+      "oailb_borrow_selection": "请选择其他已启用实例及其 Codex OAuth 凭据。",
+      "oailb_borrow_credential": "选中的凭据已被禁用、删除或不再是 Codex OAuth 凭据，请刷新后重新选择。",
+      "oailb_borrow_unavailable": "暂时无法确认借用设置，请刷新后重试。",
+      "oailb_borrow_source_unavailable": "暂时无法读取来源实例，请重试或选择其他来源。",
+      "oailb_borrow_target_unavailable": "当前实例已停用或不存在，请重新选择实例。",
+      "saved_source": "已保存的来源",
+      "saved_credential": "已保存的凭据"
     }
   },
   "usage_service_errors": {

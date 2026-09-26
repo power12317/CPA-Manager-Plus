@@ -4454,6 +4454,31 @@
         "update": "Update",
         "add": "Add"
       }
+    },
+    "oailb_borrow": {
+      "title": "oailb borrowing",
+      "description": "Select a source instance and an enabled Codex OAuth credential, then save separately to the current instance. Borrowing applies to HTTP requests and new WebSocket handshakes. Existing connections stay open; CPA falls back to its own cookies if no valid borrowed value is available.",
+      "none": "Do not borrow",
+      "source": "Source instance",
+      "credential": "Source credential",
+      "choose_credential": "Select a credential file",
+      "no_credentials": "This instance has no eligible Codex OAuth credentials.",
+      "missing_source": "{{name}} (not selectable)",
+      "save": "Save borrowing settings",
+      "saved": "Borrowing settings saved to the current instance.",
+      "unsupported": "This CPA version does not support oailb borrowing.",
+      "manager_required": "Choose a borrowing source through CPAMP instance settings. Existing borrowing configuration is preserved.",
+      "instance_required": "Open an individual instance configuration to choose a borrowing source.",
+      "source_dirty": "Save or discard your unsaved YAML edits before saving borrowing settings.",
+      "oailb_borrow_unsupported": "This CPA version does not support oailb borrowing.",
+      "oailb_borrow_source_unsupported": "The source CPA does not support lending. Choose a supported instance.",
+      "oailb_borrow_selection": "Select another enabled instance and one of its Codex OAuth credentials.",
+      "oailb_borrow_credential": "The selected credential is disabled, deleted, or no longer a Codex OAuth credential. Refresh and select again.",
+      "oailb_borrow_unavailable": "Borrowing settings could not be confirmed. Refresh and try again.",
+      "oailb_borrow_source_unavailable": "The source instance could not be read. Retry or choose another source.",
+      "oailb_borrow_target_unavailable": "The current instance is disabled or no longer exists. Select an instance again.",
+      "saved_source": "Saved source",
+      "saved_credential": "Saved credential"
     }
   },
   "usage_service_errors": {

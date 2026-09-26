@@ -149,3 +149,20 @@ CPA 现有 usage/request 记录增加可选字段 `oailb_node`，例如 `"unifie
 ```json
 {"request_id":"...","model":"gpt-6-astra","response_model":"gpt-6-astra","turn_state_len":"292/0","oailb_node":"unified-96"}
 ```
+
+## CPAMP 实验分支 Docker 镜像
+
+推送 `codex/oailb-borrow` 分支会自动运行 `Publish oailb borrowing branch image`，使用仓库当前提交的前端和 Manager Server 源码，构建 Linux amd64/arm64 镜像。无需推送 Git tag。
+
+- 独立实验镜像：`ghcr.io/power12317/cpa-manager-plus-oailb-borrow:latest`。
+- 固定提交镜像：`ghcr.io/power12317/cpa-manager-plus-oailb-borrow:sha-<完整提交 SHA>`。
+- 此工作流所有标签都属于独立的 `cpa-manager-plus-oailb-borrow` 镜像，不发布到正式镜像 `ghcr.io/power12317/cpa-manager-plus`。正式镜像的 `latest` 仍由 `main` 的原工作流管理。
+- 手动执行也仅允许本 fork 的 `codex/oailb-borrow` 分支。
+
+已有 Docker Compose 部署测试版时，将服务的 `image` 改为独立实验镜像，保留现有端口、数据卷与配置：
+
+```yaml
+image: ghcr.io/power12317/cpa-manager-plus-oailb-borrow:latest
+```
+
+首次发布的新 GHCR 包如为私有，需要在 GitHub Packages 中将该独立包设为 Public，才能匿名拉取。

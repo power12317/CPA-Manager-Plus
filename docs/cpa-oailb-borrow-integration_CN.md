@@ -139,7 +139,9 @@ CPA 现有 usage/request 记录增加可选字段 `oailb_node`，例如 `"unifie
 - 从响应 `Set-Cookie` 的 `__oailb` JWT 中提取 `host`，响应没有该 Cookie 时使用实际发送的请求 Cookie。响应明确携带 Cookie 但无法解析有效节点时留空。
 - `chat.gateway.unified-96.api.openai.com` 只记录 `unified-96`；节点仅接受 1～63 位 DNS 单标签，小写字母、数字和内部连字符，不保存完整 JWT 或完整域名。
 - HTTP 使用最终合成后的实际 Cookie，包含借用覆盖结果；失败响应遵循相同优先级。WebSocket 在握手时保存短节点名，后续复用连接及双工请求沿用该连接节点，不读取最新 Jar 或借用缓存推测节点，不因 Cookie 变化重连。
-- 正常 Gin 请求日志在同一行追加 `oailb_node=unified-96`，不额外产生日志行；CPAMP 日志页提取该字段，在结构化日志中展示节点，保留原始日志和原有筛选行为。
+- 正常 Codex Gin 请求日志将节点放在耗时后的独立列，未知节点为 `-`：`200 | 12.884s | unified-96 | gpt-6-sol/gpt-6-sol | 780/780 | 172.25.0.1 | POST "/v1/responses"`。耗时不再固定宽度补空格，IP/方法格式沿用原样。
+- CPAMP 日志页按完整列布局提取节点，兼容上一版尾部 `oailb_node=unified-96` 以及更早的无节点日志；不将模型对、turn-state、IP 误作节点。请求 ID 后的 `[凭据文件] [session8] [turn8]` 保留在可见消息中，日志来源和状态码独立解析。原始日志、复制和筛选保留，响应模型为空时不由 CPAMP 补造。
+- 响应模型由 CPA 使用上游实际返回值，后续 turn-state 或请求结束更新不得将它清空；每次新的上游尝试重新确定响应模型，避免沿用前一次尝试的值。结构化记录仍使用原来的 `response_model` 和 `oailb_node` 字段。
 - CPAMP 在原有 `usage_events` 表增加可空 `oailb_node TEXT` 字段，沿用有界 schema 初始化；无扫描、回填、新索引、重建或历史清理。旧记录保留 NULL，缺失时不显示节点行。
 - 采集、导入、普通/投影监控查询、兼容用量接口、JSONL 与内部归档贯通同一字段。节点不参与请求去重键或用量汇总分组，实例归属仍沿用原有隔离规则。
 - 请求监控在状态单元格增加一行节点名，长名称省略展示、悬停显示完整短节点名。CPA 内置面板用量和完整 Manager 模式均支持，四种语言文案同步。

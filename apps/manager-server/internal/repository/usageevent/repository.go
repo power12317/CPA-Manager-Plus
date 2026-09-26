@@ -426,8 +426,8 @@ func (r *repository) InsertBatch(ctx context.Context, events []model.UsageEvent)
 		response_metadata_json, header_quota_recover_at_ms, header_quota_used_percent, header_quota_plan_type, header_error_kind, header_error_code, header_trace_id,
 		fail_body, raw_json,
 		response_model, session_id, parent_session_id, access_token_sha256, generate, stream,
-		created_at_ms
-		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+		oailb_node, created_at_ms
+		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return model.InsertResult{}, err
 	}
@@ -521,6 +521,7 @@ func (r *repository) InsertBatch(ctx context.Context, events []model.UsageEvent)
 			nullString(ev.AccessTokenSHA256),
 			nullBool(ev.Generate),
 			nullBool(ev.Stream),
+			nullString(ev.OailbNode),
 			ev.CreatedAtMS,
 		)
 		if err != nil {
@@ -582,7 +583,7 @@ func (r *repository) ListRecent(ctx context.Context, limit int) ([]model.UsageEv
 		coalesce(response_metadata_json, ''), header_quota_recover_at_ms, header_quota_used_percent, coalesce(header_quota_plan_type, ''), coalesce(header_error_kind, ''), coalesce(header_error_code, ''), coalesce(header_trace_id, ''),
 		coalesce(response_model, ''), coalesce(session_id, ''), coalesce(parent_session_id, ''), coalesce(access_token_sha256, ''),
 		generate, stream,
-		coalesce(raw_json, ''), created_at_ms
+		coalesce(raw_json, ''), coalesce(oailb_node, ''), created_at_ms
 		from usage_events
 		order by timestamp_ms desc, id desc
 		limit ?`, limit)
@@ -672,6 +673,7 @@ func (r *repository) ListRecent(ctx context.Context, limit int) ([]model.UsageEv
 			&generateVal,
 			&streamVal,
 			&rawJSON,
+			&event.OailbNode,
 			&event.CreatedAtMS,
 		); err != nil {
 			return nil, err

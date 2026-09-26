@@ -1,4 +1,5 @@
 import { HTTP_METHODS, type HttpMethod, type LogLevel, type ParsedLogLine } from './logTypes';
+import { normalizeOailbNode } from '@/utils/oailbNode';
 
 const HTTP_METHOD_REGEX = new RegExp(`\\b(${HTTP_METHODS.join('|')})\\b`);
 
@@ -10,6 +11,8 @@ const LOG_LATENCY_REGEX =
 const LOG_IPV4_REGEX = /\b(?:\d{1,3}\.){3}\d{1,3}\b/;
 const LOG_IPV6_REGEX = /\b(?:[a-f0-9]{0,4}:){2,7}[a-f0-9]{0,4}\b/i;
 const LOG_REQUEST_ID_REGEX = /^([a-f0-9]{8}|--------)$/i;
+const LOG_CODEX_CONTEXT_REGEX =
+  /^(\[[^\]]*\]\s*\[[^\]]*\]\s*\[[^\]]*\])\s*(?=\[(?:trace|debug|info|warn|warning|error|fatal)\s*\])/i;
 const LOG_TIME_OF_DAY_REGEX = /^\d{1,2}:\d{2}:\d{2}(?:\.\d{1,3})?$/;
 const GIN_TIMESTAMP_SEGMENT_REGEX =
   /^\[GIN\]\s+(\d{4})\/(\d{2})\/(\d{2})\s*-\s*(\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?)\s*$/;
@@ -98,8 +101,73 @@ const extractHttpMethodAndPath = (text: string): { method?: HttpMethod; path?: s
   return { method, path };
 };
 
+const GIN_DURATION_REGEX = /^(?:\d+(?:\.\d+)?\s*(?:ns|µs|μs|us|ms|s|m|h)\s*)+$/i;
+const GIN_METHOD_PATH_REGEX = new RegExp(
+  `^(${HTTP_METHODS.join('|')})\\s+("(?:[^"\\\\]|\\\\.)*"|\\S+)(?:\\s+(.*))?$`
+);
+
+// Match complete access-log layouts before generic field inference. A valid
+// node can look like an 8-digit request ID, a duration or a three-digit status.
+// Models, turn-state lengths and IPs must never be guessed to be node names.
+const parseGinColumns = (
+  text: string,
+  legacyNode?: string
+):
+  | Pick<
+      ParsedLogLine,
+      'statusCode' | 'latency' | 'oailbNode' | 'ip' | 'method' | 'path' | 'message'
+    >
+  | undefined => {
+  const columns = text.split('|').map((column) => column.trim());
+  if (!/^[1-5]\d{2}$/.test(columns[0]) || !GIN_DURATION_REGEX.test(columns[1] ?? ''))
+    return undefined;
+
+  const methodIndex = columns.findIndex((column) => GIN_METHOD_PATH_REGEX.test(column));
+  if (methodIndex < 3 || methodIndex > 6) return undefined;
+  const ipColumn = columns[methodIndex - 1];
+  const ip = extractIp(ipColumn);
+  if (ip !== ipColumn && ipColumn !== '-') return undefined;
+
+  // Old basic / Codex: 4 / 6 columns; node-column basic / Codex: 5 / 7.
+  const hasNodeColumn = methodIndex === 4 || methodIndex === 6;
+  const columnNode = hasNodeColumn ? normalizeOailbNode(columns[2]) : '';
+  if (hasNodeColumn && !columnNode && columns[2] !== '-') return undefined;
+  const hasCodexColumns = methodIndex >= 5;
+  const modelIndex = hasNodeColumn ? 3 : 2;
+  if (
+    hasCodexColumns &&
+    (!columns[modelIndex].includes('/') || !/^\d+\/\d+$/.test(columns[modelIndex + 1]))
+  )
+    return undefined;
+
+  const request = columns[methodIndex].match(GIN_METHOD_PATH_REGEX)!;
+  const messageParts = hasCodexColumns ? [columns[modelIndex], columns[modelIndex + 1]] : [];
+  if (request[3]) messageParts.push(request[3]);
+  messageParts.push(...columns.slice(methodIndex + 1).filter(Boolean));
+
+  return {
+    statusCode: Number(columns[0]),
+    latency: columns[1].replace(/\s+/g, ''),
+    oailbNode: hasNodeColumn ? columnNode || undefined : legacyNode,
+    ip,
+    method: request[1] as HttpMethod,
+    path: request[2],
+    message: messageParts.join(' | '),
+  };
+};
+
 export const parseLogLine = (raw: string): ParsedLogLine => {
   let remaining = raw.trim();
+  // Older CPA versions append the node to the method/path segment.
+  // Extract it first so those records remain compatible with column-based logs.
+  let oailbNode: string | undefined;
+  remaining = remaining.replace(
+    /(^|[\s|])oailb_node=([^\s|]*)/g,
+    (_match, boundary: string, value: string) => {
+      oailbNode = normalizeOailbNode(value) || undefined;
+      return boundary;
+    }
+  );
 
   let timestamp: string | undefined;
   const tsMatch = remaining.match(LOG_TIMESTAMP_REGEX);
@@ -118,6 +186,12 @@ export const parseLogLine = (raw: string): ParsedLogLine => {
     remaining = remaining.slice(requestIdMatch[0].length).trim();
   }
 
+  // These are context tags, not the source file or additional request IDs.
+  // Preserve them in the visible message while parsing the actual level/source.
+  const contextMatch = remaining.match(LOG_CODEX_CONTEXT_REGEX);
+  const contextMessage = contextMatch?.[1] ?? '';
+  if (contextMatch) remaining = remaining.slice(contextMatch[0].length).trim();
+
   let level: LogLevel | undefined;
   const lvlMatch = remaining.match(LOG_LEVEL_REGEX);
   if (lvlMatch) {
@@ -130,6 +204,19 @@ export const parseLogLine = (raw: string): ParsedLogLine => {
   if (sourceMatch) {
     source = sourceMatch[1];
     remaining = remaining.slice(sourceMatch[0].length).trim();
+  }
+
+  const gin = parseGinColumns(remaining, oailbNode);
+  if (gin) {
+    return {
+      raw,
+      timestamp,
+      requestId,
+      level: level ?? inferLogLevel(raw),
+      source,
+      ...gin,
+      message: [contextMessage, gin.message].filter(Boolean).join(' | '),
+    };
   }
 
   let statusCode: number | undefined;
@@ -265,11 +352,11 @@ export const parseLogLine = (raw: string): ParsedLogLine => {
     source,
     requestId,
     statusCode,
+    oailbNode,
     latency,
     ip,
     method,
     path,
-    message,
+    message: [contextMessage, message].filter(Boolean).join(' | '),
   };
 };
-

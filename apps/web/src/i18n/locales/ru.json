@@ -3890,6 +3890,7 @@
     "session_id": "ID сессии",
     "turn_id": "ID turn",
     "turn_state_len": "Длина turn-state",
+    "oailb_node": "Узел oailb",
     "parent_session_id": "ID родительской сессии",
     "generate": "Запрос на генерацию",
     "stream": "Потоковый запрос",

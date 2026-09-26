@@ -3895,6 +3895,7 @@
     "session_id": "会话 ID",
     "turn_id": "Turn ID",
     "turn_state_len": "Turn 状态长度",
+    "oailb_node": "oailb 节点",
     "parent_session_id": "父会话 ID",
     "generate": "生成请求",
     "stream": "流式请求",

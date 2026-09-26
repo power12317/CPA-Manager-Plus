@@ -416,6 +416,7 @@ type EventPageItem struct {
 	TurnID                 string
 	System                 string
 	TurnStateLen           string
+	OailbNode              string
 	ResponseModel          string
 	SessionID              string
 	ParentSessionID        string
@@ -2674,6 +2675,7 @@ func (r *repository) EventsPageWithFilter(ctx context.Context, filter AnalyticsF
 		coalesce(turn_id, ''),
 		coalesce(system, ''),
 		coalesce(turn_state_len, ''),
+		coalesce(oailb_node, ''),
 	coalesce(endpoint, ''),
 	coalesce(method, ''),
 	coalesce(path, ''),
@@ -2746,6 +2748,7 @@ limit ?`, args...)
 			&turnID,
 			&system,
 			&turnStateLen,
+			&item.OailbNode,
 			&item.Endpoint,
 			&item.Method,
 			&item.Path,

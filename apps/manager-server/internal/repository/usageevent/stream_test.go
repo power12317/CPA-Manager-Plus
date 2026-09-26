@@ -1035,6 +1035,7 @@ func TestWriteExportJSONLAndCompatibleUsagePreserveRequestMetadata(t *testing.T)
 	event.TurnID = "turn-export-1"
 	event.System = "mac"
 	event.TurnStateLen = "292/312"
+	event.OailbNode = "unified-96"
 	event.ParentSessionID = "parent-export-1"
 	event.AccessTokenSHA256 = "sha256-export-hash"
 	event.Generate = &genFalse
@@ -1058,6 +1059,9 @@ func TestWriteExportJSONLAndCompatibleUsagePreserveRequestMetadata(t *testing.T)
 		t.Fatalf("unexpected import result: format=%q, count=%d", importResult.Format, len(importResult.Events))
 	}
 	exported := importResult.Events[0]
+	if exported.OailbNode != event.OailbNode {
+		t.Fatalf("export/import node = %q, want %q", exported.OailbNode, event.OailbNode)
+	}
 	if exported.ResponseModel != event.ResponseModel {
 		t.Fatalf("ResponseModel mismatch: got %q, want %q", exported.ResponseModel, event.ResponseModel)
 	}
@@ -1100,6 +1104,9 @@ func TestWriteExportJSONLAndCompatibleUsagePreserveRequestMetadata(t *testing.T)
 		t.Fatalf("compatible details count = %d", len(details))
 	}
 	compDetail := details[0]
+	if compDetail.OailbNode != event.OailbNode {
+		t.Fatalf("compatible node = %q, want %q", compDetail.OailbNode, event.OailbNode)
+	}
 	if compDetail.ResponseModel != event.ResponseModel ||
 		compDetail.SessionID != event.SessionID ||
 		compDetail.TurnID != event.TurnID ||

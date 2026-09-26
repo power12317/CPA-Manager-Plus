@@ -3886,6 +3886,7 @@
     "session_id": "會話 ID",
     "turn_id": "Turn ID",
     "turn_state_len": "Turn 狀態長度",
+    "oailb_node": "oailb 節點",
     "parent_session_id": "父會話 ID",
     "generate": "生成請求",
     "stream": "串流請求",

@@ -28,6 +28,7 @@ import { copyToClipboard } from '@/utils/clipboard';
 import { downloadBlob } from '@/utils/download';
 import { maskSensitiveText, truncateText } from '@/utils/format';
 import { getErrorMessage } from '@/utils/helpers';
+import { normalizeOailbNode } from '@/utils/oailbNode';
 import { getPlanLabel, getPlanPresentation, type PlanDisplayMode } from '@/utils/plans';
 import { formatCompactNumber, formatUsd } from '@/utils/usage';
 import styles from '../MonitoringCenterPage.module.scss';
@@ -1163,6 +1164,7 @@ export function RealtimeEventsPanel({
                     : responseServiceTier;
               const system = formatReadableText(row.system);
               const turnStateLen = formatReadableText(row.turnStateLen);
+              const oailbNode = normalizeOailbNode(row.oailbNode);
               const requestId = formatReadableText(row.requestId);
               const requestDiagnosticDetails = buildRequestDiagnosticDetails(row, t, locale);
               const requestDiagnosticTooltipId = requestDiagnosticDetails
@@ -1311,6 +1313,15 @@ export function RealtimeEventsPanel({
                           title={`${t('monitoring.turn_state_len')}: ${turnStateLen}`}
                         >
                           {turnStateLen}
+                        </small>
+                      ) : null}
+                      {oailbNode ? (
+                        <small
+                          className={styles.realtimeOailbNode}
+                          title={`${t('monitoring.oailb_node')}: ${oailbNode}`}
+                          aria-label={`${t('monitoring.oailb_node')}: ${oailbNode}`}
+                        >
+                          {oailbNode}
                         </small>
                       ) : null}
                     </div>

@@ -1628,12 +1628,19 @@
   }
 }
 
-.realtimeTurnStateLength {
+.realtimeTurnStateLength,
+.realtimeOailbNode {
   color: var(--monitor-muted);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
   white-space: nowrap;
+}
+
+.realtimeOailbNode {
+  max-width: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .realtimeMetricCell,

@@ -875,6 +875,7 @@ type EventRow struct {
 	TurnID                 string                        `json:"turn_id,omitempty"`
 	System                 string                        `json:"system,omitempty"`
 	TurnStateLen           string                        `json:"turn_state_len,omitempty"`
+	OailbNode              string                        `json:"oailb_node,omitempty"`
 	ResponseModel          string                        `json:"response_model,omitempty"`
 	SessionID              string                        `json:"session_id,omitempty"`
 	ParentSessionID        string                        `json:"parent_session_id,omitempty"`
@@ -4032,6 +4033,7 @@ func buildEvents(page store.EventsPage, totalCount int64) *EventsResponse {
 			TurnID:                 item.TurnID,
 			System:                 item.System,
 			TurnStateLen:           item.TurnStateLen,
+			OailbNode:              item.OailbNode,
 			ResponseModel:          item.ResponseModel,
 			SessionID:              item.SessionID,
 			ParentSessionID:        item.ParentSessionID,

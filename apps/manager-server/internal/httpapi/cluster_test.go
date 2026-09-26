@@ -188,8 +188,8 @@ func TestClusterScopedProxyCredentialsEncryptionAndRestart(t *testing.T) {
 	// global percentiles and stable pagination when timestamps/local IDs collide.
 	l1, l2 := int64(100), int64(900)
 	_, err = childStore.InsertEvents(ctx, []usage.Event{
-		{EventHash: canonicalCompatEventHash("child-one"), TimestampMS: now, Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Model: "test-model", TotalTokens: 120, AuthIndex: "1", AuthFileSnapshot: "same.json", LatencyMS: &l1},
-		{EventHash: canonicalCompatEventHash("child-two"), TimestampMS: now, Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Model: "test-model", TotalTokens: 80, AuthIndex: "1", AuthFileSnapshot: "same.json", LatencyMS: &l2, Failed: true},
+		{EventHash: canonicalCompatEventHash("child-one"), TimestampMS: now, Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Model: "test-model", TotalTokens: 120, AuthIndex: "1", AuthFileSnapshot: "same.json", LatencyMS: &l1, OailbNode: "unified-96"},
+		{EventHash: canonicalCompatEventHash("child-two"), TimestampMS: now, Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Model: "test-model", TotalTokens: 80, AuthIndex: "1", AuthFileSnapshot: "same.json", LatencyMS: &l2, Failed: true, OailbNode: "unified-42"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -247,6 +247,18 @@ func TestClusterScopedProxyCredentialsEncryptionAndRestart(t *testing.T) {
 	testutil.DecodeJSON(t, nextPage, &remainder)
 	if remainder.Events == nil || len(remainder.Events.Items) != 1 {
 		t.Fatalf("wrong next page: %s", nextPage.Body.String())
+	}
+	for _, item := range append(metrics.Events.Items, remainder.Events.Items...) {
+		want := ""
+		if strings.HasSuffix(item.EventHash, canonicalCompatEventHash("child-one")) {
+			want = "unified-96"
+		}
+		if strings.HasSuffix(item.EventHash, canonicalCompatEventHash("child-two")) {
+			want = "unified-42"
+		}
+		if item.OailbNode != want {
+			t.Fatalf("aggregate node crossed request/instance: %+v", item)
+		}
 	}
 	filesResponse := request("GET", "/api/aggregate/v0/management/auth-files", "", "admin-secret")
 	testutil.RequireStatus(t, filesResponse, 200)

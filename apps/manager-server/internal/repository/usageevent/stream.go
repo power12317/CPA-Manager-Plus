@@ -59,6 +59,7 @@ var compatibleUsageDetailQueryPrefix = `select
 			coalesce(turn_id, ''),
 			coalesce(system, ''),
 			coalesce(turn_state_len, ''),
+			coalesce(oailb_node, ''),
 		coalesce(reasoning_effort, ''),
 		coalesce(service_tier, ''),
 		coalesce(request_service_tier, ''),
@@ -601,7 +602,7 @@ func (r *repository) exportBatchOn(ctx context.Context, snapshot usageSnapshot, 
 		coalesce(response_metadata_json, ''), header_quota_recover_at_ms, header_quota_used_percent, coalesce(header_quota_plan_type, ''), coalesce(header_error_kind, ''), coalesce(header_error_code, ''), coalesce(header_trace_id, ''),
 		coalesce(response_model, ''), coalesce(session_id, ''), coalesce(parent_session_id, ''), coalesce(access_token_sha256, ''),
 		generate, stream,
-		created_at_ms
+		coalesce(oailb_node, ''), created_at_ms
 	from usage_events
 	where id <= ?
 		and (timestamp_ms > ? or (timestamp_ms = ? and id >= ?))
@@ -673,6 +674,7 @@ func scanCompatibleDetail(rows *sql.Rows) (compatibleExportRow, error) {
 		&turnID,
 		&system,
 		&turnStateLen,
+		&detail.OailbNode,
 		&detail.ReasoningEffort,
 		&detail.ServiceTier,
 		&detail.RequestServiceTier,
@@ -817,6 +819,7 @@ func scanExportRow(rows *sql.Rows) (exportRow, error) {
 		&accessTokenSHA256,
 		&generate,
 		&stream,
+		&event.OailbNode,
 		&event.CreatedAtMS,
 	); err != nil {
 		return exportRow{}, err

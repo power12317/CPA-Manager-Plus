@@ -3900,6 +3900,7 @@
     "session_id": "Session ID",
     "turn_id": "Turn ID",
     "turn_state_len": "Turn-state length",
+    "oailb_node": "oailb node",
     "parent_session_id": "Parent session ID",
     "generate": "Generate",
     "stream": "Stream",

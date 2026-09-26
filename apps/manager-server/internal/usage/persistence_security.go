@@ -547,6 +547,10 @@ func sanitizeJSONValueWithContext(parentKey string, value any, depth int) any {
 			}
 
 			normalizedKey := normalizeSecretKey(key)
+			if normalizedKey == "oailb_node" || normalizedKey == "oailbnode" {
+				result[sanitizedKey] = NormalizeOailbNode(stringValue(child))
+				continue
+			}
 
 			// Root-level "key" in usage payload is treated as API key alias
 			if depth == 0 && normalizedKey == "key" {
@@ -647,6 +651,7 @@ func sanitizeDiagnosticJSONValue(value any) any {
 // PrepareSensitiveFieldsForPersistence enforces the persistence security boundary on an Event
 // before saving it to SQLite. Business and account semantics are strictly preserved.
 func PrepareSensitiveFieldsForPersistence(event Event) Event {
+	event.OailbNode = NormalizeOailbNode(event.OailbNode)
 	// 1. Normalize opaque hashes first
 	event.SourceHash = NormalizeOpaqueHashForPersistence(event.SourceHash)
 	event.APIKeyHash = NormalizeOpaqueHashForPersistence(event.APIKeyHash)

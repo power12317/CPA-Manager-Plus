@@ -166,6 +166,7 @@ export type MonitoringEventRow = {
   turnId?: string;
   system?: string;
   turnStateLen?: string;
+  oailbNode?: string;
   parentSessionId?: string;
   accessTokenSha256?: string;
   generate?: boolean;

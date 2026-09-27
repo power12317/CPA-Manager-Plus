@@ -29,16 +29,18 @@ collection. CPA and Codex provide the real upstream logging hooks.
 
 The runtime branch publishes:
 
-- `ghcr.io/power12317/cpa-manager-plus:codex-runtime`
-- `ghcr.io/power12317/cpa-manager-plus:sha-<full-commit>`
+- `ghcr.io/power12317/cpamp-codex-runtime:dev`
+- `ghcr.io/power12317/cpamp-codex-runtime:sha-<full-commit>`
 
-Both Linux amd64 and arm64 are included. Only `main` publishes `latest`.
+Both Linux amd64 and arm64 are included. This development image has a separate
+package and workflow. The production name `cpa-manager-plus` is reserved for
+`main`; non-main manual runs of the production workflow are skipped.
 Use the immutable SHA tag or manifest digest when pinning a deployment.
 
 Use the existing standalone Compose file with the desired published image:
 
 ```sh
-CPAMP_IMAGE=ghcr.io/power12317/cpa-manager-plus:codex-runtime \
+CPAMP_IMAGE=ghcr.io/power12317/cpamp-codex-runtime:dev \
   docker compose -f docker-compose.image.yml up -d --pull always
 ```
 

@@ -31,21 +31,39 @@ const jobBlock = (workflow, jobName) => {
 };
 
 describe('GitHub Actions workflow integrity', () => {
-  it('publishes runtime branch images without moving latest and keeps source revision metadata', () => {
+  it('reserves the production image for main even on manual workflow dispatch', () => {
     const workflow = readWorkflow('docker-publish.yml');
-    expect(workflow).toContain('branches: [main, codex/codex-runtime-control]');
-    expect(workflow).toContain("if: github.repository == 'power12317/CPA-Manager-Plus'");
-    expect(workflow).toContain('flavor: latest=false');
+    expect(workflow).toContain('branches: [main]');
+    expect(workflow).toContain(
+      "if: github.repository == 'power12317/CPA-Manager-Plus' && github.ref == 'refs/heads/main'"
+    );
+    expect(workflow).not.toContain('codex-runtime');
     expect(workflow).toContain(
       "type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}"
     );
+  });
+
+  it('publishes the runtime branch only to its own development package and Compose defaults', () => {
+    const workflow = readWorkflow('docker-codex-runtime.yml');
+    expect(workflow).toContain('branches: [codex/codex-runtime-control]');
     expect(workflow).toContain(
-      "type=raw,value=codex-runtime,enable=${{ github.ref == 'refs/heads/codex/codex-runtime-control' }}"
+      "if: github.repository == 'power12317/CPA-Manager-Plus' && github.ref == 'refs/heads/codex/codex-runtime-control'"
     );
+    expect(workflow).toContain('images: ghcr.io/power12317/cpamp-codex-runtime');
+    expect(workflow).not.toContain('ghcr.io/power12317/cpa-manager-plus');
+    expect(workflow).toContain('flavor: latest=false');
+    expect(workflow).toContain('type=raw,value=dev');
     expect(workflow).toContain('type=sha,format=long');
     expect(workflow).toContain('SOURCE_COMMIT=${{ github.sha }}');
     expect(workflow).toContain('platforms: linux/amd64,linux/arm64');
     expect(workflow).toContain('DIGEST: ${{ steps.build.outputs.digest }}');
+    for (const name of ['docker-compose.image.yml', 'docker-compose.manager.yml']) {
+      const compose = readFileSync(path.join(repoRoot, name), 'utf8');
+      expect(compose).toContain(
+        'image: ${CPAMP_IMAGE:-ghcr.io/power12317/cpamp-codex-runtime:dev}'
+      );
+      expect(compose).not.toContain('ghcr.io/power12317/cpa-manager-plus:');
+    }
     expect(readWorkflow('pr-check.yml')).toMatch(
       /push:\s*\n\s+branches:\s*\n\s+- main\s*\n\s+- dev\s*\n\s+- codex\/codex-runtime-control/
     );

@@ -23,7 +23,7 @@ func TestCodexRuntimeManagementProxy(t *testing.T) {
 			type request struct{ method, path, query, body, auth string }
 			requests := make(chan request, 20)
 			responseCode := http.StatusOK
-			responseBody := `{"enabled":false,"workers":[],"credentials":[]}`
+			responseBody := `{"enabled":false,"credentials":[]}`
 			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if !strings.HasPrefix(r.URL.Path, "/v0/management/codex-runtime") {
 					http.NotFound(w, r)
@@ -76,12 +76,12 @@ func TestCodexRuntimeManagementProxy(t *testing.T) {
 			cases := []struct{ method, suffix, body string }{
 				{http.MethodGet, "", ""},
 				{http.MethodPatch, "", `{"enabled":false}`},
-				{http.MethodPut, "", `{"workers":[{"id":"one","url":"ws://codex:38317","auth_file":"fixed.json","models":["gpt-5"]}]}`},
-				{http.MethodPost, "/credentials", `{"name":"fixed.json","worker_id":"one","enabled":true}`},
-				{http.MethodPost, "/test", `{"worker_id":"one"}`},
-				{http.MethodPost, "/login/start", `{"worker_id":"one"}`},
-				{http.MethodPost, "/login/callback", `{"worker_id":"one","login_id":"login-1","redirect_url":"http://localhost:1455/auth/callback?code=a%2Bb&state=one"}`},
-				{http.MethodGet, "/login/status?worker_id=one&login_id=login-1", ""},
+				{http.MethodPut, "", `{"enabled":true}`},
+				{http.MethodPost, "/credentials", `{"name":"original.json","enabled":true}`},
+				{http.MethodPost, "/login/start", `{}`},
+				{http.MethodPost, "/login/start", `{"name":"original.json"}`},
+				{http.MethodPost, "/login/callback", `{"login_id":"login-1","redirect_url":"http://localhost:1455/auth/callback?code=a%2Bb&state=one"}`},
+				{http.MethodGet, "/login/status?login_id=login-1", ""},
 			}
 			for _, tc := range cases {
 				t.Run(tc.method+tc.suffix, func(t *testing.T) {
@@ -104,10 +104,10 @@ func TestCodexRuntimeManagementProxy(t *testing.T) {
 					}
 				})
 			}
-			for _, code := range []int{http.StatusNotFound, http.StatusMethodNotAllowed, http.StatusConflict} {
+			for _, code := range []int{http.StatusBadRequest, http.StatusNotFound, http.StatusMethodNotAllowed, http.StatusConflict} {
 				responseCode = code
 				responseBody = `{"error":"runtime unavailable"}`
-				rr := testutil.Request(t, handler, http.MethodPost, prefix+"/v0/management/codex-runtime/test", `{"worker_id":"one"}`, testutil.AdminKey)
+				rr := testutil.Request(t, handler, http.MethodPost, prefix+"/v0/management/codex-runtime/login/start", `{}`, testutil.AdminKey)
 				testutil.RequireStatus(t, rr, code)
 				if rr.Body.String() != responseBody {
 					t.Fatalf("error body changed: %s", rr.Body.String())

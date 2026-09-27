@@ -4,8 +4,6 @@ import type {
   CodexRuntimeLogin,
   CodexRuntimeLoginStatus,
   CodexRuntimeState,
-  CodexRuntimeWorker,
-  CodexRuntimeWorkerInput,
 } from '@/types/codexRuntime';
 import { isRecord } from '@/utils/helpers';
 
@@ -16,36 +14,21 @@ export function normalizeCodexRuntimeState(value: unknown): CodexRuntimeState {
   if (isRecord(value) && value.supported === false) {
     throw Object.assign(new Error('Codex runtime is unsupported'), { status: 404 });
   }
-  if (
-    !isRecord(value) ||
-    typeof value.enabled !== 'boolean' ||
-    !Array.isArray(value.workers) ||
-    !Array.isArray(value.credentials)
-  ) {
+  if (!isRecord(value) || typeof value.enabled !== 'boolean' || !Array.isArray(value.credentials)) {
     throw new Error('Invalid Codex runtime state');
   }
-  const workers: CodexRuntimeWorker[] = value.workers.filter(isRecord).map((worker) => ({
-    id: text(worker.id),
-    url: text(worker.url),
-    auth_file: text(worker.auth_file),
-    token_configured: worker.token_configured === true,
-    models: Array.isArray(worker.models)
-      ? worker.models.filter((v): v is string => typeof v === 'string')
-      : [],
-    disabled: worker.disabled === true,
-  }));
   const credentials: CodexRuntimeCredential[] = value.credentials
     .filter(isRecord)
-    .map((credential) => ({
+    .map((credential, index) => ({
       name: text(credential.name),
-      worker_id: text(credential.worker_id),
+      label: text(credential.label) || `Codex ${index + 1}`,
       enabled: credential.enabled === true,
       owner: text(credential.owner),
       status: text(credential.status),
       account_id: text(credential.account_id) || undefined,
     }));
   // Explicitly project safe management metadata. OAuth tokens never enter page state.
-  return { enabled: value.enabled, workers, credentials };
+  return { enabled: value.enabled, credentials };
 }
 
 export const isCodexRuntimeUnsupported = (error: unknown) =>
@@ -61,27 +44,28 @@ export const codexRuntimeApi = {
     normalizeCodexRuntimeState(await apiClient.get(path, config(scope, signal))),
 
   update: async (
-    payload: { enabled?: boolean; workers?: CodexRuntimeWorkerInput[] },
+    { enabled }: { enabled: boolean },
     scope: ApiClientRequestScope,
     signal?: AbortSignal
-  ) => normalizeCodexRuntimeState(await apiClient.patch(path, payload, config(scope, signal))),
+  ) => normalizeCodexRuntimeState(await apiClient.patch(path, { enabled }, config(scope, signal))),
 
   setCredential: async (
-    payload: { name: string; worker_id: string; enabled: boolean },
+    { name, enabled }: { name: string; enabled: boolean },
     scope: ApiClientRequestScope,
     signal?: AbortSignal
   ) =>
     normalizeCodexRuntimeState(
-      await apiClient.post(`${path}/credentials`, payload, config(scope, signal))
+      await apiClient.post(`${path}/credentials`, { name, enabled }, config(scope, signal))
     ),
 
-  test: (worker_id: string, scope: ApiClientRequestScope, signal?: AbortSignal) =>
-    apiClient.post<{ status: string }>(`${path}/test`, { worker_id }, config(scope, signal)),
-
-  startLogin: async (worker_id: string, scope: ApiClientRequestScope, signal?: AbortSignal) => {
+  startLogin: async (
+    { name }: { name?: string },
+    scope: ApiClientRequestScope,
+    signal?: AbortSignal
+  ) => {
     const value = await apiClient.post<CodexRuntimeLogin>(
       `${path}/login/start`,
-      { worker_id },
+      name ? { name } : {},
       config(scope, signal)
     );
     if (!value.login_id || !value.url || !/^https?:\/\//i.test(value.url)) {
@@ -91,7 +75,6 @@ export const codexRuntimeApi = {
   },
 
   submitCallback: (
-    worker_id: string,
     login_id: string,
     redirect_url: string,
     scope: ApiClientRequestScope,
@@ -99,18 +82,13 @@ export const codexRuntimeApi = {
   ) =>
     apiClient.post<CodexRuntimeLoginStatus>(
       `${path}/login/callback`,
-      { worker_id, login_id, redirect_url },
+      { login_id, redirect_url },
       config(scope, signal)
     ),
 
-  loginStatus: (
-    worker_id: string,
-    login_id: string,
-    scope: ApiClientRequestScope,
-    signal?: AbortSignal
-  ) =>
+  loginStatus: (login_id: string, scope: ApiClientRequestScope, signal?: AbortSignal) =>
     apiClient.get<CodexRuntimeLoginStatus>(`${path}/login/status`, {
       ...config(scope, signal),
-      params: { worker_id, login_id },
+      params: { login_id },
     }),
 };

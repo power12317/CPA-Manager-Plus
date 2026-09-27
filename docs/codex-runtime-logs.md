@@ -27,6 +27,16 @@ collection. CPA and Codex provide the real upstream logging hooks.
 
 ## Independent CPAMP deployment
 
+The Codex mode page exposes only the mode switch, official browser authorization
+and full callback URL submission, authorization results, and existing account
+switches or reauthorization. All requests use CPA management endpoints. CPA owns
+discovery, account binding and connections; no worker address, secret, model or
+credential-file configuration is exposed by CPAMP. Existing credential identifiers
+are CPA Auth.ID values, including any relative path within auths, and are sent
+unchanged. The page displays CPA's account labels and does not rename, copy or
+edit credential files. New authorization sends an empty object to CPA; explicit
+reauthorization sends only the selected account ID.
+
 The runtime branch publishes:
 
 - `ghcr.io/power12317/cpamp-codex-runtime:dev`

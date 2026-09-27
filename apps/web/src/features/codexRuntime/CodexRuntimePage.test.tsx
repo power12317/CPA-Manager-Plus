@@ -12,7 +12,6 @@ const mocks = vi.hoisted(() => ({
     status: vi.fn(),
     update: vi.fn(),
     setCredential: vi.fn(),
-    test: vi.fn(),
     startLogin: vi.fn(),
     submitCallback: vi.fn(),
     loginStatus: vi.fn(),
@@ -35,26 +34,17 @@ vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => k
 let view: ReactTestRenderer;
 const state = (enabled = false): CodexRuntimeState => ({
   enabled,
-  workers: [
-    {
-      id: 'one',
-      url: 'ws://codex:38317',
-      auth_file: 'fixed.json',
-      token_configured: true,
-      models: ['gpt-5'],
-      disabled: false,
-    },
-  ],
   credentials: [
     {
-      name: 'fixed.json',
-      worker_id: 'one',
+      name: 'team/原有 account.json',
+      label: 'Account A',
       enabled: true,
       owner: enabled ? 'codex' : 'cpa',
-      status: 'ready',
+      status: enabled ? 'codex' : 'cpa',
     },
   ],
 });
+const scope = () => ({ apiBase: mocks.auth.apiBase, managementKey: mocks.auth.managementKey });
 const mount = async (value = state()) => {
   mocks.api.status.mockResolvedValue(value);
   await act(async () => {
@@ -72,9 +62,16 @@ const click = async (key: string) => {
     button(key).props.onClick();
   });
 };
+const start = async () => {
+  mocks.api.startLogin.mockResolvedValue({
+    login_id: 'login-one',
+    url: 'https://auth.openai.com/authorize?state=abc',
+    state: 'abc',
+  });
+  await click('codex_runtime.authorize');
+};
 
 beforeEach(() => {
-  vi.clearAllMocks();
   for (const fn of Object.values(mocks.api)) fn.mockReset();
   mocks.auth.apiBase = 'https://manager/api/instances/default';
   mocks.auth.managementKey = 'admin';
@@ -84,52 +81,33 @@ afterEach(() => {
   act(() => view?.unmount());
 });
 
-describe('Codex runtime settings', () => {
-  it('requires authorization to create a missing credential before editing its preference', async () => {
-    await mount({
-      ...state(true),
-      credentials: [{ ...state(true).credentials[0], enabled: false, status: 'missing' }],
-    });
-    expect(toggle('codex_runtime.credential_enabled').props.disabled).toBe(true);
-    expect(button('codex_runtime.authorize').props.disabled).toBe(false);
-    await act(async () => {
-      toggle('codex_runtime.credential_enabled').props.onChange(true);
-    });
-    expect(mocks.api.setCredential).not.toHaveBeenCalled();
-    expect(JSON.stringify(view.toJSON())).toContain('codex_runtime.missing_hint');
+describe('Minimal CPA-only Codex controls', () => {
+  it('shows account labels and exposes no worker, secret, path or model configuration', async () => {
+    await mount(state(true));
+    const rendered = JSON.stringify(view.toJSON());
+    expect(rendered).toContain('Account A');
+    expect(rendered).not.toContain('team/原有 account.json');
+    expect(rendered).not.toMatch(
+      /worker|ws:\/\/|codex_runtime.token|codex_runtime.models|codex_runtime.auth_file|codex_runtime.test/
+    );
+    expect(view.root.findAllByType(Input)).toHaveLength(0);
+    expect(view.root.findAllByType('textarea')).toHaveLength(0);
+    expect(view.root.findAllByType(ToggleSwitch)).toHaveLength(2);
   });
 
-  it('saves worker removal as an empty replacement list without changing the master preference', async () => {
-    await mount(state());
-    await click('common.delete');
-    mocks.api.update.mockResolvedValue({ enabled: false, workers: [], credentials: [] });
-    await click('codex_runtime.save_workers');
-    expect(mocks.api.update.mock.calls[0][0]).toEqual({ workers: [] });
-    expect(mocks.api.test).not.toHaveBeenCalled();
-  });
-
-  it('disables runtime actions for a disabled worker even when the master is enabled', async () => {
-    await mount({ ...state(true), workers: [{ ...state().workers[0], disabled: true }] });
-    expect(button('codex_runtime.test').props.disabled).toBe(true);
-    expect(button('codex_runtime.authorize').props.disabled).toBe(true);
-  });
-
-  it('loads only local CPA state while off and disables all runtime network actions', async () => {
+  it('reads local CPA state while off and blocks both new authorization and reauthorization', async () => {
     await mount();
-    expect(mocks.api.status).toHaveBeenCalledTimes(1);
-    expect(toggle('codex_runtime.enabled').props.checked).toBe(false);
-    expect(button('codex_runtime.test').props.disabled).toBe(true);
     expect(button('codex_runtime.authorize').props.disabled).toBe(true);
-    // Event guards also reject stale/programmatic invocation of disabled controls.
-    await click('codex_runtime.test');
+    expect(button('codex_runtime.reauthorize').props.disabled).toBe(true);
     await click('codex_runtime.authorize');
+    await click('codex_runtime.reauthorize');
     await click('common.refresh');
     expect(mocks.api.status).toHaveBeenCalledTimes(2);
-    for (const key of ['test', 'startLogin', 'submitCallback', 'loginStatus'] as const)
+    for (const key of ['startLogin', 'submitCallback', 'loginStatus'] as const)
       expect(mocks.api[key]).not.toHaveBeenCalled();
   });
 
-  it('saves the master switch and keeps credential preferences while disabled', async () => {
+  it('saves only the mode switch and preserves existing credential preferences while off', async () => {
     await mount(state(true));
     mocks.api.update.mockResolvedValue(state(false));
     await act(async () => {
@@ -137,11 +115,10 @@ describe('Codex runtime settings', () => {
     });
     expect(mocks.api.update).toHaveBeenCalledWith(
       { enabled: false },
-      { apiBase: mocks.auth.apiBase, managementKey: 'admin' },
+      scope(),
       expect.any(AbortSignal)
     );
     expect(toggle('codex_runtime.credential_enabled').props.checked).toBe(true);
-    expect(JSON.stringify(view.toJSON())).toContain('CPA');
     mocks.api.setCredential.mockResolvedValue({
       ...state(),
       credentials: [{ ...state().credentials[0], enabled: false }],
@@ -150,8 +127,8 @@ describe('Codex runtime settings', () => {
       toggle('codex_runtime.credential_enabled').props.onChange(false);
     });
     expect(mocks.api.setCredential).toHaveBeenCalledWith(
-      { name: 'fixed.json', worker_id: 'one', enabled: false },
-      expect.anything(),
+      { name: 'team/原有 account.json', enabled: false },
+      scope(),
       expect.any(AbortSignal)
     );
   });
@@ -165,14 +142,36 @@ describe('Codex runtime settings', () => {
     expect(view.root.findAllByType(ToggleSwitch)).toHaveLength(0);
   });
 
-  it('submits full callback URLs through CPA, then clears the callback on completion', async () => {
+  it('lets CPA choose new authorization and sends only the selected name for explicit reauthorization', async () => {
     await mount(state(true));
-    mocks.api.startLogin.mockResolvedValue({
-      login_id: 'login-one',
-      url: 'https://auth.openai.com/authorize?state=abc',
-      state: 'abc',
+    await start();
+    expect(mocks.api.startLogin).toHaveBeenLastCalledWith({}, scope(), expect.any(AbortSignal));
+    await click('codex_runtime.reauthorize');
+    expect(mocks.api.startLogin).toHaveBeenLastCalledWith(
+      { name: 'team/原有 account.json' },
+      scope(),
+      expect.any(AbortSignal)
+    );
+    expect(JSON.stringify(view.toJSON())).not.toContain('team/原有 account.json');
+  });
+
+  it('shows a CPA authorization error without choosing or overwriting an existing account', async () => {
+    await mount(state(true));
+    mocks.api.startLogin.mockRejectedValue({
+      status: 400,
+      message: 'Official authorization could not start',
     });
     await click('codex_runtime.authorize');
+    expect(mocks.api.startLogin).toHaveBeenCalledTimes(1);
+    expect(mocks.api.startLogin.mock.calls[0][0]).toEqual({});
+    expect(JSON.stringify(view.toJSON())).toContain('Official authorization could not start');
+    expect(view.root.findAllByType('a')).toHaveLength(0);
+    expect(button('codex_runtime.reauthorize').props.disabled).toBe(false);
+  });
+
+  it('submits a complete callback using only login_id and clears it after completion', async () => {
+    await mount(state(true));
+    await start();
     expect(view.root.findByType('a').props.href).toBe(
       'https://auth.openai.com/authorize?state=abc'
     );
@@ -182,10 +181,9 @@ describe('Codex runtime settings', () => {
     mocks.api.submitCallback.mockResolvedValue({ status: 'completed' });
     await click('codex_runtime.submit_callback');
     expect(mocks.api.submitCallback).toHaveBeenCalledWith(
-      'one',
       'login-one',
       callback,
-      { apiBase: mocks.auth.apiBase, managementKey: 'admin' },
+      scope(),
       expect.any(AbortSignal)
     );
     expect(JSON.stringify(view.toJSON())).toContain('codex_runtime.login_completed');
@@ -193,65 +191,40 @@ describe('Codex runtime settings', () => {
     expect(mocks.api.loginStatus).not.toHaveBeenCalled();
   });
 
-  it('checks a pending official login only on request and drops it when disabled', async () => {
+  it('checks pending login only on request, reports errors and clears the flow when disabled', async () => {
     await mount(state(true));
-    mocks.api.startLogin.mockResolvedValue({
-      login_id: 'login-one',
-      url: 'https://auth.openai.com/authorize?state=abc',
+    await start();
+    mocks.api.loginStatus.mockResolvedValue({
+      status: 'error',
+      error: 'Official authorization expired',
     });
-    await click('codex_runtime.authorize');
-    mocks.api.loginStatus.mockResolvedValue({ status: 'pending' });
     await click('codex_runtime.check_login');
-    expect(mocks.api.loginStatus).toHaveBeenCalledTimes(1);
+    expect(mocks.api.loginStatus).toHaveBeenCalledWith(
+      'login-one',
+      scope(),
+      expect.any(AbortSignal)
+    );
+    expect(JSON.stringify(view.toJSON())).toContain('Official authorization expired');
+    expect(view.root.findAllByType('a')).toHaveLength(0);
     mocks.api.update.mockResolvedValue(state(false));
     await act(async () => {
       toggle('codex_runtime.enabled').props.onChange(false);
     });
-    expect(view.root.findAllByType('a')).toHaveLength(0);
-    expect(button('codex_runtime.authorize').props.disabled).toBe(true);
+    expect(JSON.stringify(view.toJSON())).not.toContain('Official authorization expired');
     expect(mocks.api.loginStatus).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps secrets write-only and saves workers with omitted blank tokens', async () => {
+  it('refreshes only CPA local state after a disabled-mode 409', async () => {
     await mount(state(true));
-    expect(input('codex_runtime.token').props.value).toBe('');
-    expect(input('codex_runtime.token').props.type).toBe('password');
-    act(() => input('codex_runtime.url').props.onChange({ target: { value: 'ws://codex:38318' } }));
-    expect(button('codex_runtime.authorize').props.disabled).toBe(true);
-    mocks.api.update.mockResolvedValue({
-      ...state(true),
-      workers: [{ ...state().workers[0], url: 'ws://codex:38318' }],
-    });
-    await click('codex_runtime.save_workers');
-    expect(mocks.api.update.mock.calls[0][0]).toEqual({
-      workers: [
-        {
-          id: 'one',
-          url: 'ws://codex:38318',
-          auth_file: 'fixed.json',
-          models: ['gpt-5'],
-          disabled: false,
-        },
-      ],
-    });
-    act(() => input('codex_runtime.token').props.onChange({ target: { value: 'replacement' } }));
-    await click('codex_runtime.save_workers');
-    expect(mocks.api.update.mock.calls[1][0].workers[0].token).toBe('replacement');
-    expect(input('codex_runtime.token').props.value).toBe('');
-  });
-
-  it('refreshes only CPA local state after a disabled-runtime 409', async () => {
-    await mount(state(true));
-    mocks.api.test.mockRejectedValue({ status: 409 });
+    mocks.api.startLogin.mockRejectedValue({ status: 409 });
     mocks.api.status.mockResolvedValue(state(false));
-    await click('codex_runtime.test');
-    expect(mocks.api.test).toHaveBeenCalledTimes(1);
-    expect(button('codex_runtime.test').props.disabled).toBe(true);
+    await click('codex_runtime.authorize');
+    expect(mocks.api.startLogin).toHaveBeenCalledTimes(1);
+    expect(button('codex_runtime.authorize').props.disabled).toBe(true);
     expect(JSON.stringify(view.toJSON())).toContain('codex_runtime.state_changed');
-    expect(mocks.api.startLogin).not.toHaveBeenCalled();
   });
 
-  it('aborts stale requests and clears transient secrets and OAuth state on instance changes', async () => {
+  it('aborts stale requests and discards OAuth state on instance changes', async () => {
     await mount(state(true));
     let resolveLogin!: (value: unknown) => void;
     mocks.api.startLogin.mockImplementation(
@@ -281,7 +254,7 @@ describe('Codex runtime settings', () => {
     expect(latest![1].aborted).toBe(true);
   });
 
-  it('does not read or contact runtime services without a management connection', async () => {
+  it('does not read CPA state without a management connection', async () => {
     mocks.auth.connectionStatus = 'disconnected';
     await act(async () => {
       view = create(createElement(CodexRuntimePage));

@@ -8,22 +8,18 @@ import { useAuthStore } from '@/stores';
 import { codexRuntimeApi, isCodexRuntimeUnsupported } from '@/services/api/codexRuntime';
 import type { ApiClientRequestScope } from '@/services/api/client';
 import type {
+  CodexRuntimeCredential,
   CodexRuntimeLogin,
   CodexRuntimeLoginStatus,
   CodexRuntimeState,
 } from '@/types/codexRuntime';
 import { copyToClipboard } from '@/utils/clipboard';
-import { isRecord } from '@/utils/helpers';
-import {
-  isCallbackURL,
-  validateWorkers,
-  workerDraft,
-  workerPayload,
-  type WorkerDraft,
-} from './model';
+import { getErrorMessage, isRecord } from '@/utils/helpers';
+import { isCallbackURL } from './model';
 import styles from './CodexRuntimePage.module.scss';
 
-type Login = CodexRuntimeLogin & CodexRuntimeLoginStatus & { callback: string };
+type Login = CodexRuntimeLogin & CodexRuntimeLoginStatus & { callback: string; label?: string };
+type PageError = { key: string; detail?: string };
 
 export function CodexRuntimePage() {
   const apiBase = useAuthStore((state) => state.apiBase);
@@ -48,16 +44,13 @@ function RuntimeSettings({
 }) {
   const { t } = useTranslation();
   const [runtime, setRuntime] = useState<CodexRuntimeState | null>(null);
-  const [workers, setWorkers] = useState<WorkerDraft[]>([]);
-  const [dirty, setDirty] = useState(false);
   const [unsupported, setUnsupported] = useState(false);
   const [busy, setBusy] = useState('load');
-  const [error, setError] = useState('');
+  const [error, setError] = useState<PageError | null>(null);
   const [notice, setNotice] = useState('');
-  const [logins, setLogins] = useState<Record<string, Login>>({});
+  const [login, setLogin] = useState<Login | null>(null);
   const controller = useRef<AbortController | null>(null);
   const activeAction = useRef(false);
-  const nextWorker = useRef(0);
 
   useEffect(() => {
     if (!connected) return;
@@ -66,14 +59,12 @@ function RuntimeSettings({
     codexRuntimeApi
       .status(scope, request.signal)
       .then((result) => {
-        if (request.signal.aborted) return;
-        setRuntime(result);
-        setWorkers(result.workers.map(workerDraft));
+        if (!request.signal.aborted) setRuntime(result);
       })
       .catch((failure: unknown) => {
         if (request.signal.aborted) return;
         if (isCodexRuntimeUnsupported(failure)) setUnsupported(true);
-        else setError('load_failed');
+        else setError({ key: 'load_failed' });
       })
       .finally(() => {
         if (!request.signal.aborted) setBusy('');
@@ -81,21 +72,20 @@ function RuntimeSettings({
     return () => request.abort();
   }, [connected, scope]);
 
-  const accept = (result: CodexRuntimeState, replaceDraft = false) => {
+  const accept = (result: CodexRuntimeState) => {
     setRuntime(result);
-    if (!result.enabled) setLogins({});
-    if (replaceDraft) {
-      setWorkers(result.workers.map(workerDraft));
-      setDirty(false);
-    }
+    if (!result.enabled) setLogin(null);
   };
-
+  const readLocalState = async (signal: AbortSignal) => {
+    const result = await codexRuntimeApi.status(scope, signal);
+    if (!signal.aborted) accept(result);
+  };
   const run = async (action: string, operation: (signal: AbortSignal) => Promise<void>) => {
     const signal = controller.current?.signal;
     if (!connected || !signal || signal.aborted || activeAction.current) return;
     activeAction.current = true;
     setBusy(action);
-    setError('');
+    setError(null);
     setNotice('');
     try {
       await operation(signal);
@@ -103,60 +93,29 @@ function RuntimeSettings({
       if (signal.aborted) return;
       if (isCodexRuntimeUnsupported(failure)) {
         setUnsupported(true);
-        setLogins({});
+        setLogin(null);
       } else if (isRecord(failure) && failure.status === 409) {
-        setError('state_changed');
-        setLogins({});
-        // Refresh only CPA's local state after a rejected runtime action.
+        setError({ key: 'state_changed' });
+        setLogin(null);
         try {
-          const result = await codexRuntimeApi.status(scope, signal);
-          if (!signal.aborted) accept(result);
+          await readLocalState(signal);
         } catch {
           if (!signal.aborted) setRuntime(null);
         }
-      } else setError('action_failed');
+      } else {
+        setError({ key: 'action_failed', detail: getErrorMessage(failure, '') });
+      }
     } finally {
       activeAction.current = false;
       if (!signal.aborted) setBusy('');
     }
   };
 
-  const refresh = () =>
-    run('load', async (signal) => {
-      const result = await codexRuntimeApi.status(scope, signal);
-      if (!signal.aborted) {
-        accept(result, true);
-        setUnsupported(false);
-      }
-    });
-  const changeWorker = (key: string, patch: Partial<WorkerDraft>) => {
-    setWorkers((current) =>
-      current.map((worker) => (worker.key === key ? { ...worker, ...patch } : worker))
-    );
-    setDirty(true);
-    setLogins({});
-  };
-  const validation = validateWorkers(workers);
   const blocked = Boolean(busy) || !runtime || unsupported;
-
-  const saveWorkers = () => {
-    if (blocked || validation) return;
-    void run('save', async (signal) => {
-      const result = await codexRuntimeApi.update(
-        { workers: workerPayload(workers) },
-        scope,
-        signal
-      );
-      if (!signal.aborted) {
-        accept(result, true);
-        setNotice('saved');
-        setLogins({});
-      }
-    });
-  };
+  const canAuthorize = !blocked && runtime?.enabled === true;
   const setEnabled = (enabled: boolean) => {
     if (blocked) return;
-    setLogins({});
+    setLogin(null);
     void run('switch', async (signal) => {
       const result = await codexRuntimeApi.update({ enabled }, scope, signal);
       if (!signal.aborted) {
@@ -165,19 +124,28 @@ function RuntimeSettings({
       }
     });
   };
-  const networkAllowed = (worker: WorkerDraft) =>
-    !blocked && runtime?.enabled && !worker.disabled && worker.saved && !dirty;
+  const startLogin = (credential?: CodexRuntimeCredential) => {
+    if (!canAuthorize) return;
+    setLogin(null);
+    void run('login', async (signal) => {
+      const result = await codexRuntimeApi.startLogin(
+        credential ? { name: credential.name } : {},
+        scope,
+        signal
+      );
+      if (signal.aborted) return;
+      setLogin({ ...result, status: 'pending', callback: '', label: credential?.label });
+      await readLocalState(signal);
+    });
+  };
   const applyLoginStatus = (id: string, result: CodexRuntimeLoginStatus) => {
-    setLogins((current) =>
-      current[id]
+    setLogin((current) =>
+      current?.login_id === id
         ? {
             ...current,
-            [id]: {
-              ...current[id],
-              status: result.status,
-              error: result.error,
-              callback: result.status === 'pending' ? current[id].callback : '',
-            },
+            status: result.status,
+            error: result.error,
+            callback: result.status === 'pending' ? current.callback : '',
           }
         : current
     );
@@ -192,9 +160,14 @@ function RuntimeSettings({
         </div>
         <Button
           variant="secondary"
-          disabled={!connected || Boolean(busy) || dirty}
+          disabled={!connected || Boolean(busy)}
           loading={connected && busy === 'load'}
-          onClick={() => void refresh()}
+          onClick={() =>
+            void run('load', async (signal) => {
+              await readLocalState(signal);
+              if (!signal.aborted) setUnsupported(false);
+            })
+          }
         >
           {t('common.refresh')}
         </Button>
@@ -205,12 +178,12 @@ function RuntimeSettings({
         <>
           {error && (
             <p className={styles.error} role="alert">
-              {t(`codex_runtime.${error}`)}
+              {error.detail || t('codex_runtime.' + error.key)}
             </p>
           )}
           {notice && (
             <p className={styles.notice} role="status">
-              {t(`codex_runtime.${notice}`)}
+              {t('codex_runtime.' + notice)}
             </p>
           )}
           {unsupported ? (
@@ -234,314 +207,118 @@ function RuntimeSettings({
                 </div>
               </Card>
               {!runtime.enabled && <p className={styles.notice}>{t('codex_runtime.off_hint')}</p>}
-              <Card
-                title={t('codex_runtime.workers')}
-                extra={
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={blocked}
-                    onClick={() => {
-                      setWorkers((current) => [
-                        ...current,
-                        {
-                          key: `new-${++nextWorker.current}`,
-                          id: '',
-                          url: `ws://127.0.0.1:${38317 + current.length}/cpa/v1/ws`,
-                          authFile: '',
-                          token: '',
-                          models: '',
-                          saved: false,
-                          disabled: false,
-                        },
-                      ]);
-                      setDirty(true);
-                      setLogins({});
-                    }}
-                  >
-                    {t('codex_runtime.add_worker')}
-                  </Button>
-                }
-              >
+              <Card title={t('codex_runtime.authorization')}>
                 <div className={styles.content}>
-                  <p className={styles.muted}>{t('codex_runtime.worker_hint')}</p>
-                  {workers.length === 0 && (
-                    <p className={styles.muted}>{t('codex_runtime.no_workers')}</p>
-                  )}
-                  {workers.map((worker, index) => {
-                    const savedWorker = runtime.workers.find((item) => item.id === worker.id);
-                    const login = logins[worker.key];
-                    const canNetwork = networkAllowed(worker);
-                    return (
-                      <section
-                        key={worker.key}
-                        className={styles.worker}
-                        aria-label={worker.id || t('codex_runtime.new_worker')}
-                      >
-                        <div className={styles.workerHeader}>
-                          <h3>{worker.id || t('codex_runtime.new_worker')}</h3>
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            disabled={blocked}
-                            onClick={() => {
-                              setWorkers((current) =>
-                                current.filter((item) => item.key !== worker.key)
-                              );
-                              setDirty(true);
-                              setLogins({});
-                            }}
-                          >
-                            {t('common.delete')}
-                          </Button>
-                        </div>
-                        <div className={styles.grid}>
-                          <Input
-                            label={t('codex_runtime.worker_id')}
-                            value={worker.id}
-                            disabled={blocked || worker.saved}
-                            onChange={(event) =>
-                              changeWorker(worker.key, { id: event.target.value })
-                            }
-                            autoComplete="off"
-                          />
-                          <Input
-                            label={t('codex_runtime.url')}
-                            value={worker.url}
-                            disabled={blocked}
-                            placeholder={`ws://127.0.0.1:${38317 + index}/cpa/v1/ws`}
-                            onChange={(event) =>
-                              changeWorker(worker.key, { url: event.target.value })
-                            }
-                            autoComplete="off"
-                          />
-                          <Input
-                            label={t('codex_runtime.auth_file')}
-                            value={worker.authFile}
-                            disabled={blocked || worker.saved}
-                            placeholder="codex-worker.json"
-                            hint={t('codex_runtime.auth_file_hint')}
-                            onChange={(event) =>
-                              changeWorker(worker.key, { authFile: event.target.value })
-                            }
-                            autoComplete="off"
-                          />
-                          <Input
-                            label={t('codex_runtime.token')}
-                            type="password"
-                            value={worker.token}
-                            disabled={blocked}
-                            autoComplete="new-password"
-                            placeholder={t(
-                              savedWorker?.token_configured
-                                ? 'codex_runtime.token_configured'
-                                : 'codex_runtime.token_missing'
-                            )}
-                            hint={t('codex_runtime.token_hint')}
-                            onChange={(event) =>
-                              changeWorker(worker.key, { token: event.target.value })
-                            }
-                          />
-                          <label className={styles.field}>
-                            <span>{t('codex_runtime.models')}</span>
-                            <textarea
-                              className="input"
-                              rows={3}
-                              value={worker.models}
-                              disabled={blocked}
-                              onChange={(event) =>
-                                changeWorker(worker.key, { models: event.target.value })
-                              }
-                            />
-                            <span className={styles.muted}>{t('codex_runtime.models_hint')}</span>
-                          </label>
-                          <div className={styles.toggle}>
-                            <span>{t('codex_runtime.worker_enabled')}</span>
-                            <ToggleSwitch
-                              checked={!worker.disabled}
-                              disabled={blocked}
-                              ariaLabel={t('codex_runtime.worker_enabled')}
-                              onChange={(value) => changeWorker(worker.key, { disabled: !value })}
-                            />
-                          </div>
-                        </div>
-                        <div className={styles.actions}>
-                          <Button
-                            variant="secondary"
-                            disabled={!canNetwork}
-                            loading={busy === `test:${worker.key}`}
-                            onClick={() => {
-                              if (!networkAllowed(worker)) return;
-                              void run(`test:${worker.key}`, async (signal) => {
-                                await codexRuntimeApi.test(worker.id, scope, signal);
-                                if (!signal.aborted) setNotice('test_ok');
-                              });
-                            }}
-                          >
-                            {t('codex_runtime.test')}
-                          </Button>
-                          <Button
-                            disabled={!canNetwork}
-                            loading={busy === `login:${worker.key}`}
-                            onClick={() => {
-                              if (!networkAllowed(worker)) return;
-                              void run(`login:${worker.key}`, async (signal) => {
-                                const result = await codexRuntimeApi.startLogin(
-                                  worker.id,
-                                  scope,
-                                  signal
-                                );
-                                if (signal.aborted) return;
-                                setLogins((current) => ({
-                                  ...current,
-                                  [worker.key]: { ...result, status: 'pending', callback: '' },
-                                }));
-                                const state = await codexRuntimeApi.status(scope, signal);
-                                if (!signal.aborted) accept(state);
-                              });
-                            }}
-                          >
-                            {t('codex_runtime.authorize')}
-                          </Button>
-                        </div>
-                        {login && runtime.enabled && !dirty && (
-                          <div className={styles.login}>
-                            {login.status === 'pending' && (
-                              <>
-                                <p className={styles.muted}>{t('codex_runtime.login_hint')}</p>
-                                <a
-                                  href={login.url}
-                                  className={styles.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  {login.url}
-                                </a>
-                                <div className={styles.actions}>
-                                  <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    disabled={blocked}
-                                    onClick={() =>
-                                      void run('copy', async (signal) => {
-                                        const copied = await copyToClipboard(login.url);
-                                        if (!signal.aborted) {
-                                          if (copied) setNotice('copied');
-                                          else setError('copy_failed');
-                                        }
-                                      })
-                                    }
-                                  >
-                                    {t('codex_runtime.copy_url')}
-                                  </Button>
-                                </div>
-                                <Input
-                                  label={t('codex_runtime.callback')}
-                                  value={login.callback}
-                                  disabled={blocked}
-                                  autoComplete="off"
-                                  spellCheck={false}
-                                  placeholder="http://localhost:1455/auth/callback?code=…&state=…"
-                                  onChange={(event) =>
-                                    setLogins((current) => ({
-                                      ...current,
-                                      [worker.key]: { ...login, callback: event.target.value },
-                                    }))
-                                  }
-                                  hint={t('codex_runtime.callback_hint')}
-                                />
-                                <div className={styles.actions}>
-                                  <Button
-                                    disabled={!canNetwork || !isCallbackURL(login.callback)}
-                                    loading={busy === `callback:${worker.key}`}
-                                    onClick={() => {
-                                      if (!networkAllowed(worker) || !isCallbackURL(login.callback))
-                                        return;
-                                      void run(`callback:${worker.key}`, async (signal) => {
-                                        const result = await codexRuntimeApi.submitCallback(
-                                          worker.id,
-                                          login.login_id,
-                                          login.callback.trim(),
-                                          scope,
-                                          signal
-                                        );
-                                        if (signal.aborted) return;
-                                        applyLoginStatus(worker.key, result);
-                                        const state = await codexRuntimeApi.status(scope, signal);
-                                        if (!signal.aborted) accept(state);
-                                      });
-                                    }}
-                                  >
-                                    {t('codex_runtime.submit_callback')}
-                                  </Button>
-                                  <Button
-                                    variant="secondary"
-                                    disabled={!canNetwork}
-                                    onClick={() => {
-                                      if (!networkAllowed(worker)) return;
-                                      void run(`status:${worker.key}`, async (signal) => {
-                                        const result = await codexRuntimeApi.loginStatus(
-                                          worker.id,
-                                          login.login_id,
-                                          scope,
-                                          signal
-                                        );
-                                        if (signal.aborted) return;
-                                        applyLoginStatus(worker.key, result);
-                                        if (result.status === 'completed') {
-                                          const state = await codexRuntimeApi.status(scope, signal);
-                                          if (!signal.aborted) accept(state);
-                                        }
-                                      });
-                                    }}
-                                  >
-                                    {t('codex_runtime.check_login')}
-                                  </Button>
-                                </div>
-                              </>
-                            )}
-                            <p
-                              role="status"
-                              className={login.status === 'error' ? styles.error : styles.muted}
-                            >
-                              {t(`codex_runtime.login_${login.status}`)}
-                            </p>
-                            {login.status === 'error' && login.error && (
-                              <p className={styles.error}>{login.error}</p>
-                            )}
-                          </div>
-                        )}
-                      </section>
-                    );
-                  })}
-                  {dirty && (
-                    <>
-                      <p className={styles.muted}>{t('codex_runtime.unsaved')}</p>
-                      {validation && (
-                        <p role="alert" className={styles.error}>
-                          {t(`codex_runtime.${validation}`)}
+                  <div className={styles.actions}>
+                    <Button
+                      disabled={!canAuthorize}
+                      loading={busy === 'login'}
+                      onClick={() => startLogin()}
+                    >
+                      {t('codex_runtime.authorize')}
+                    </Button>
+                  </div>
+                  {login && runtime.enabled && (
+                    <div className={styles.login}>
+                      {login.label && (
+                        <p className={styles.muted}>
+                          {t('codex_runtime.authorizing_account', { label: login.label })}
                         </p>
                       )}
-                      <div className={styles.saveActions}>
-                        <Button
-                          variant="secondary"
-                          disabled={blocked}
-                          onClick={() => {
-                            setWorkers(runtime.workers.map(workerDraft));
-                            setDirty(false);
-                          }}
-                        >
-                          {t('common.cancel')}
-                        </Button>
-                        <Button
-                          disabled={blocked || Boolean(validation)}
-                          loading={busy === 'save'}
-                          onClick={saveWorkers}
-                        >
-                          {t('codex_runtime.save_workers')}
-                        </Button>
-                      </div>
-                    </>
+                      {login.status === 'pending' && (
+                        <>
+                          <p className={styles.muted}>{t('codex_runtime.login_hint')}</p>
+                          <a
+                            href={login.url}
+                            className={styles.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {login.url}
+                          </a>
+                          <div className={styles.actions}>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              disabled={blocked}
+                              onClick={() =>
+                                void run('copy', async (signal) => {
+                                  const copied = await copyToClipboard(login.url);
+                                  if (!signal.aborted) {
+                                    if (copied) setNotice('copied');
+                                    else setError({ key: 'copy_failed' });
+                                  }
+                                })
+                              }
+                            >
+                              {t('codex_runtime.copy_url')}
+                            </Button>
+                          </div>
+                          <Input
+                            label={t('codex_runtime.callback')}
+                            value={login.callback}
+                            disabled={blocked}
+                            autoComplete="off"
+                            spellCheck={false}
+                            placeholder="http://localhost:1455/auth/callback?code=…&state=…"
+                            onChange={(event) =>
+                              setLogin({ ...login, callback: event.target.value })
+                            }
+                            hint={t('codex_runtime.callback_hint')}
+                          />
+                          <div className={styles.actions}>
+                            <Button
+                              disabled={!canAuthorize || !isCallbackURL(login.callback)}
+                              loading={busy === 'callback'}
+                              onClick={() => {
+                                if (!canAuthorize || !isCallbackURL(login.callback)) return;
+                                void run('callback', async (signal) => {
+                                  const result = await codexRuntimeApi.submitCallback(
+                                    login.login_id,
+                                    login.callback.trim(),
+                                    scope,
+                                    signal
+                                  );
+                                  if (signal.aborted) return;
+                                  applyLoginStatus(login.login_id, result);
+                                  await readLocalState(signal);
+                                });
+                              }}
+                            >
+                              {t('codex_runtime.submit_callback')}
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              disabled={!canAuthorize}
+                              onClick={() => {
+                                if (!canAuthorize) return;
+                                void run('status', async (signal) => {
+                                  const result = await codexRuntimeApi.loginStatus(
+                                    login.login_id,
+                                    scope,
+                                    signal
+                                  );
+                                  if (signal.aborted) return;
+                                  applyLoginStatus(login.login_id, result);
+                                  if (result.status === 'completed') await readLocalState(signal);
+                                });
+                              }}
+                            >
+                              {t('codex_runtime.check_login')}
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                      <p
+                        role="status"
+                        className={login.status === 'error' ? styles.error : styles.muted}
+                      >
+                        {t('codex_runtime.login_' + login.status)}
+                      </p>
+                      {login.status === 'error' && login.error && (
+                        <p className={styles.error}>{login.error}</p>
+                      )}
+                    </div>
                   )}
                 </div>
               </Card>
@@ -551,68 +328,49 @@ function RuntimeSettings({
                   {runtime.credentials.length === 0 && (
                     <p className={styles.muted}>{t('codex_runtime.no_credentials')}</p>
                   )}
-                  {runtime.credentials.map((credential) => {
-                    const worker = runtime.workers.find(
-                      (item) => item.auth_file === credential.name
-                    );
-                    return (
-                      <div className={styles.credential} key={credential.name}>
-                        <div className={styles.toggle}>
-                          <strong>{credential.name}</strong>
-                          <ToggleSwitch
-                            checked={credential.enabled}
-                            disabled={
-                              blocked || dirty || !worker || credential.status === 'missing'
-                            }
-                            ariaLabel={t('codex_runtime.credential_enabled', {
-                              name: credential.name,
-                            })}
-                            onChange={(enabled) => {
-                              if (blocked || dirty || !worker || credential.status === 'missing')
-                                return;
-                              void run(`credential:${credential.name}`, async (signal) => {
-                                const result = await codexRuntimeApi.setCredential(
-                                  {
-                                    name: credential.name,
-                                    worker_id: worker?.id || credential.worker_id,
-                                    enabled,
-                                  },
-                                  scope,
-                                  signal
-                                );
-                                if (!signal.aborted) accept(result);
-                              });
-                            }}
-                          />
-                        </div>
-                        <div className={styles.meta}>
-                          <span>
-                            {t('codex_runtime.worker_id')}:{' '}
-                            {worker?.id || credential.worker_id || '—'}
-                          </span>
-                          <span>
-                            {t('codex_runtime.owner')}:{' '}
-                            {credential.owner === 'codex' ? 'Codex' : 'CPA'}
-                          </span>
-                          <span>
-                            {t('codex_runtime.status')}:{' '}
-                            {t(`codex_runtime.credential_status.${credential.status}`, {
-                              defaultValue: credential.status || '—',
-                            })}
-                          </span>
-                          {credential.account_id && (
-                            <span>
-                              {t('codex_runtime.account_id')}: {credential.account_id}
-                            </span>
-                          )}
-                        </div>
-                        {!worker && <p className={styles.muted}>{t('codex_runtime.unassigned')}</p>}
-                        {credential.status === 'missing' && (
-                          <p className={styles.muted}>{t('codex_runtime.missing_hint')}</p>
-                        )}
+                  {runtime.credentials.map((credential) => (
+                    <div className={styles.credential} key={credential.name}>
+                      <div>
+                        <strong>{credential.label}</strong>
+                        <p className={styles.muted}>
+                          {t('codex_runtime.credential_status.' + credential.status, {
+                            defaultValue: credential.status,
+                          })}
+                        </p>
                       </div>
-                    );
-                  })}
+                      <div className={styles.actions}>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={!canAuthorize}
+                          aria-label={t('codex_runtime.reauthorize_account', {
+                            label: credential.label,
+                          })}
+                          onClick={() => startLogin(credential)}
+                        >
+                          {t('codex_runtime.reauthorize')}
+                        </Button>
+                        <ToggleSwitch
+                          checked={credential.enabled}
+                          disabled={blocked || credential.status === 'missing'}
+                          ariaLabel={t('codex_runtime.credential_enabled', {
+                            name: credential.label,
+                          })}
+                          onChange={(enabled) => {
+                            if (blocked || credential.status === 'missing') return;
+                            void run('credential', async (signal) => {
+                              const result = await codexRuntimeApi.setCredential(
+                                { name: credential.name, enabled },
+                                scope,
+                                signal
+                              );
+                              if (!signal.aborted) accept(result);
+                            });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </Card>
             </>

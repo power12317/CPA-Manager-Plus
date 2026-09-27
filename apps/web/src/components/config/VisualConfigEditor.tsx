@@ -1264,6 +1264,7 @@ export function VisualConfigEditor({
                   disabled={disabled}
                   onChange={(codexBasispointsEnabled) => onChange({ codexBasispointsEnabled })}
                 />
+                {codexModeSettings}
               </SectionGrid>
 
               <SectionSubsection
@@ -1328,7 +1329,6 @@ export function VisualConfigEditor({
                   <SectionSubsection
                     title={t('config_management.visual.sections.headers.codex_title')}
                   >
-                    {codexModeSettings}
                     <SectionGrid>
                       <Input
                         label={t('config_management.visual.sections.headers.user_agent')}

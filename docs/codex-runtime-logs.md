@@ -27,26 +27,22 @@ collection. CPA and Codex provide the real upstream logging hooks.
 
 ## Independent CPAMP deployment
 
-Open a single CPA instance's **Configuration → Visual editor → Network configuration →
-Codex settings** to enable Codex mode. The inline setting appears only when that
-CPA supports the management API; it never appears in the aggregate Manager scope.
-There is no standalone Codex menu or frontend route. Account authorization expands
-inside the same setting after enabling the mode.
+Open a single CPA instance's **Configuration → Visual editor → Network configuration**
+and use the small **Enable Codex mode** switch beside **Use Basispoints API**.
+It appears only when that CPA supports the management API. There is no standalone
+Codex menu, frontend route, account list or authorization area in configuration.
 
-The setting exposes only the mode switch, official browser authorization
-and full callback URL submission, authorization results, and existing account
-switches or reauthorization. All requests use CPA management endpoints. CPA owns
-discovery, account binding and connections; no worker address, secret, model or
-credential-file configuration is exposed by CPAMP. Existing credential identifiers
-are CPA Auth.ID values, including any relative path within auths, and are sent
-unchanged. The setting displays CPA's account labels and does not rename, copy or
-edit credential files. New authorization sends an empty object to CPA; explicit
-reauthorization sends only the selected account ID.
+Authorization remains in the existing **OAuth login** page. The panel always uses
+CPA's standard `/codex-auth-url`, `/oauth-callback` and `/get-auth-status` endpoints.
+With Codex mode enabled, CPA delegates authorization to Codex master. With it
+disabled, CPA uses its native OAuth implementation. CPA also owns targeted
+reauthorization, credential identity and system metadata; the panel does not
+connect to master or manage a separate login ID or credential file.
 
-Mode and account changes save immediately to the selected CPA. Configuration
-saves and these operations cannot run concurrently. After an operation, the
-editor refreshes its YAML snapshot while preserving pending visual edits. If that
-refresh fails, source editing waits for a fresh snapshot before allowing a save.
+The mode switch saves immediately to the selected CPA. Configuration saves and
+mode changes cannot run concurrently. After a mode change, the editor refreshes
+its YAML snapshot while preserving pending visual edits. If that refresh fails,
+source editing waits for a fresh snapshot before allowing a save.
 
 The runtime branch publishes:
 

@@ -107,8 +107,8 @@ vi.mock('@/components/config/VisualConfigEditor', () => ({
   },
 }));
 
-vi.mock('@/features/codexRuntime/CodexRuntimeSettings', () => ({
-  CodexRuntimeSettings: (props: NonNullable<typeof mocks.codexSettings>) => {
+vi.mock('@/features/codexRuntime/CodexRuntimeToggle', () => ({
+  CodexRuntimeToggle: (props: NonNullable<typeof mocks.codexSettings>) => {
     mocks.codexSettings = props;
     return <span data-test="codex-settings" />;
   },

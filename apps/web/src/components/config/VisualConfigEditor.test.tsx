@@ -1,4 +1,4 @@
-import { act, create, type ReactTestRenderer } from 'react-test-renderer';
+import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { VisualConfigEditor } from './VisualConfigEditor';
 import { DEFAULT_VISUAL_VALUES } from '@/types/visualConfig';
@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 describe('Codex fast mode setting', () => {
-  it('embeds runtime settings inside the existing Codex subsection without adding navigation', () => {
+  it('places the mode toggle immediately beside Basispoints in the same network settings grid', () => {
     act(() => {
       renderer = create(
         <VisualConfigEditor
@@ -30,10 +30,20 @@ describe('Codex fast mode setting', () => {
         />
       );
     });
-    const subsection = renderer.root.findByProps({
+    const modeToggle = renderer.root.findByProps({ 'data-codex-mode': true });
+    const grid = modeToggle.parent!;
+    const previousSetting = grid.children[
+      grid.children.indexOf(modeToggle) - 1
+    ] as ReactTestInstance;
+    expect(
+      previousSetting.findByProps({
+        title: 'config_management.visual.sections.network.codex_basispoints',
+      })
+    ).toBeDefined();
+    const headers = renderer.root.findByProps({
       title: 'config_management.visual.sections.headers.codex_title',
     });
-    expect(subsection.findAllByProps({ 'data-codex-mode': true })).toHaveLength(1);
+    expect(headers.findAllByProps({ 'data-codex-mode': true })).toHaveLength(0);
     for (const nav of renderer.root.findAllByType('nav')) {
       expect(nav.findAllByProps({ 'data-codex-mode': true })).toHaveLength(0);
       expect(nav.findAllByProps({ href: '/codex-runtime' })).toHaveLength(0);

@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/icons';
 import { VisualConfigEditor } from '@/components/config/VisualConfigEditor';
 import { CodexTurnStateSettingsCard } from '@/features/codexTurnState/CodexTurnStateSettingsCard';
-import { CodexRuntimeSettings } from '@/features/codexRuntime/CodexRuntimeSettings';
+import { CodexRuntimeToggle } from '@/features/codexRuntime/CodexRuntimeToggle';
 import type { ApiKeyMutation } from '@/components/config/ApiKeysCardEditor';
 import { DiffModal } from '@/components/config/DiffModal';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -1807,7 +1807,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
                 onApiKeyOperationEnd={endApiKeyOperation}
                 codexModeSettings={
                   !managerOnly && sourceConfigLoaded ? (
-                    <CodexRuntimeSettings
+                    <CodexRuntimeToggle
                       key={codexSettingsRevision}
                       disabled={
                         disableControls ||

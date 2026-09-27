@@ -14,6 +14,7 @@ on:
     branches:
       - main
       - dev
+      - codex/codex-runtime-control
 
 permissions:
   contents: read

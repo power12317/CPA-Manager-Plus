@@ -31,6 +31,26 @@ const jobBlock = (workflow, jobName) => {
 };
 
 describe('GitHub Actions workflow integrity', () => {
+  it('publishes runtime branch images without moving latest and keeps source revision metadata', () => {
+    const workflow = readWorkflow('docker-publish.yml');
+    expect(workflow).toContain('branches: [main, codex/codex-runtime-control]');
+    expect(workflow).toContain("if: github.repository == 'power12317/CPA-Manager-Plus'");
+    expect(workflow).toContain('flavor: latest=false');
+    expect(workflow).toContain(
+      "type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}"
+    );
+    expect(workflow).toContain(
+      "type=raw,value=codex-runtime,enable=${{ github.ref == 'refs/heads/codex/codex-runtime-control' }}"
+    );
+    expect(workflow).toContain('type=sha,format=long');
+    expect(workflow).toContain('SOURCE_COMMIT=${{ github.sha }}');
+    expect(workflow).toContain('platforms: linux/amd64,linux/arm64');
+    expect(workflow).toContain('DIGEST: ${{ steps.build.outputs.digest }}');
+    expect(readWorkflow('pr-check.yml')).toMatch(
+      /push:\s*\n\s+branches:\s*\n\s+- main\s*\n\s+- dev\s*\n\s+- codex\/codex-runtime-control/
+    );
+  });
+
   it('pins every external action to a full commit SHA', () => {
     const workflowFiles = readdirSync(workflowDir).filter((file) => /\.ya?ml$/.test(file));
     const actions = workflowFiles.flatMap((file) => externalActions(readWorkflow(file)));

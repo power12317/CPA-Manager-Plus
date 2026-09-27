@@ -25,6 +25,24 @@ beforeEach(() => {
 });
 
 describe('logs API', () => {
+  it('preserves raw CPA runtime logs and uses the same request ID for request and error downloads', async () => {
+    const line = '[2026-09-27 12:00:00] [aabb1122] [info ] CodexRuntimeExecutor upstream response';
+    mocks.get.mockResolvedValue({ lines: [line], 'line-count': 1 });
+    expect((await logsApi.fetchLogs()).lines).toEqual([line]);
+    const response = { data: 'upstream request, response and error body' };
+    mocks.getRaw.mockResolvedValue(response);
+    expect(await logsApi.downloadRequestLogById('aabb1122')).toBe(response);
+    expect(mocks.getRaw).toHaveBeenLastCalledWith('/request-log-by-id/aabb1122', {
+      responseType: 'blob',
+      timeout: expect.any(Number),
+    });
+    expect(await logsApi.downloadErrorLog('request-error-aabb1122.log')).toBe(response);
+    expect(mocks.getRaw).toHaveBeenLastCalledWith(
+      '/request-error-logs/request-error-aabb1122.log',
+      { responseType: 'blob', timeout: expect.any(Number) }
+    );
+  });
+
   it('normalizes legacy timestamp-based log responses', () => {
     expect(
       normalizeLogsResponse({

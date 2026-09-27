@@ -2,7 +2,7 @@ name: Publish Docker image
 
 on:
   push:
-    branches: [main]
+    branches: [main, codex/codex-runtime-control]
   workflow_dispatch:
 
 permissions:
@@ -39,13 +39,16 @@ jobs:
         id: meta
         with:
           images: ${{ steps.image.outputs.name }}
+          flavor: latest=false
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=codex-runtime,enable=${{ github.ref == 'refs/heads/codex/codex-runtime-control' }}
             type=sha,format=long
           labels: |
             org.opencontainers.image.title=CPA Manager Plus
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
       - name: Build and publish Manager and panel
+        id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
@@ -54,6 +57,13 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: VERSION=sha-${{ github.sha }}
+          build-args: |
+            VERSION=sha-${{ github.sha }}
+            SOURCE_COMMIT=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Record published image digest
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: echo "Published image — ${IMAGE}@${DIGEST}" >> "$GITHUB_STEP_SUMMARY"

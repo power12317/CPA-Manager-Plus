@@ -1,7 +1,7 @@
 import { act, createElement } from 'react';
 import { create, type ReactTestRenderer } from 'react-test-renderer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CodexRuntimePage } from './CodexRuntimePage';
+import { CodexRuntimeSettings } from './CodexRuntimeSettings';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
@@ -20,7 +20,10 @@ const mocks = vi.hoisted(() => ({
     apiBase: 'https://manager/api/instances/default',
     managementKey: 'admin',
     connectionStatus: 'connected',
+    sessionMode: 'manager_embedded',
   },
+  onOperationStart: vi.fn(() => true),
+  onOperationEnd: vi.fn(async () => {}),
 }));
 vi.mock('@/stores', () => ({
   useAuthStore: (selector: (state: typeof mocks.auth) => unknown) => selector(mocks.auth),
@@ -45,10 +48,16 @@ const state = (enabled = false): CodexRuntimeState => ({
   ],
 });
 const scope = () => ({ apiBase: mocks.auth.apiBase, managementKey: mocks.auth.managementKey });
-const mount = async (value = state()) => {
+const settings = (disabled = false) =>
+  createElement(CodexRuntimeSettings, {
+    disabled,
+    onOperationStart: mocks.onOperationStart,
+    onOperationEnd: mocks.onOperationEnd,
+  });
+const mount = async (value = state(), disabled = false) => {
   mocks.api.status.mockResolvedValue(value);
   await act(async () => {
-    view = create(createElement(CodexRuntimePage));
+    view = create(settings(disabled));
   });
 };
 const button = (key: string) =>
@@ -76,6 +85,9 @@ beforeEach(() => {
   mocks.auth.apiBase = 'https://manager/api/instances/default';
   mocks.auth.managementKey = 'admin';
   mocks.auth.connectionStatus = 'connected';
+  mocks.auth.sessionMode = 'manager_embedded';
+  mocks.onOperationStart.mockReset().mockReturnValue(true);
+  mocks.onOperationEnd.mockReset().mockResolvedValue(undefined);
 });
 afterEach(() => {
   act(() => view?.unmount());
@@ -95,19 +107,19 @@ describe('Minimal CPA-only Codex controls', () => {
     expect(view.root.findAllByType(ToggleSwitch)).toHaveLength(2);
   });
 
-  it('reads local CPA state while off and blocks both new authorization and reauthorization', async () => {
+  it('shows only the inline switch while off and never calls login RPCs', async () => {
     await mount();
-    expect(button('codex_runtime.authorize').props.disabled).toBe(true);
-    expect(button('codex_runtime.reauthorize').props.disabled).toBe(true);
-    await click('codex_runtime.authorize');
-    await click('codex_runtime.reauthorize');
+    expect(view.root.findAllByType('details')).toHaveLength(0);
+    expect(view.root.findAllByType('h1')).toHaveLength(0);
+    expect(button('codex_runtime.authorize')).toBeUndefined();
+    expect(button('codex_runtime.reauthorize')).toBeUndefined();
     await click('common.refresh');
     expect(mocks.api.status).toHaveBeenCalledTimes(2);
     for (const key of ['startLogin', 'submitCallback', 'loginStatus'] as const)
       expect(mocks.api[key]).not.toHaveBeenCalled();
   });
 
-  it('saves only the mode switch and preserves existing credential preferences while off', async () => {
+  it('saves only the mode switch and retains existing credential preferences after re-enabling', async () => {
     await mount(state(true));
     mocks.api.update.mockResolvedValue(state(false));
     await act(async () => {
@@ -118,10 +130,13 @@ describe('Minimal CPA-only Codex controls', () => {
       scope(),
       expect.any(AbortSignal)
     );
+    expect(view.root.findAllByType('details')).toHaveLength(0);
+    mocks.api.update.mockResolvedValue(state(true));
+    await act(async () => toggle('codex_runtime.enabled').props.onChange(true));
     expect(toggle('codex_runtime.credential_enabled').props.checked).toBe(true);
     mocks.api.setCredential.mockResolvedValue({
-      ...state(),
-      credentials: [{ ...state().credentials[0], enabled: false }],
+      ...state(true),
+      credentials: [{ ...state(true).credentials[0], enabled: false }],
     });
     await act(async () => {
       toggle('codex_runtime.credential_enabled').props.onChange(false);
@@ -133,12 +148,12 @@ describe('Minimal CPA-only Codex controls', () => {
     );
   });
 
-  it.each([404, 405, 501])('disables unsupported CPA versions on HTTP %s', async (status) => {
+  it.each([404, 405, 501])('hides unsupported CPA versions on HTTP %s', async (status) => {
     mocks.api.status.mockRejectedValue({ status });
     await act(async () => {
-      view = create(createElement(CodexRuntimePage));
+      view = create(settings());
     });
-    expect(JSON.stringify(view.toJSON())).toContain('codex_runtime.unsupported');
+    expect(view.toJSON()).toBeNull();
     expect(view.root.findAllByType(ToggleSwitch)).toHaveLength(0);
   });
 
@@ -220,7 +235,7 @@ describe('Minimal CPA-only Codex controls', () => {
     mocks.api.status.mockResolvedValue(state(false));
     await click('codex_runtime.authorize');
     expect(mocks.api.startLogin).toHaveBeenCalledTimes(1);
-    expect(button('codex_runtime.authorize').props.disabled).toBe(true);
+    expect(button('codex_runtime.authorize')).toBeUndefined();
     expect(JSON.stringify(view.toJSON())).toContain('codex_runtime.state_changed');
   });
 
@@ -235,10 +250,10 @@ describe('Minimal CPA-only Codex controls', () => {
     );
     await click('codex_runtime.authorize');
     const signal = mocks.api.startLogin.mock.calls[0][2] as AbortSignal;
-    mocks.auth.apiBase = 'https://other-cpa';
+    mocks.auth.apiBase = 'https://manager/api/instances/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
     mocks.api.status.mockResolvedValue(state(false));
     await act(async () => {
-      view.update(createElement(CodexRuntimePage));
+      view.update(settings());
     });
     expect(signal.aborted).toBe(true);
     await act(async () => {
@@ -247,7 +262,7 @@ describe('Minimal CPA-only Codex controls', () => {
     expect(view.root.findAllByType('a')).toHaveLength(0);
     expect(toggle('codex_runtime.enabled').props.checked).toBe(false);
     const latest = mocks.api.status.mock.calls.find(
-      (call) => call[0].apiBase === 'https://other-cpa'
+      (call) => call[0].apiBase === mocks.auth.apiBase
     );
     expect(latest).toBeDefined();
     act(() => view.unmount());
@@ -257,9 +272,50 @@ describe('Minimal CPA-only Codex controls', () => {
   it('does not read CPA state without a management connection', async () => {
     mocks.auth.connectionStatus = 'disconnected';
     await act(async () => {
-      view = create(createElement(CodexRuntimePage));
+      view = create(settings());
     });
     expect(mocks.api.status).not.toHaveBeenCalled();
     expect(view.root.findAllByType(ToggleSwitch)).toHaveLength(0);
+  });
+
+  it('never probes or renders controls at the aggregate Manager scope', async () => {
+    mocks.auth.apiBase = 'https://manager';
+    await mount();
+    expect(mocks.api.status).not.toHaveBeenCalled();
+    expect(view.toJSON()).toBeNull();
+  });
+
+  it('supports a direct CPA panel without an instance proxy path', async () => {
+    mocks.auth.sessionMode = 'external_panel';
+    mocks.auth.apiBase = 'https://single-cpa';
+    await mount();
+    expect(mocks.api.status).toHaveBeenCalledWith(scope(), expect.any(AbortSignal));
+    expect(toggle('codex_runtime.enabled').props.checked).toBe(false);
+  });
+
+  it('blocks changes during parent saves and honors synchronous operation guards', async () => {
+    await mount(state(true), true);
+    expect(toggle('codex_runtime.enabled').props.disabled).toBe(true);
+    expect(button('codex_runtime.authorize').props.disabled).toBe(true);
+    await act(async () => toggle('codex_runtime.enabled').props.onChange(false));
+    await click('codex_runtime.authorize');
+    expect(mocks.api.update).not.toHaveBeenCalled();
+    expect(mocks.api.startLogin).not.toHaveBeenCalled();
+    await act(async () => view.update(settings()));
+    mocks.onOperationStart.mockReturnValue(false);
+    await act(async () => toggle('codex_runtime.enabled').props.onChange(false));
+    expect(mocks.api.update).not.toHaveBeenCalled();
+    expect(mocks.onOperationEnd).not.toHaveBeenCalled();
+  });
+
+  it('refreshes the parent snapshot even when a mutation response fails', async () => {
+    await mount();
+    mocks.api.update.mockRejectedValue(new Error('response lost'));
+    await act(async () => toggle('codex_runtime.enabled').props.onChange(true));
+    expect(mocks.onOperationStart).toHaveBeenCalledWith(true);
+    expect(mocks.onOperationEnd).toHaveBeenCalledWith(true);
+    expect(JSON.stringify(view.toJSON())).toContain('response lost');
+    await click('common.refresh');
+    expect(mocks.onOperationEnd).toHaveBeenLastCalledWith(false);
   });
 });

@@ -32,6 +32,11 @@ const mocks = vi.hoisted(() => ({
   reloadPage: vi.fn(),
   capturedApiKeyOperationStart: null as (() => void) | null,
   capturedApiKeyOperationEnd: null as (() => void) | null,
+  codexSettings: null as {
+    disabled: boolean;
+    onOperationStart: (mayChangeConfig: boolean) => boolean;
+    onOperationEnd: (mayChangeConfig: boolean) => Promise<void>;
+  } | null,
   translate: (key: string) => key,
   visualState: {
     apiKeysText: 'sk-old',
@@ -55,10 +60,12 @@ vi.mock('@/hooks/useMediaQuery', () => ({
 
 vi.mock('@/components/config/VisualConfigEditor', () => ({
   VisualConfigEditor: ({
+    codexModeSettings,
     onPersistApiKeyMutation,
     onApiKeyOperationStart,
     onApiKeyOperationEnd,
   }: {
+    codexModeSettings?: ReactNode;
     onPersistApiKeyMutation: (mutation: ApiKeyMutation) => Promise<string[]>;
     onApiKeyOperationStart: () => void;
     onApiKeyOperationEnd: () => void;
@@ -79,6 +86,7 @@ vi.mock('@/components/config/VisualConfigEditor', () => ({
 
     return (
       <div data-test="visual-editor">
+        {codexModeSettings}
         <button
           type="button"
           data-test="create-key"
@@ -96,6 +104,13 @@ vi.mock('@/components/config/VisualConfigEditor', () => ({
         />
       </div>
     );
+  },
+}));
+
+vi.mock('@/features/codexRuntime/CodexRuntimeSettings', () => ({
+  CodexRuntimeSettings: (props: NonNullable<typeof mocks.codexSettings>) => {
+    mocks.codexSettings = props;
+    return <span data-test="codex-settings" />;
   },
 }));
 
@@ -422,6 +437,7 @@ beforeEach(() => {
   mocks.saveManagerConfig.mockResolvedValue(MANAGER_CONFIG_RESPONSE);
   mocks.capturedApiKeyOperationStart = null;
   mocks.capturedApiKeyOperationEnd = null;
+  mocks.codexSettings = null;
   mocks.loadVisualValuesFromYaml.mockReturnValue({ ok: true });
   mocks.applyVisualChangesToYaml.mockImplementation((yaml: string) => yaml);
   mocks.commitApiKeysText.mockImplementation((apiKeysText: string) => {
@@ -459,6 +475,94 @@ afterEach(() => {
       value: originalDocument,
     });
   }
+});
+
+describe('Codex settings configuration persistence', () => {
+  it('locks save, tabs and API-key mutations while updating the selected CPA, preserving visual drafts', async () => {
+    const updatedYaml = INITIAL_YAML + 'codex-runtime:\n  enabled: true\n';
+    await mountPage();
+    mocks.visualState.dirty = true;
+    mocks.loadVisualValuesFromYaml.mockClear();
+    act(() => {
+      expect(mocks.codexSettings!.onOperationStart(true)).toBe(true);
+    });
+    expect(mocks.codexSettings!.disabled).toBe(true);
+    expect(renderer!.root.findByProps({ 'data-tab': 'source' }).props.disabled).toBe(true);
+    await clickSave();
+    expect(renderer!.root.findAllByProps({ 'data-test': 'confirm-yaml' })).toHaveLength(0);
+    expect(() => mocks.capturedApiKeyOperationStart!()).toThrow();
+
+    const refresh = createDeferred<string>();
+    mocks.fetchConfigYaml.mockReturnValueOnce(refresh.promise);
+    let pending!: Promise<void>;
+    act(() => {
+      pending = mocks.codexSettings!.onOperationEnd(true);
+    });
+    expect(mocks.codexSettings!.disabled).toBe(true);
+    await act(async () => {
+      refresh.resolve(updatedYaml);
+      await pending;
+    });
+    expect(mocks.codexSettings!.disabled).toBe(false);
+    expect(mocks.loadVisualValuesFromYaml).not.toHaveBeenCalled();
+    expect(mocks.visualState.dirty).toBe(true);
+    expect(mocks.fetchConfigYaml).toHaveBeenLastCalledWith({
+      apiBase: mocks.apiBase,
+      managementKey: 'management-key',
+    });
+    await clickTab('source');
+    expect(mocks.applyVisualChangesToYaml).toHaveBeenLastCalledWith(updatedYaml);
+    expect(renderer!.root.findByProps({ 'data-test': 'source-editor' }).props.value).toBe(
+      updatedYaml
+    );
+  });
+
+  it('does not allow an old YAML snapshot to overwrite a runtime update after refresh failure', async () => {
+    await mountPage();
+    act(() => {
+      expect(mocks.codexSettings!.onOperationStart(true)).toBe(true);
+    });
+    mocks.fetchConfigYaml.mockRejectedValue(new Error('offline'));
+    await act(async () => {
+      await mocks.codexSettings!.onOperationEnd(true);
+    });
+    await clickTab('source');
+    expect(renderer!.root.findAllByProps({ 'data-test': 'source-editor' })).toHaveLength(0);
+    expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
+    const updatedYaml = INITIAL_YAML + 'codex-runtime:\n  enabled: true\n';
+    mocks.fetchConfigYaml.mockResolvedValue(updatedYaml);
+    await clickTab('source');
+    expect(renderer!.root.findByProps({ 'data-test': 'source-editor' }).props.value).toBe(
+      updatedYaml
+    );
+  });
+
+  it('does not include CPA runtime controls in Manager configuration', async () => {
+    configureManagerMode();
+    await act(async () => {
+      renderer = create(<ConfigPage managerOnly />);
+    });
+    await flush();
+    expect(renderer!.root.findAllByProps({ 'data-test': 'codex-settings' })).toHaveLength(0);
+  });
+
+  it('requires saving or discarding a YAML draft before changing runtime state', async () => {
+    await mountPage();
+    await clickTab('source');
+    await act(async () => {
+      renderer!.root.findByProps({ 'data-test': 'source-editor' }).props.onChange({
+        target: { value: INITIAL_YAML + 'request-retry: 4\n' },
+      });
+    });
+    await clickTab('visual');
+    expect(mocks.codexSettings!.disabled).toBe(true);
+    expect(mocks.codexSettings!.onOperationStart(true)).toBe(false);
+    expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
+    await clickTab('source');
+    expect(renderer!.root.findByProps({ 'data-test': 'source-editor' }).props.value).toContain(
+      'request-retry: 4'
+    );
+  });
 });
 
 describe('ConfigPage YAML instance isolation', () => {

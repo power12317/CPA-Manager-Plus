@@ -71,6 +71,7 @@ type VisualSection = {
 };
 
 interface VisualConfigEditorProps {
+  codexModeSettings?: ReactNode;
   codexTicketSettings?: ReactNode;
   values: VisualConfigValues;
   validationErrors?: VisualConfigValidationErrors;
@@ -188,6 +189,7 @@ function FieldShell({
 }
 
 export function VisualConfigEditor({
+  codexModeSettings,
   codexTicketSettings,
   values,
   validationErrors,
@@ -1326,6 +1328,7 @@ export function VisualConfigEditor({
                   <SectionSubsection
                     title={t('config_management.visual.sections.headers.codex_title')}
                   >
+                    {codexModeSettings}
                     <SectionGrid>
                       <Input
                         label={t('config_management.visual.sections.headers.user_agent')}

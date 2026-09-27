@@ -597,12 +597,6 @@ function MainLayoutContent({ routeBase = '', demoMode = false }: MainLayoutProps
         icon: sidebarIcons.aiProviders,
       },
       ...pluginControlNavItems,
-      {
-        path: '/codex-runtime',
-        label: t('codex_runtime.title'),
-        shortLabel: t('codex_runtime.short_title'),
-        icon: sidebarIcons.config,
-      },
     ],
     [
       {

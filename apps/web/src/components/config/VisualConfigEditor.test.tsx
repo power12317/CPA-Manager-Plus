@@ -16,6 +16,30 @@ afterEach(() => {
 });
 
 describe('Codex fast mode setting', () => {
+  it('embeds runtime settings inside the existing Codex subsection without adding navigation', () => {
+    act(() => {
+      renderer = create(
+        <VisualConfigEditor
+          values={DEFAULT_VISUAL_VALUES}
+          onChange={() => {}}
+          onPersistApiKeyMutation={async () => []}
+          onRefreshApiKeys={async () => []}
+          onApiKeyOperationStart={() => {}}
+          onApiKeyOperationEnd={() => {}}
+          codexModeSettings={<span data-codex-mode>Inline mode control</span>}
+        />
+      );
+    });
+    const subsection = renderer.root.findByProps({
+      title: 'config_management.visual.sections.headers.codex_title',
+    });
+    expect(subsection.findAllByProps({ 'data-codex-mode': true })).toHaveLength(1);
+    for (const nav of renderer.root.findAllByType('nav')) {
+      expect(nav.findAllByProps({ 'data-codex-mode': true })).toHaveLength(0);
+      expect(nav.findAllByProps({ href: '/codex-runtime' })).toHaveLength(0);
+    }
+  });
+
   it.each([false, true])('binds the four modes (disabled=%s)', (disabled) => {
     const onChange = vi.fn();
     act(() => {

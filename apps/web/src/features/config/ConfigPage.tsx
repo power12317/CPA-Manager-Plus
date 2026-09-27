@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/icons';
 import { VisualConfigEditor } from '@/components/config/VisualConfigEditor';
 import { CodexTurnStateSettingsCard } from '@/features/codexTurnState/CodexTurnStateSettingsCard';
+import { CodexRuntimeSettings } from '@/features/codexRuntime/CodexRuntimeSettings';
 import type { ApiKeyMutation } from '@/components/config/ApiKeysCardEditor';
 import { DiffModal } from '@/components/config/DiffModal';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -372,7 +373,8 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
   const [sourceConfigLoaded, setSourceConfigLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [apiKeyMutationInFlight, setApiKeyMutationInFlight] = useState(false);
+  const [configMutationInFlight, setConfigMutationInFlight] = useState(false);
+  const [codexSettingsRevision, setCodexSettingsRevision] = useState(0);
   const [sourceSnapshotStale, setSourceSnapshotStale] = useState(false);
   const [error, setError] = useState('');
   const [dirty, setDirty] = useState(false);
@@ -417,7 +419,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
   const floatingActionsRef = useRef<HTMLDivElement>(null);
   const savingRef = useRef(false);
   const managerSavingRef = useRef(false);
-  const apiKeyMutationInFlightRef = useRef(false);
+  const configMutationInFlightRef = useRef(false);
   const sourceSnapshotStaleRef = useRef(false);
 
   const updateSourceSnapshotStale = useCallback((stale: boolean) => {
@@ -491,6 +493,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
       updateSourceSnapshotStale(false);
       setSourceConfigLoaded(true);
       loadVisualValuesFromYaml(data);
+      setCodexSettingsRevision((revision) => revision + 1);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('notification.refresh_failed');
       setError(message);
@@ -578,7 +581,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
       sourceDirty: dirty,
       saving: savingRef.current || saving,
       managerSaving: managerSavingRef.current || managerSaving,
-      apiKeyMutationInFlight: apiKeyMutationInFlightRef.current,
+      apiKeyMutationInFlight: configMutationInFlightRef.current,
       diffModalOpen,
     });
     if (blockReason) {
@@ -593,13 +596,13 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
       throw error;
     }
 
-    apiKeyMutationInFlightRef.current = true;
-    setApiKeyMutationInFlight(true);
+    configMutationInFlightRef.current = true;
+    setConfigMutationInFlight(true);
   }, [diffModalOpen, dirty, managerSaving, saving, t]);
 
   const endApiKeyOperation = useCallback(() => {
-    apiKeyMutationInFlightRef.current = false;
-    setApiKeyMutationInFlight(false);
+    configMutationInFlightRef.current = false;
+    setConfigMutationInFlight(false);
   }, []);
 
   const refreshCleanSourceSnapshot = useCallback(async () => {
@@ -622,16 +625,48 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
       updateSourceSnapshotStale(false);
       return true;
     } catch {
-      // The canonical API-key list has already been obtained. Keep the successful
-      // API-key mutation, but prevent a stale source buffer from being saved later.
+      // An immediate CPA update may already have succeeded. Prevent a stale
+      // source buffer from overwriting it if refreshing the snapshot fails.
       updateSourceSnapshotStale(true);
       return false;
     }
   }, [configRequestScope, dirty, updateSourceSnapshotStale]);
 
+  const beginCodexOperation = useCallback(
+    (mayChangeConfig: boolean) => {
+      if (
+        dirty ||
+        loading ||
+        diffModalOpen ||
+        disableControls ||
+        savingRef.current ||
+        managerSavingRef.current ||
+        configMutationInFlightRef.current
+      )
+        return false;
+      configMutationInFlightRef.current = true;
+      setConfigMutationInFlight(true);
+      if (mayChangeConfig) updateSourceSnapshotStale(true);
+      return true;
+    },
+    [dirty, loading, diffModalOpen, disableControls, updateSourceSnapshotStale]
+  );
+
+  const endCodexOperation = useCallback(
+    async (mayChangeConfig: boolean) => {
+      try {
+        if (mayChangeConfig) await refreshCleanSourceSnapshot();
+      } finally {
+        configMutationInFlightRef.current = false;
+        setConfigMutationInFlight(false);
+      }
+    },
+    [refreshCleanSourceSnapshot]
+  );
+
   const persistApiKeyMutation = useCallback(
     async (mutation: ApiKeyMutation): Promise<string[]> => {
-      if (!apiKeyMutationInFlightRef.current) {
+      if (!configMutationInFlightRef.current) {
         const error = new Error(t('config_management.visual.api_keys.operation_busy')) as Error & {
           code?: string;
         };
@@ -735,7 +770,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
   );
 
   const refreshApiKeys = useCallback(async (): Promise<string[]> => {
-    if (!apiKeyMutationInFlightRef.current) {
+    if (!configMutationInFlightRef.current) {
       const error = new Error(t('config_management.visual.api_keys.operation_busy')) as Error & {
         code?: string;
       };
@@ -894,7 +929,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
       showNotification(t('notification.refresh_failed'), 'error');
       return;
     }
-    if (savingRef.current || managerSavingRef.current || apiKeyMutationInFlightRef.current) {
+    if (savingRef.current || managerSavingRef.current || configMutationInFlightRef.current) {
       return;
     }
     savingRef.current = true;
@@ -935,6 +970,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
       setPreviewServerYaml(latestContent);
       updateSourceSnapshotStale(false);
       loadVisualValuesFromYaml(latestContent);
+      setCodexSettingsRevision((revision) => revision + 1);
 
       // Keep the global config store in sync so sidebar / other pages reflect YAML changes immediately.
       try {
@@ -990,7 +1026,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
   );
 
   const handleManagerSave = async () => {
-    if (managerSavingRef.current || apiKeyMutationInFlightRef.current) return;
+    if (managerSavingRef.current || configMutationInFlightRef.current) return;
     if (disableControls) return;
     if (panelHostedByUsageService !== true) return;
     const serviceBase = resolveManagerServiceBase();
@@ -1066,7 +1102,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
       }
 
       const runSave = async (notifyOnError: boolean) => {
-        if (managerSavingRef.current || apiKeyMutationInFlightRef.current) return;
+        if (managerSavingRef.current || configMutationInFlightRef.current) return;
         managerSavingRef.current = true;
         setManagerSaving(true);
         let requestStarted = false;
@@ -1173,7 +1209,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
       return;
     }
 
-    if (savingRef.current || managerSavingRef.current || apiKeyMutationInFlightRef.current) {
+    if (savingRef.current || managerSavingRef.current || configMutationInFlightRef.current) {
       return;
     }
 
@@ -1275,7 +1311,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
   const handleTabChange = useCallback(
     async (tab: ConfigEditorTab) => {
       if (tab === activeTab) return;
-      if (apiKeyMutationInFlightRef.current || managerSavingRef.current) return;
+      if (configMutationInFlightRef.current || managerSavingRef.current) return;
 
       if (tab === 'manager') {
         setActiveTab(tab);
@@ -1546,7 +1582,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
   };
 
   const handleReload = useCallback(() => {
-    if (apiKeyMutationInFlightRef.current || savingRef.current || managerSavingRef.current) {
+    if (configMutationInFlightRef.current || savingRef.current || managerSavingRef.current) {
       return;
     }
     if (isManagerTab) {
@@ -1598,7 +1634,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
           type="button"
           className={styles.floatingActionButton}
           onClick={handleReload}
-          disabled={loading || saving || managerSaving || apiKeyMutationInFlight}
+          disabled={loading || saving || managerSaving || configMutationInFlight}
           title={t('config_management.reload')}
           aria-label={t('config_management.reload')}
         >
@@ -1613,13 +1649,13 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
               ? disableControls ||
                 managerLoading ||
                 managerSaving ||
-                apiKeyMutationInFlight ||
+                configMutationInFlight ||
                 !managerCanSave
               : disableControls ||
                 loading ||
                 saving ||
                 managerSaving ||
-                apiKeyMutationInFlight ||
+                configMutationInFlight ||
                 !isDirty ||
                 diffModalOpen ||
                 hasVisualModeError ||
@@ -1651,24 +1687,24 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
       {
         id: 'visual',
         label: t('config_management.tabs.visual'),
-        disabled: saving || loading || managerSaving || apiKeyMutationInFlight,
+        disabled: saving || loading || managerSaving || configMutationInFlight,
       },
       {
         id: 'source',
         label: t('config_management.tabs.source'),
-        disabled: saving || loading || managerSaving || apiKeyMutationInFlight,
+        disabled: saving || loading || managerSaving || configMutationInFlight,
       },
       ...(showManagerTab
         ? [
             {
               id: 'manager' as const,
               label: t('config_management.tabs.manager'),
-              disabled: managerSaving || managerLoading || apiKeyMutationInFlight,
+              disabled: managerSaving || managerLoading || configMutationInFlight,
             },
           ]
         : []),
     ],
-    [apiKeyMutationInFlight, loading, managerLoading, managerSaving, saving, showManagerTab, t]
+    [configMutationInFlight, loading, managerLoading, managerSaving, saving, showManagerTab, t]
   );
 
   return (
@@ -1762,13 +1798,31 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
                   saving ||
                   managerSaving ||
                   diffModalOpen ||
-                  apiKeyMutationInFlight
+                  configMutationInFlight
                 }
                 onChange={setVisualValues}
                 onPersistApiKeyMutation={persistApiKeyMutation}
                 onRefreshApiKeys={refreshApiKeys}
                 onApiKeyOperationStart={beginApiKeyOperation}
                 onApiKeyOperationEnd={endApiKeyOperation}
+                codexModeSettings={
+                  !managerOnly && sourceConfigLoaded ? (
+                    <CodexRuntimeSettings
+                      key={codexSettingsRevision}
+                      disabled={
+                        disableControls ||
+                        loading ||
+                        saving ||
+                        managerSaving ||
+                        diffModalOpen ||
+                        configMutationInFlight ||
+                        dirty
+                      }
+                      onOperationStart={beginCodexOperation}
+                      onOperationEnd={endCodexOperation}
+                    />
+                  ) : null
+                }
                 codexTicketSettings={
                   <CodexTurnStateSettingsCard
                     values={visualValues}
@@ -1780,7 +1834,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
                       saving ||
                       managerSaving ||
                       diffModalOpen ||
-                      apiKeyMutationInFlight
+                      configMutationInFlight
                     }
                   />
                 }
@@ -1858,7 +1912,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
                       !loading &&
                       !saving &&
                       !managerSaving &&
-                      !apiKeyMutationInFlight &&
+                      !configMutationInFlight &&
                       !diffModalOpen
                     }
                     placeholder={t('config_management.editor_placeholder')}

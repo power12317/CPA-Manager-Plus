@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text } from '@codemirror/state';
 import { Chunk } from '@codemirror/merge';
@@ -13,6 +13,7 @@ type DiffModalProps = {
   onConfirm: () => void;
   onCancel: () => void;
   loading?: boolean;
+  notice?: ReactNode;
 };
 
 type UnifiedLineType = 'context' | 'addition' | 'deletion';
@@ -130,7 +131,7 @@ function computeUnifiedDiff(original: string, modified: string): DiffResult {
           type: 'context',
           oldNum,
           newNum,
-          text: oldDoc.line(oldNum).text
+          text: oldDoc.line(oldNum).text,
         });
       }
     }
@@ -164,7 +165,7 @@ function computeUnifiedDiff(original: string, modified: string): DiffResult {
           type: 'context',
           oldNum,
           newNum,
-          text: oldDoc.line(oldNum).text
+          text: oldDoc.line(oldNum).text,
         });
       }
     }
@@ -205,7 +206,8 @@ export function DiffModal({
   modified,
   onConfirm,
   onCancel,
-  loading = false
+  loading = false,
+  notice,
 }: DiffModalProps) {
   const { t } = useTranslation();
 
@@ -234,9 +236,11 @@ export function DiffModal({
       }
     >
       <div className={styles.content}>
-        {diff.hunks.length === 0 ? (
+        {notice ? <div className={styles.emptyState}>{notice}</div> : null}
+        {diff.hunks.length === 0 && !notice ? (
           <div className={styles.emptyState}>{t('config_management.diff.no_changes')}</div>
-        ) : (
+        ) : null}
+        {diff.hunks.length > 0 ? (
           <div className={styles.diffContainer}>
             <div className={styles.fileHeader}>
               <svg className={styles.fileIcon} viewBox="0 0 16 16" width="16" height="16">
@@ -302,7 +306,7 @@ export function DiffModal({
               ))}
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </Modal>
   );

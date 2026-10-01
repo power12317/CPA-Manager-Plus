@@ -1,10 +1,11 @@
 {
   "codex_runtime": {
     "enabled": "Enable Codex mode",
-    "enabled_hint": "Applies immediately to this CPA. OAuth login uses Codex when on and native CPA when off.",
+    "enabled_hint": "Drafted here; the selected CPA changes only after you confirm Save. OAuth uses Codex when on and native CPA when off.",
     "saved": "Saved in CPA.",
     "load_failed": "Could not load Codex mode settings. Refresh to try again.",
-    "action_failed": "The operation failed. Try again."
+    "action_failed": "The operation failed. Try again.",
+    "pending_change": "The Codex mode change will be applied to this CPA after you confirm the configuration save."
   },
   "manager_updates": {
     "server_version": "Manager Server version",

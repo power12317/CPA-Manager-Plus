@@ -5,7 +5,7 @@ import { CodexRuntimeToggle } from './CodexRuntimeToggle';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 
 const mocks = vi.hoisted(() => ({
-  api: { status: vi.fn(), update: vi.fn() },
+  api: { status: vi.fn() },
   auth: {
     apiBase: 'https://manager/api/instances/default',
     managementKey: 'admin',
@@ -14,12 +14,15 @@ const mocks = vi.hoisted(() => ({
   },
   showNotification: vi.fn(),
   translate: (key: string) => key,
-  onOperationStart: vi.fn(() => true),
-  onOperationEnd: vi.fn(async () => {}),
+  onLoaded: vi.fn(),
+  onDraftChange: vi.fn(),
 }));
+
 vi.mock('@/stores', () => ({
   useAuthStore: (selector: (state: typeof mocks.auth) => unknown) => selector(mocks.auth),
-  useNotificationStore: (selector: (state: typeof mocks) => unknown) => selector(mocks),
+  useNotificationStore: (
+    selector: (state: { showNotification: typeof mocks.showNotification }) => unknown
+  ) => selector({ showNotification: mocks.showNotification }),
 }));
 vi.mock('@/services/api/codexRuntime', async (original) => ({
   ...(await original<object>()),
@@ -28,66 +31,56 @@ vi.mock('@/services/api/codexRuntime', async (original) => ({
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: mocks.translate }) }));
 
 let view: ReactTestRenderer;
-const scope = () => ({ apiBase: mocks.auth.apiBase, managementKey: mocks.auth.managementKey });
 const element = (disabled = false) =>
   createElement(CodexRuntimeToggle, {
     disabled,
-    onOperationStart: mocks.onOperationStart,
-    onOperationEnd: mocks.onOperationEnd,
+    onLoaded: mocks.onLoaded,
+    onDraftChange: mocks.onDraftChange,
   });
 const mount = async (disabled = false) => {
   await act(async () => {
     view = create(element(disabled));
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
   });
 };
 const toggle = () => view.root.findByType(ToggleSwitch);
-const change = async (value: boolean) => {
-  await act(async () => {
-    toggle().props.onChange(value);
-  });
-};
 
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.api.status.mockReset().mockResolvedValue({ enabled: false });
-  mocks.api.update.mockReset().mockResolvedValue({ enabled: true });
   mocks.auth.apiBase = 'https://manager/api/instances/default';
   mocks.auth.managementKey = 'admin';
   mocks.auth.connectionStatus = 'connected';
   mocks.auth.sessionMode = 'manager_embedded';
-  mocks.onOperationStart.mockReturnValue(true);
 });
 afterEach(() => act(() => view?.unmount()));
 
 describe('Single CPA Codex mode toggle', () => {
   it.each([false, true])(
-    'renders just one setting with no authorization UI when enabled=%s',
+    'renders one draft switch without authorization UI when enabled=%s',
     async (enabled) => {
       mocks.api.status.mockResolvedValue({ enabled });
       await mount();
       expect(view.root.findAllByType(ToggleSwitch)).toHaveLength(1);
       expect(toggle().props.checked).toBe(enabled);
-      for (const tag of ['button', 'a', 'details', 'textarea', 'h1'] as const) {
-        expect(view.root.findAllByType(tag)).toHaveLength(0);
-      }
-      expect(view.root.findAllByType('input').map((node) => node.props.type)).toEqual(['checkbox']);
+      expect(view.root.findAllByType('button')).toHaveLength(0);
+      expect(view.root.findAllByType('a')).toHaveLength(0);
+      expect(view.root.findAllByType('details')).toHaveLength(0);
       expect(JSON.stringify(view.toJSON())).not.toMatch(
         /callback|reauthorize|credentials|login_id/
       );
+      expect(mocks.onLoaded).toHaveBeenCalledWith(enabled);
     }
   );
 
-  it('saves only the current instance mode through the parent snapshot guard', async () => {
+  it('changes only the local draft and does not update CPA on switch click', async () => {
     await mount();
-    await change(true);
-    expect(mocks.api.update).toHaveBeenCalledExactlyOnceWith(
-      { enabled: true },
-      scope(),
-      expect.any(AbortSignal)
-    );
-    expect(mocks.onOperationStart).toHaveBeenCalledWith(true);
-    expect(mocks.onOperationEnd).toHaveBeenCalledWith(true);
+    await act(async () => toggle().props.onChange(true));
     expect(toggle().props.checked).toBe(true);
+    expect(mocks.onDraftChange).toHaveBeenCalledWith(true);
+    expect(mocks.api.status).toHaveBeenCalledTimes(1);
   });
 
   it.each([404, 405, 501])('renders nothing for an unsupported CPA (%s)', async (status) => {
@@ -112,54 +105,33 @@ describe('Single CPA Codex mode toggle', () => {
     mocks.auth.sessionMode = 'external_panel';
     mocks.auth.apiBase = 'https://single-cpa';
     await mount();
-    expect(mocks.api.status).toHaveBeenCalledWith(scope(), expect.any(AbortSignal));
-    await change(true);
-    expect(mocks.api.update).toHaveBeenCalledWith(
-      { enabled: true },
-      scope(),
+    expect(mocks.api.status).toHaveBeenCalledWith(
+      { apiBase: 'https://single-cpa', managementKey: 'admin' },
       expect.any(AbortSignal)
     );
   });
 
-  it('blocks changes during parent saves and honors synchronous operation guards', async () => {
+  it('disables the draft switch while the parent is saving', async () => {
     await mount(true);
     expect(toggle().props.disabled).toBe(true);
-    await change(true);
-    expect(mocks.api.update).not.toHaveBeenCalled();
-    await act(async () => view.update(element()));
-    mocks.onOperationStart.mockReturnValue(false);
-    await change(true);
-    expect(mocks.api.update).not.toHaveBeenCalled();
-    expect(mocks.onOperationEnd).not.toHaveBeenCalled();
+    await act(async () => toggle().props.onChange(true));
+    expect(mocks.onDraftChange).not.toHaveBeenCalled();
   });
 
-  it('reconciles an uncertain write and still refreshes the parent YAML snapshot', async () => {
-    await mount();
-    mocks.api.update.mockRejectedValue(new Error('lost response'));
-    mocks.api.status.mockResolvedValue({ enabled: true });
-    await change(true);
-    expect(toggle().props.checked).toBe(true);
-    expect(mocks.showNotification).toHaveBeenCalledWith('codex_runtime.action_failed', 'error');
-    expect(mocks.onOperationEnd).toHaveBeenCalledWith(true);
-  });
-
-  it('discards a stale mutation response when switching instances', async () => {
-    await mount();
-    let resolveUpdate!: (value: { enabled: boolean }) => void;
-    mocks.api.update.mockReturnValue(
+  it('aborts stale reads when switching instances', async () => {
+    let resolveStatus!: (value: { enabled: boolean }) => void;
+    mocks.api.status.mockReturnValue(
       new Promise((resolve) => {
-        resolveUpdate = resolve;
+        resolveStatus = resolve;
       })
     );
-    await change(true);
-    const signal = mocks.api.update.mock.calls[0][2] as AbortSignal;
+    await mount();
+    const signal = mocks.api.status.mock.calls[0][1] as AbortSignal;
     mocks.auth.apiBase = 'https://manager/api/instances/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    mocks.api.status.mockResolvedValue({ enabled: true });
     await act(async () => view.update(element()));
     expect(signal.aborted).toBe(true);
-    await act(async () => {
-      resolveUpdate({ enabled: true });
-    });
-    expect(toggle().props.checked).toBe(false);
-    expect(mocks.showNotification).not.toHaveBeenCalled();
+    await act(async () => resolveStatus({ enabled: true }));
+    expect(mocks.onDraftChange).not.toHaveBeenCalled();
   });
 });

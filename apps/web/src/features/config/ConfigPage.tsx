@@ -39,6 +39,7 @@ import {
 } from '@/stores';
 import { configFileApi } from '@/services/api/configFile';
 import { apiKeysApi } from '@/services/api/apiKeys';
+import { codexRuntimeApi } from '@/services/api/codexRuntime';
 import {
   getUsageServiceErrorCode,
   isUsageServiceId,
@@ -375,6 +376,8 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
   const [saving, setSaving] = useState(false);
   const [configMutationInFlight, setConfigMutationInFlight] = useState(false);
   const [codexSettingsRevision, setCodexSettingsRevision] = useState(0);
+  const [codexRuntimeDraft, setCodexRuntimeDraft] = useState<boolean | null>(null);
+  const [codexRuntimeBaseline, setCodexRuntimeBaseline] = useState<boolean | null>(null);
   const [sourceSnapshotStale, setSourceSnapshotStale] = useState(false);
   const [error, setError] = useState('');
   const [dirty, setDirty] = useState(false);
@@ -430,7 +433,18 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
   const disableControls = connectionStatus !== 'connected';
   const showManagerTab = panelHostedByUsageService === true && (managerOnly || !managerSession);
   const isManagerTab = activeTab === 'manager' && showManagerTab;
-  const sourceDirty = dirty || visualDirty;
+  const codexRuntimeDirty =
+    codexRuntimeDraft !== null &&
+    codexRuntimeBaseline !== null &&
+    codexRuntimeDraft !== codexRuntimeBaseline;
+  const sourceDirty = dirty || visualDirty || codexRuntimeDirty;
+  const handleCodexRuntimeLoaded = useCallback((enabled: boolean) => {
+    setCodexRuntimeBaseline(enabled);
+    setCodexRuntimeDraft(enabled);
+  }, []);
+  const handleCodexRuntimeDraftChange = useCallback((enabled: boolean) => {
+    setCodexRuntimeDraft(enabled);
+  }, []);
   const shouldRenderFloatingActions = isCurrentLayer;
   const hasVisualModeError = !!visualParseError;
   const hasVisualValidationErrors =
@@ -631,38 +645,6 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
       return false;
     }
   }, [configRequestScope, dirty, updateSourceSnapshotStale]);
-
-  const beginCodexOperation = useCallback(
-    (mayChangeConfig: boolean) => {
-      if (
-        dirty ||
-        loading ||
-        diffModalOpen ||
-        disableControls ||
-        savingRef.current ||
-        managerSavingRef.current ||
-        configMutationInFlightRef.current
-      )
-        return false;
-      configMutationInFlightRef.current = true;
-      setConfigMutationInFlight(true);
-      if (mayChangeConfig) updateSourceSnapshotStale(true);
-      return true;
-    },
-    [dirty, loading, diffModalOpen, disableControls, updateSourceSnapshotStale]
-  );
-
-  const endCodexOperation = useCallback(
-    async (mayChangeConfig: boolean) => {
-      try {
-        if (mayChangeConfig) await refreshCleanSourceSnapshot();
-      } finally {
-        configMutationInFlightRef.current = false;
-        setConfigMutationInFlight(false);
-      }
-    },
-    [refreshCleanSourceSnapshot]
-  );
 
   const persistApiKeyMutation = useCallback(
     async (mutation: ApiKeyMutation): Promise<string[]> => {
@@ -946,7 +928,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
         setServerYaml(nextServerYaml);
         setMergedYaml(nextMergedYaml);
 
-        if (nextServerYaml === nextMergedYaml) {
+        if (nextServerYaml === nextMergedYaml && !codexRuntimeDirty) {
           setDirty(false);
           setDiffModalOpen(false);
           setContent(latestServerYaml);
@@ -960,34 +942,43 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
       const nextCommercialMode = readCommercialModeFromYaml(mergedYaml);
       const commercialModeChanged = previousCommercialMode !== nextCommercialMode;
 
-      await configFileApi.saveConfigYaml(mergedYaml, configRequestScope);
-      const latestContent = await configFileApi.fetchConfigYaml(configRequestScope);
+      const yamlChanged = mergedYaml !== latestServerYaml;
+      if (yamlChanged) {
+        await configFileApi.saveConfigYaml(mergedYaml, configRequestScope);
+        const latestContent = await configFileApi.fetchConfigYaml(configRequestScope);
+        setContent(latestContent);
+        setServerYaml(latestContent);
+        setMergedYaml(latestContent);
+        setPreviewServerYaml(latestContent);
+        updateSourceSnapshotStale(false);
+        loadVisualValuesFromYaml(latestContent);
+
+        // Keep the global config store in sync so sidebar / other pages reflect YAML changes immediately.
+        try {
+          useConfigStore.getState().clearCache();
+          await useConfigStore.getState().fetchConfig(undefined, true);
+        } catch (refreshError: unknown) {
+          const message =
+            refreshError instanceof Error
+              ? refreshError.message
+              : typeof refreshError === 'string'
+                ? refreshError
+                : '';
+          showNotification(
+            `${t('notification.refresh_failed')}${message ? `: ${message}` : ''}`,
+            'error'
+          );
+        }
+      }
+
+      if (codexRuntimeDirty && codexRuntimeDraft !== null) {
+        await codexRuntimeApi.update({ enabled: codexRuntimeDraft }, configRequestScope);
+        setCodexRuntimeBaseline(codexRuntimeDraft);
+      }
+
       setDirty(false);
       setDiffModalOpen(false);
-      setContent(latestContent);
-      setServerYaml(latestContent);
-      setMergedYaml(latestContent);
-      setPreviewServerYaml(latestContent);
-      updateSourceSnapshotStale(false);
-      loadVisualValuesFromYaml(latestContent);
       setCodexSettingsRevision((revision) => revision + 1);
-
-      // Keep the global config store in sync so sidebar / other pages reflect YAML changes immediately.
-      try {
-        useConfigStore.getState().clearCache();
-        await useConfigStore.getState().fetchConfig(undefined, true);
-      } catch (refreshError: unknown) {
-        const message =
-          refreshError instanceof Error
-            ? refreshError.message
-            : typeof refreshError === 'string'
-              ? refreshError
-              : '';
-        showNotification(
-          `${t('notification.refresh_failed')}${message ? `: ${message}` : ''}`,
-          'error'
-        );
-      }
 
       showNotification(t('config_management.save_success'), 'success');
       if (commercialModeChanged) {
@@ -1277,7 +1268,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
         diffOriginal = normalizeYamlForVisualDiff(latestServerYaml);
       }
 
-      if (diffOriginal === nextMergedYaml) {
+      if (diffOriginal === nextMergedYaml && !codexRuntimeDirty) {
         setDirty(false);
         setContent(latestServerYaml);
         setServerYaml(latestServerYaml);
@@ -1815,11 +1806,10 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
                         saving ||
                         managerSaving ||
                         diffModalOpen ||
-                        configMutationInFlight ||
-                        dirty
+                        configMutationInFlight
                       }
-                      onOperationStart={beginCodexOperation}
-                      onOperationEnd={endCodexOperation}
+                      onLoaded={handleCodexRuntimeLoaded}
+                      onDraftChange={handleCodexRuntimeDraftChange}
                     />
                   ) : null
                 }
@@ -1934,6 +1924,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
         onConfirm={handleConfirmSave}
         onCancel={() => setDiffModalOpen(false)}
         loading={saving}
+        notice={codexRuntimeDirty ? t('codex_runtime.pending_change') : undefined}
       />
     </div>
   );

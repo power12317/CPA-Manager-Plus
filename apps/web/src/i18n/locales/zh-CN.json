@@ -1,10 +1,11 @@
 {
   "codex_runtime": {
     "enabled": "启用 Codex 模式",
-    "enabled_hint": "立即保存到当前 CPA；OAuth 登录开启时由 Codex 处理，关闭时使用 CPA 原生授权。",
+    "enabled_hint": "先保存为草稿，确认保存后才应用到当前 CPA；OAuth 登录开启时由 Codex 处理，关闭时使用 CPA 原生授权。",
     "saved": "已保存到 CPA。",
     "load_failed": "无法加载 Codex 模式设置，请刷新重试。",
-    "action_failed": "操作失败，请重试。"
+    "action_failed": "操作失败，请重试。",
+    "pending_change": "确认保存配置后，Codex 模式变更才会应用到当前 CPA。"
   },
   "manager_updates": {
     "server_version": "Manager Server 版本",

@@ -9,8 +9,8 @@ import styles from '@/components/config/VisualConfigEditor.module.scss';
 
 interface CodexRuntimeToggleProps {
   disabled?: boolean;
-  onOperationStart: (mayChangeConfig: boolean) => boolean;
-  onOperationEnd: (mayChangeConfig: boolean) => Promise<void>;
+  onLoaded?: (enabled: boolean) => void;
+  onDraftChange?: (enabled: boolean) => void;
 }
 
 export function CodexRuntimeToggle(props: CodexRuntimeToggleProps) {
@@ -26,15 +26,13 @@ export function CodexRuntimeToggle(props: CodexRuntimeToggleProps) {
 function RuntimeToggle({
   scope,
   disabled = false,
-  onOperationStart,
-  onOperationEnd,
+  onLoaded,
+  onDraftChange,
 }: CodexRuntimeToggleProps & { scope: ApiClientRequestScope }) {
   const { t } = useTranslation();
   const showNotification = useNotificationStore((state) => state.showNotification);
   const [enabled, setEnabled] = useState<boolean | null>(null);
-  const [saving, setSaving] = useState(false);
   const controller = useRef<AbortController | null>(null);
-  const activeAction = useRef(false);
 
   useEffect(() => {
     const request = new AbortController();
@@ -42,7 +40,10 @@ function RuntimeToggle({
     codexRuntimeApi
       .status(scope, request.signal)
       .then((result) => {
-        if (!request.signal.aborted) setEnabled(result.enabled);
+        if (!request.signal.aborted) {
+          setEnabled(result.enabled);
+          onLoaded?.(result.enabled);
+        }
       })
       .catch((failure: unknown) => {
         if (!request.signal.aborted && !isCodexRuntimeUnsupported(failure)) {
@@ -50,39 +51,13 @@ function RuntimeToggle({
         }
       });
     return () => request.abort();
-  }, [scope, showNotification, t]);
+  }, [onLoaded, scope, showNotification, t]);
 
   const updateMode = async (nextEnabled: boolean) => {
     const signal = controller.current?.signal;
-    if (disabled || enabled === null || !signal || signal.aborted || activeAction.current) return;
-    if (!onOperationStart(true)) return;
-    activeAction.current = true;
-    setSaving(true);
-    try {
-      const result = await codexRuntimeApi.update({ enabled: nextEnabled }, scope, signal);
-      if (!signal.aborted) {
-        setEnabled(result.enabled);
-        showNotification(t('codex_runtime.saved'), 'success');
-      }
-    } catch (failure) {
-      if (signal.aborted) return;
-      if (isCodexRuntimeUnsupported(failure)) {
-        setEnabled(null);
-      } else {
-        showNotification(t('codex_runtime.action_failed'), 'error');
-        // A lost response can follow a successful write. Reconcile before retrying.
-        try {
-          const result = await codexRuntimeApi.status(scope, signal);
-          if (!signal.aborted) setEnabled(result.enabled);
-        } catch {
-          if (!signal.aborted) setEnabled(null);
-        }
-      }
-    } finally {
-      await onOperationEnd(true);
-      activeAction.current = false;
-      if (!signal.aborted) setSaving(false);
-    }
+    if (disabled || enabled === null || !signal || signal.aborted) return;
+    setEnabled(nextEnabled);
+    onDraftChange?.(nextEnabled);
   };
 
   if (enabled === null) return null;
@@ -95,7 +70,7 @@ function RuntimeToggle({
       <ToggleSwitch
         checked={enabled}
         onChange={(value) => void updateMode(value)}
-        disabled={disabled || saving}
+        disabled={disabled}
         ariaLabel={t('codex_runtime.enabled')}
       />
     </div>

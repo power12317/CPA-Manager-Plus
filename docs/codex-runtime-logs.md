@@ -39,10 +39,11 @@ disabled, CPA uses its native OAuth implementation. CPA also owns targeted
 reauthorization, credential identity and system metadata; the panel does not
 connect to master or manage a separate login ID or credential file.
 
-The mode switch saves immediately to the selected CPA. Configuration saves and
-mode changes cannot run concurrently. After a mode change, the editor refreshes
-its YAML snapshot while preserving pending visual edits. If that refresh fails,
-source editing waits for a fresh snapshot before allowing a save.
+The mode switch edits the selected CPA's pending configuration only. The existing
+configuration **Save** action opens the normal confirmation dialog; the CPA mode
+changes only after that confirmation. Cancelling or reloading discards the draft.
+The editor keeps the pending mode change alongside other visual edits and does not
+send a mode update when the switch is clicked.
 
 The runtime branch publishes:
 

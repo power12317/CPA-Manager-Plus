@@ -46,6 +46,17 @@ export function AccountConfigurationTab({
   } = editor;
   const capabilities = getAuthFileConfigurationCapabilities(state?.providerKey || row.provider);
   const providerLabel = getProviderLabel(state?.providerKey || row.provider, t);
+  const authKind = String(
+    state?.record?.auth_kind ??
+      state?.record?.authKind ??
+      row.raw.auth_kind ??
+      row.raw.authKind ??
+      ''
+  )
+    .trim()
+    .toLowerCase();
+  const prismEligible =
+    (state?.providerKey || row.provider).toLowerCase() === 'codex' && authKind === 'oauth';
   const disabled = disableControls || sharedSourceReadOnly || state?.saving === true;
   const reloadAndRestoreFocus = () => {
     void editor.reload().then(() => {
@@ -350,6 +361,28 @@ export function AccountConfigurationTab({
           ) : null}
         </section>
       )}
+
+      {prismEligible ? (
+        <section className={styles.configurationSection}>
+          <h3 className={styles.configurationSectionTitle}>{t('accounts.config_section_prism')}</h3>
+          <div className={styles.configurationProviderGroup}>
+            <div className={styles.configurationToggleRow}>
+              <div>
+                <strong>{t('accounts.config_prism_browser')}</strong>
+                <p className={styles.configurationFieldHint}>
+                  {t('accounts.config_prism_browser_desc')}
+                </p>
+              </div>
+              <ToggleSwitch
+                checked={draft.openaiPrismBrowser === true}
+                disabled={disabled}
+                ariaLabel={t('accounts.config_prism_browser')}
+                onChange={(value) => editor.updateField('openaiPrismBrowser', value)}
+              />
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <section className={styles.configurationSection}>
         <h3 className={styles.configurationSectionTitle}>{t('accounts.config_section_models')}</h3>

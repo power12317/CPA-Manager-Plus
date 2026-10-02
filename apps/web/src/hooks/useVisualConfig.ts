@@ -614,6 +614,12 @@ function getNextDirtyFields(
       nextValues.codexBasispointsEnabled === baselineValues.codexBasispointsEnabled
     );
   }
+  if (Object.prototype.hasOwnProperty.call(patch, 'codexPrismEnabled')) {
+    updateDirty(
+      'codexPrismEnabled',
+      nextValues.codexPrismEnabled === baselineValues.codexPrismEnabled
+    );
+  }
   if (Object.prototype.hasOwnProperty.call(patch, 'quotaSwitchProject')) {
     updateDirty(
       'quotaSwitchProject',
@@ -890,6 +896,7 @@ export function useVisualConfig() {
         wsAuth: Boolean(parsed['ws-auth'] ?? true),
         codexForceWebsocket: Boolean(codex?.['force-websocket'] ?? false),
         codexBasispointsEnabled: Boolean(asRecord(codex?.basispoints)?.enabled ?? false),
+        codexPrismEnabled: Boolean(asRecord(codex?.prism)?.enabled ?? false),
         antigravitySignatureCacheEnabled: Boolean(
           parsed['antigravity-signature-cache-enabled'] ?? true
         ),
@@ -1215,6 +1222,9 @@ export function useVisualConfig() {
         }
         if (isDirty('codexBasispointsEnabled')) {
           doc.setIn(['codex', 'basispoints', 'enabled'], values.codexBasispointsEnabled);
+        }
+        if (isDirty('codexPrismEnabled')) {
+          doc.setIn(['codex', 'prism', 'enabled'], values.codexPrismEnabled);
         }
         if (isDirty('antigravitySignatureCacheEnabled')) {
           doc.setIn(

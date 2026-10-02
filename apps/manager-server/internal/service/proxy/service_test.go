@@ -445,6 +445,7 @@ func TestPrepareAuthFileFieldsMutationVerifiesIdentityAndRewritesRuntimeSelector
 			"name":       "shared.json",
 			"auth_index": "auth-1",
 			"provider":   "codex",
+			"auth_kind":  "oauth",
 			"account_id": "account-1",
 			"account":    "user@example.com",
 		}})
@@ -464,7 +465,7 @@ func TestPrepareAuthFileFieldsMutationVerifiesIdentityAndRewritesRuntimeSelector
 	req, err := http.NewRequest(
 		http.MethodPatch,
 		"/v0/management/auth-files/fields",
-		strings.NewReader(`{"name":"shared.json","priority":10}`),
+		strings.NewReader(`{"name":"shared.json","priority":10,"openai_prism_browser":true}`),
 	)
 	if err != nil {
 		t.Fatalf("new request: %v", err)
@@ -489,7 +490,7 @@ func TestPrepareAuthFileFieldsMutationVerifiesIdentityAndRewritesRuntimeSelector
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode rewritten fields payload: %v", err)
 	}
-	if payload["name"] != "runtime-1" || payload["priority"] != float64(10) {
+	if payload["name"] != "runtime-1" || payload["priority"] != float64(10) || payload["openai_prism_browser"] != true {
 		t.Fatalf("rewritten fields payload = %#v", payload)
 	}
 }
@@ -1630,6 +1631,8 @@ func TestIsManagementPath(t *testing.T) {
 		{path: "/v0/management/", want: true},
 		{path: "/v0/management/auth-files", want: true},
 		{path: "/v0/management/auth-files/status", want: true},
+		{path: "/v0/management/auth-files/fields", want: true},
+		{path: "/v0/management/codex-capabilities", want: true},
 		{path: "/v0/management/api-call", want: true},
 		{path: "/v0/management/api-key-usage", want: true},
 		{path: "/v0/resource/plugins", want: true},

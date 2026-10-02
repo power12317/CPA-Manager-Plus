@@ -229,6 +229,27 @@ describe('buildAuthFileConfigurationPatch', () => {
     expect(buildAuthFileConfigurationDraft({ priority: -1 }, 'codex').priority).toBe('-1');
   });
 
+  it('round-trips the Prism browser flag only for Codex OAuth credentials', () => {
+    const record = { type: 'codex', auth_kind: 'oauth', openai_prism_browser: false };
+    const original = buildAuthFileConfigurationDraft(record, 'codex');
+    const result = buildAuthFileConfigurationPatch(record, 'codex', original, {
+      ...original,
+      openaiPrismBrowser: true,
+    });
+    expect(original.openaiPrismBrowser).toBe(false);
+    expect(result.patch).toEqual({ openai_prism_browser: true });
+  });
+
+  it.each(['api_key', 'runtime_only', 'plugin'])('does not patch Prism for %s credentials', (authKind) => {
+    const record = { type: 'codex', auth_kind: authKind, openai_prism_browser: false };
+    const original = buildAuthFileConfigurationDraft(record, 'codex');
+    const result = buildAuthFileConfigurationPatch(record, 'codex', original, {
+      ...original,
+      openaiPrismBrowser: true,
+    });
+    expect(result.patch).toEqual({});
+  });
+
   it('builds a minimal common patch while preserving explicit zero values', () => {
     const record = {
       type: 'gemini',

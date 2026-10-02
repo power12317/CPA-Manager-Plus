@@ -89,6 +89,7 @@ export type AuthFileFieldsPatch = {
   tool_prefix_disabled?: boolean;
   'tool-prefix-disabled'?: null;
   toolPrefixDisabled?: null;
+  openai_prism_browser?: boolean;
 };
 export type AuthFilePatchAuthIndex = string | number;
 type AuthFileBatchFailure = { name: string; error: string };
@@ -666,6 +667,10 @@ export const applyAuthFileFieldsPatchToRecord = (
   fields: AuthFileFieldsPatch
 ): Record<string, unknown> => {
   const next = { ...record };
+
+  if (fields.openai_prism_browser !== undefined) {
+    next.openai_prism_browser = fields.openai_prism_browser;
+  }
 
   const applyTrimmedString = (key: string, value: string | undefined) => {
     if (value === undefined) return;

@@ -509,6 +509,10 @@ export const normalizeConfigResponse = (raw: unknown): Config => {
     isRecord(raw.codex) && isRecord(raw.codex.basispoints)
       ? normalizeBoolean(raw.codex.basispoints.enabled)
       : undefined;
+  config.codexPrismEnabled =
+    isRecord(raw.codex) && isRecord(raw.codex.prism)
+      ? normalizeBoolean(raw.codex.prism.enabled)
+      : undefined;
   config.forceModelPrefix = normalizeBoolean(raw['force-model-prefix'] ?? raw.forceModelPrefix);
   const routing = raw.routing;
   const strategyRaw = isRecord(routing)

@@ -1773,6 +1773,9 @@
     "config_weight_label": "权重",
     "config_weight_hint": "仅在加权轮询策略下生效；留空使用默认权重 1，0 会将该凭证排除出加权调度。",
     "config_section_provider": "{{provider}} 专属配置",
+    "config_section_prism": "Prism 浏览器模式",
+    "config_prism_browser": "Prism 浏览器模式",
+    "config_prism_browser_desc": "仅 Codex OAuth 凭证可用。P1 仅支持通过 HTTP Responses 使用 gpt-5.6-sol、medium；无工具、WebSocket、compact 或图片请求，适配器不可用时不回退原生。",
     "config_xai_route_mode": "xAI 请求通道",
     "config_xai_route_grok": "Grok Build",
     "config_xai_route_official": "官方 API",
@@ -4290,6 +4293,8 @@
           "codex_basispoints": "使用 Basispoints 接口",
           "codex_basispoints_desc": "Codex 请求使用 Basispoints，托管工具走原生接口。存在封号风险，请谨慎开启。",
           "codex_basispoints_unavailable": "当前后端尚未声明支持 Basispoints，请连接支持此功能的 CPA 版本。",
+          "codex_prism": "启用 Prism 浏览器模式",
+          "codex_prism_desc": "仅支持 P1 Prism：通过 HTTP Responses 使用 gpt-5.6-sol、medium。无工具、WebSocket、compact 或图片请求；适配器不可用时不会回退到原生。",
           "codex_force_websocket_desc": "Codex 上游优先使用 WebSocket，5 次握手失败后本次请求回退 SSE。",
           "ws_auth": "WebSocket 认证",
           "ws_auth_desc": "启用 WebSocket 连接认证 (/v1/ws)"

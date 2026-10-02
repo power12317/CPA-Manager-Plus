@@ -245,6 +245,21 @@ vi.mock('@/services/api/configFile', () => ({
   },
 }));
 
+vi.mock('@/services/api/oauth', () => ({
+  oauthApi: {
+    getCodexCapabilities: vi.fn().mockResolvedValue({
+      system_scoped_oauth: true,
+      prism: {
+        supported: true,
+        enabled: false,
+        adapter_configured: true,
+        client_tools_enabled: false,
+        models: ['gpt-5.6-sol'],
+      },
+    }),
+  },
+}));
+
 vi.mock('@/services/api/apiKeys', () => ({
   apiKeysApi: {
     list: mocks.apiKeysList,

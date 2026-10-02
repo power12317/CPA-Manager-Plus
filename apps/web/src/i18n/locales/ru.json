@@ -1772,6 +1772,9 @@
     "config_weight_label": "Вес",
     "config_weight_hint": "Используется только при взвешенном циклическом выборе; пустое значение означает вес 1, а 0 исключает учётные данные из взвешенной маршрутизации.",
     "config_section_provider": "Настройки {{provider}}",
+    "config_section_prism": "Режим браузера Prism",
+    "config_prism_browser": "Режим браузера Prism",
+    "config_prism_browser_desc": "Доступен только для Codex OAuth. P1 поддерживает gpt-5.6-sol и medium через HTTP Responses; без инструментов, WebSocket, compact и изображений, без отката на native.",
     "config_xai_route_mode": "Канал запросов xAI",
     "config_xai_route_grok": "Grok Build",
     "config_xai_route_official": "Официальный API",
@@ -4276,6 +4279,8 @@
           "codex_basispoints": "Использовать Basispoints",
           "codex_basispoints_desc": "Использовать Basispoints для Codex, исходный Codex для серверных инструментов. Есть риск блокировки аккаунта. Включайте с осторожностью.",
           "codex_basispoints_unavailable": "Этот сервер не объявляет поддержку Basispoints. Подключитесь к совместимой версии CPA.",
+          "codex_prism": "Включить режим браузера Prism",
+          "codex_prism_desc": "Только P1 Prism: gpt-5.6-sol и medium через HTTP Responses. Без инструментов, WebSocket, compact и изображений; при недоступности адаптера нет отката на native.",
           "codex_force_websocket_desc": "Предпочитать WebSocket для Codex; после 5 неудачных рукопожатий текущий запрос переходит на SSE.",
           "ws_auth": "Аутентификация WebSocket",
           "ws_auth_desc": "Включить аутентификацию WebSocket (/v1/ws)"

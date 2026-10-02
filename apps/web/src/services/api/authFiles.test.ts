@@ -1811,6 +1811,15 @@ describe('authFilesApi patchFieldsForAuthIndexes', () => {
 });
 
 describe('applyAuthFileFieldsPatchToRecord', () => {
+  it('applies the Codex OAuth Prism browser flag without exposing credential data', () => {
+    expect(
+      applyAuthFileFieldsPatchToRecord(
+        { type: 'codex', auth_kind: 'oauth', openai_prism_browser: false },
+        { openai_prism_browser: true }
+      )
+    ).toEqual({ type: 'codex', auth_kind: 'oauth', openai_prism_browser: true });
+  });
+
   it('clears legacy cooling aliases when canonical inherit is requested', () => {
     expect(
       applyAuthFileFieldsPatchToRecord(

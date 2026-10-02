@@ -29,6 +29,13 @@ export interface OAuthCallbackResponse {
 
 export interface CodexCapabilitiesResponse {
   system_scoped_oauth?: boolean;
+  prism?: {
+    supported?: boolean;
+    enabled?: boolean;
+    adapter_configured?: boolean;
+    client_tools_enabled?: boolean;
+    models?: string[];
+  };
 }
 
 export interface OAuthStartOptions {

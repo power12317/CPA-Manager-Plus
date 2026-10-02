@@ -47,6 +47,7 @@ export type AuthFileConfigurationDraft = {
   cloakSensitiveWordsText: string;
   cloakCacheUserId: boolean;
   toolPrefixDisabled: boolean;
+  openaiPrismBrowser?: boolean;
 };
 
 export type AuthFileConfigurationErrorKey =
@@ -305,6 +306,14 @@ export const parseAuthFileConfigurationSource = (
   rawText: string,
   file: AuthFileItem
 ): ParsedAuthFileConfigurationSource => {
+  const addInventoryMetadata = (record: Record<string, unknown>): Record<string, unknown> => {
+    const next = { ...record };
+    if (next.auth_kind === undefined && file.auth_kind !== undefined) next.auth_kind = file.auth_kind;
+    if (next.openai_prism_browser === undefined && file.openai_prism_browser !== undefined) {
+      next.openai_prism_browser = file.openai_prism_browser;
+    }
+    return next;
+  };
   let parsed: unknown;
   try {
     parsed = JSON.parse(rawText.trim()) as unknown;
@@ -319,7 +328,7 @@ export const parseAuthFileConfigurationSource = (
     const providerKey = normalizeProviderKey(
       String(parsed.type ?? parsed.provider ?? file.type ?? file.provider ?? '')
     );
-    return { record: { ...parsed }, providerKey, recordIndex: null };
+    return { record: addInventoryMetadata(parsed), providerKey, recordIndex: null };
   }
 
   if (!Array.isArray(parsed) || !parsed.every(isRecordObject)) {
@@ -346,7 +355,7 @@ export const parseAuthFileConfigurationSource = (
   const providerKey = normalizeProviderKey(
     String(selected.record.type ?? selected.record.provider ?? file.type ?? file.provider ?? '')
   );
-  return { record: { ...selected.record }, providerKey, recordIndex: selected.index };
+  return { record: addInventoryMetadata(selected.record), providerKey, recordIndex: selected.index };
 };
 
 export const buildAuthFileConfigurationDraft = (
@@ -395,6 +404,7 @@ export const buildAuthFileConfigurationDraft = (
     toolPrefixDisabled: readBoolean(
       record.tool_prefix_disabled ?? record['tool-prefix-disabled'] ?? record.toolPrefixDisabled
     ),
+    openaiPrismBrowser: record.openai_prism_browser === true,
   };
 };
 
@@ -591,6 +601,13 @@ export const buildAuthFileConfigurationPatch = (
     if (draft.toolPrefixDisabled !== originalDraft.toolPrefixDisabled) {
       patch.tool_prefix_disabled = draft.toolPrefixDisabled;
       tombstoneLegacyAliases(patch, record, ['tool-prefix-disabled', 'toolPrefixDisabled']);
+    }
+  }
+
+  const authKind = readTrimmedString(record.auth_kind ?? record.authKind).toLowerCase();
+  if (normalizeProviderKey(provider) === 'codex' && authKind === 'oauth') {
+    if (draft.openaiPrismBrowser !== originalDraft.openaiPrismBrowser) {
+      patch.openai_prism_browser = draft.openaiPrismBrowser;
     }
   }
 

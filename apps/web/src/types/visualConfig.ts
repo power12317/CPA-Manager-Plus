@@ -171,6 +171,7 @@ export type VisualConfigValues = {
   wsAuth: boolean;
   codexForceWebsocket: boolean;
   codexBasispointsEnabled: boolean;
+  codexPrismEnabled: boolean;
   antigravitySignatureCacheEnabled: boolean;
   antigravitySignatureBypassStrict: boolean;
   claudeHeaderUserAgent: string;
@@ -259,6 +260,7 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   wsAuth: true,
   codexForceWebsocket: false,
   codexBasispointsEnabled: false,
+  codexPrismEnabled: false,
   antigravitySignatureCacheEnabled: true,
   antigravitySignatureBypassStrict: false,
   claudeHeaderUserAgent: '',

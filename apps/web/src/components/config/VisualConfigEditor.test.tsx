@@ -16,6 +16,53 @@ afterEach(() => {
 });
 
 describe('Codex fast mode setting', () => {
+  it('hides Prism settings when the CPA capability is missing or unsupported', () => {
+    act(() => {
+      renderer = create(
+        <VisualConfigEditor
+          values={DEFAULT_VISUAL_VALUES}
+          codexPrismSupported={false}
+          onChange={() => {}}
+          onPersistApiKeyMutation={async () => []}
+          onRefreshApiKeys={async () => []}
+          onApiKeyOperationStart={() => {}}
+          onApiKeyOperationEnd={() => {}}
+        />
+      );
+    });
+    expect(
+      renderer.root.findAllByProps({
+        'aria-label': 'config_management.visual.sections.network.codex_prism',
+      })
+    ).toHaveLength(0);
+  });
+
+  it.each([false, true])('binds the Prism draft switch (disabled=%s)', (disabled) => {
+    const onChange = vi.fn();
+    act(() => {
+      renderer = create(
+        <VisualConfigEditor
+          values={DEFAULT_VISUAL_VALUES}
+          disabled={disabled}
+          onChange={onChange}
+          onPersistApiKeyMutation={async () => []}
+          onRefreshApiKeys={async () => []}
+          onApiKeyOperationStart={() => {}}
+          onApiKeyOperationEnd={() => {}}
+        />
+      );
+    });
+    const prism = renderer.root.findByProps({
+      'aria-label': 'config_management.visual.sections.network.codex_prism',
+    });
+    expect(prism.props.checked).toBe(false);
+    expect(prism.props.disabled).toBe(disabled);
+    if (!disabled) {
+      act(() => prism.props.onChange({ target: { checked: true } }));
+      expect(onChange).toHaveBeenLastCalledWith({ codexPrismEnabled: true });
+    }
+  });
+
   it.each([false, true])('binds the four modes (disabled=%s)', (disabled) => {
     const onChange = vi.fn();
     act(() => {

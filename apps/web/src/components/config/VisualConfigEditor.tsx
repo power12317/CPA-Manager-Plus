@@ -72,6 +72,7 @@ type VisualSection = {
 
 interface VisualConfigEditorProps {
   codexTicketSettings?: ReactNode;
+  codexPrismSupported?: boolean;
   values: VisualConfigValues;
   validationErrors?: VisualConfigValidationErrors;
   hasPayloadValidationErrors?: boolean;
@@ -189,6 +190,7 @@ function FieldShell({
 
 export function VisualConfigEditor({
   codexTicketSettings,
+  codexPrismSupported = true,
   values,
   validationErrors,
   hasPayloadValidationErrors = false,
@@ -1262,6 +1264,15 @@ export function VisualConfigEditor({
                   disabled={disabled}
                   onChange={(codexBasispointsEnabled) => onChange({ codexBasispointsEnabled })}
                 />
+                {codexPrismSupported ? (
+                  <ToggleRow
+                    title={t('config_management.visual.sections.network.codex_prism')}
+                    description={t('config_management.visual.sections.network.codex_prism_desc')}
+                    checked={values.codexPrismEnabled}
+                    disabled={disabled}
+                    onChange={(codexPrismEnabled) => onChange({ codexPrismEnabled })}
+                  />
+                ) : null}
               </SectionGrid>
 
               <SectionSubsection

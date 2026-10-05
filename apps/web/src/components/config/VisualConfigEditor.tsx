@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
+import type { CodexCapabilitiesResponse } from '@/services/api/oauth';
 import {
   IconCode,
   IconDiamond,
@@ -72,7 +73,7 @@ type VisualSection = {
 
 interface VisualConfigEditorProps {
   codexTicketSettings?: ReactNode;
-  codexPrismSupported?: boolean;
+  codexPrismCapabilities?: CodexCapabilitiesResponse['prism'];
   values: VisualConfigValues;
   validationErrors?: VisualConfigValidationErrors;
   hasPayloadValidationErrors?: boolean;
@@ -190,7 +191,7 @@ function FieldShell({
 
 export function VisualConfigEditor({
   codexTicketSettings,
-  codexPrismSupported = true,
+  codexPrismCapabilities,
   values,
   validationErrors,
   hasPayloadValidationErrors = false,
@@ -1264,7 +1265,7 @@ export function VisualConfigEditor({
                   disabled={disabled}
                   onChange={(codexBasispointsEnabled) => onChange({ codexBasispointsEnabled })}
                 />
-                {codexPrismSupported ? (
+                {codexPrismCapabilities?.supported === true ? (
                   <ToggleRow
                     title={t('config_management.visual.sections.network.codex_prism')}
                     description={t('config_management.visual.sections.network.codex_prism_desc')}

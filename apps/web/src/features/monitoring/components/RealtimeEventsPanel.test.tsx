@@ -422,6 +422,18 @@ describe('RealtimeEventsPanel', () => {
     expect(markup).toContain('$0.126');
   });
 
+  it('shows unavailable token usage and cost without hiding success or elapsed time', () => {
+    const markup = renderPanel(
+      baseRow({ usageUnavailable: true, totalCost: null, tokensPerSecond: null }),
+      { hasPrices: true }
+    );
+    expect(markup).toContain('monitoring.usage_unavailable');
+    expect(markup).toContain('—');
+    expect(markup).not.toContain('$0.000');
+    expect(markup).not.toContain('>↑</span>10');
+    expect(markup).toContain('Success');
+  });
+
   it('renders API key alias inside the source cell without adding another column', () => {
     const markup = renderPanel(
       baseRow({

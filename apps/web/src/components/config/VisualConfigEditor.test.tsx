@@ -21,7 +21,7 @@ describe('Codex fast mode setting', () => {
       renderer = create(
         <VisualConfigEditor
           values={DEFAULT_VISUAL_VALUES}
-          codexPrismSupported={false}
+          codexPrismCapabilities={{ supported: false }}
           onChange={() => {}}
           onPersistApiKeyMutation={async () => []}
           onRefreshApiKeys={async () => []}
@@ -43,6 +43,7 @@ describe('Codex fast mode setting', () => {
       renderer = create(
         <VisualConfigEditor
           values={DEFAULT_VISUAL_VALUES}
+          codexPrismCapabilities={{ supported: true, enabled: false }}
           disabled={disabled}
           onChange={onChange}
           onPersistApiKeyMutation={async () => []}
@@ -57,6 +58,15 @@ describe('Codex fast mode setting', () => {
     });
     expect(prism.props.checked).toBe(false);
     expect(prism.props.disabled).toBe(disabled);
+    expect(
+      renderer.root.findAll(
+        (node) =>
+          node.type === 'input' &&
+          String(node.props['aria-label'] ?? '').startsWith(
+            'config_management.visual.sections.network.codex_prism'
+          )
+      )
+    ).toHaveLength(1);
     if (!disabled) {
       act(() => prism.props.onChange({ target: { checked: true } }));
       expect(onChange).toHaveBeenLastCalledWith({ codexPrismEnabled: true });

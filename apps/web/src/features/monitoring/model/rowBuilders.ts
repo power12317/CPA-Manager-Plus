@@ -266,7 +266,7 @@ export const buildMonitoringSummary = (rows: MonitoringEventRow[]): MonitoringSu
     { hitTokens: 0, inputTokens: 0 }
   );
   const totalTokens = rows.reduce((sum, row) => sum + row.totalTokens, 0);
-  const totalCost = rows.reduce((sum, row) => sum + row.totalCost, 0);
+  const totalCost = rows.reduce((sum, row) => sum + (row.totalCost ?? 0), 0);
 
   let latencySum = 0;
   let latencyCount = 0;
@@ -441,7 +441,7 @@ export const buildAccountRows = (rows: MonitoringEventRow[]): MonitoringAccountR
     existing.cacheReadTokens += row.cacheReadTokens;
     existing.cacheCreationTokens += row.cacheCreationTokens;
     existing.totalTokens += row.totalTokens;
-    existing.totalCost += row.totalCost;
+    existing.totalCost += row.totalCost ?? 0;
     existing.lastSeenAt = Math.max(existing.lastSeenAt, row.timestampMs);
 
     if (row.latencyMs !== null) {
@@ -473,7 +473,7 @@ export const buildAccountRows = (rows: MonitoringEventRow[]): MonitoringAccountR
     modelEntry.cacheReadTokens += row.cacheReadTokens;
     modelEntry.cacheCreationTokens += row.cacheCreationTokens;
     modelEntry.totalTokens += row.totalTokens;
-    modelEntry.totalCost += row.totalCost;
+    modelEntry.totalCost += row.totalCost ?? 0;
     modelEntry.lastSeenAt = Math.max(modelEntry.lastSeenAt, row.timestampMs);
     existing.modelMap.set(row.model, modelEntry);
 
@@ -654,7 +654,7 @@ export const buildApiKeyRows = (
     existing.cacheReadTokens += row.cacheReadTokens;
     existing.cacheCreationTokens += row.cacheCreationTokens;
     existing.totalTokens += row.totalTokens;
-    existing.totalCost += row.totalCost;
+    existing.totalCost += row.totalCost ?? 0;
     existing.lastSeenAt = Math.max(existing.lastSeenAt, row.timestampMs);
 
     if (row.latencyMs !== null) {
@@ -686,7 +686,7 @@ export const buildApiKeyRows = (
     modelEntry.cacheReadTokens += row.cacheReadTokens;
     modelEntry.cacheCreationTokens += row.cacheCreationTokens;
     modelEntry.totalTokens += row.totalTokens;
-    modelEntry.totalCost += row.totalCost;
+    modelEntry.totalCost += row.totalCost ?? 0;
     modelEntry.lastSeenAt = Math.max(modelEntry.lastSeenAt, row.timestampMs);
     existing.modelMap.set(row.model, modelEntry);
 
@@ -812,7 +812,7 @@ export const buildRealtimeMonitorRows = (rows: MonitoringEventRow[]): Monitoring
     existing.cacheReadTokens += row.cacheReadTokens;
     existing.cacheCreationTokens += row.cacheCreationTokens;
     existing.totalTokens += row.totalTokens;
-    existing.totalCost += row.totalCost;
+    existing.totalCost += row.totalCost ?? 0;
 
     if (row.timestampMs >= existing.lastSeenAt) {
       existing.lastSeenAt = row.timestampMs;

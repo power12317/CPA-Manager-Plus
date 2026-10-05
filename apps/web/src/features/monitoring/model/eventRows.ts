@@ -3,6 +3,7 @@ import { normalizeOailbNode } from '@/utils/oailbNode';
 import { buildSourceInfoMap, resolveSourceDisplay } from '@/utils/sourceResolver';
 import {
   calculateCost,
+  isUsageUnavailable,
   normalizeAuthIndex,
   type ModelPrice,
   type UsageDetailWithEndpoint,
@@ -142,25 +143,32 @@ export const buildEventRows = (
         rawProjectId.startsWith(CODEX_ACCOUNT_ID_SNAPSHOT_PREFIX)
           ? ''
           : rawProjectId;
-      const inputTokens = Math.max(Number(detail.tokens?.input_tokens) || 0, 0);
-      const outputTokens = Math.max(Number(detail.tokens?.output_tokens) || 0, 0);
-      const reasoningTokens = Math.max(Number(detail.tokens?.reasoning_tokens) || 0, 0);
-      const cacheReadTokens = Math.max(Number(detail.tokens?.cache_read_tokens) || 0, 0);
-      const cacheCreationTokens = Math.max(Number(detail.tokens?.cache_creation_tokens) || 0, 0);
+      const usageUnavailable = isUsageUnavailable(detail);
+      // Numeric buckets remain additive internally; availability controls all
+      // per-request usage/cost display and excludes estimates from pricing.
+      const tokens = usageUnavailable ? null : detail.tokens;
+      const inputTokens = Math.max(Number(tokens?.input_tokens) || 0, 0);
+      const outputTokens = Math.max(Number(tokens?.output_tokens) || 0, 0);
+      const reasoningTokens = Math.max(Number(tokens?.reasoning_tokens) || 0, 0);
+      const cacheReadTokens = Math.max(Number(tokens?.cache_read_tokens) || 0, 0);
+      const cacheCreationTokens = Math.max(Number(tokens?.cache_creation_tokens) || 0, 0);
       const cachedTokens = Math.max(
-        Math.max(Number(detail.tokens?.cached_tokens) || 0, 0),
-        Math.max(Number(detail.tokens?.cache_tokens) || 0, 0)
+        Math.max(Number(tokens?.cached_tokens) || 0, 0),
+        Math.max(Number(tokens?.cache_tokens) || 0, 0)
       );
-      const explicitTotalTokens = Math.max(Number(detail.tokens?.total_tokens) || 0, 0);
+      const explicitTotalTokens = Math.max(Number(tokens?.total_tokens) || 0, 0);
       const totalTokens =
         explicitTotalTokens > 0
           ? explicitTotalTokens
           : inputTokens + outputTokens + reasoningTokens;
       const latencyMs = toDurationMs(detail.latency_ms);
       const ttftMs = toDurationMs(detail.ttft_ms);
-      const tokensPerSecond = calculateOutputTokensPerSecond(outputTokens, latencyMs);
+      const tokensPerSecond = usageUnavailable
+        ? null
+        : calculateOutputTokensPerSecond(outputTokens, latencyMs);
       const totalCost = calculateCost(detail, modelPrices);
-      const statsIncluded = detail.failed === true || inputTokens > 0 || outputTokens > 0;
+      const statsIncluded =
+        usageUnavailable || detail.failed === true || inputTokens > 0 || outputTokens > 0;
       const dayKey = buildLocalDayKey(timestampMs);
       const hourLabel = buildHourLabel(timestampMs);
       const sourceKey = sourceMeta.identityKey || `source:${sourceLabel}`;
@@ -264,6 +272,7 @@ export const buildEventRows = (
         channelDisabled: channelMeta?.disabled || false,
         failed: detail.failed === true,
         statsIncluded,
+        usageUnavailable,
         latencyMs,
         ttftMs,
         tokensPerSecond,

@@ -38,7 +38,7 @@ import {
 } from '@/stores';
 import { configFileApi } from '@/services/api/configFile';
 import { apiKeysApi } from '@/services/api/apiKeys';
-import { oauthApi } from '@/services/api/oauth';
+import { oauthApi, type CodexCapabilitiesResponse } from '@/services/api/oauth';
 import {
   getUsageServiceErrorCode,
   isUsageServiceId,
@@ -375,7 +375,19 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [apiKeyMutationInFlight, setApiKeyMutationInFlight] = useState(false);
-  const [codexPrismSupported, setCodexPrismSupported] = useState(false);
+  const [codexCapabilities, setCodexCapabilities] = useState<{
+    scope: typeof configRequestScope;
+    prism: CodexCapabilitiesResponse['prism'];
+  } | null>(null);
+  const canProbeCodexCapabilities =
+    !managerOnly &&
+    connectionStatus === 'connected' &&
+    Boolean(apiBase) &&
+    (!managerSession || Boolean(instanceIdFromBase(apiBase)));
+  const codexPrismCapabilities =
+    canProbeCodexCapabilities && codexCapabilities?.scope === configRequestScope
+      ? codexCapabilities.prism
+      : undefined;
   const [sourceSnapshotStale, setSourceSnapshotStale] = useState(false);
   const [error, setError] = useState('');
   const [dirty, setDirty] = useState(false);
@@ -512,28 +524,22 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
   }, [activeTab, loadConfig, sourceConfigLoaded]);
 
   useEffect(() => {
-    if (
-      managerOnly ||
-      connectionStatus !== 'connected' ||
-      !apiBase ||
-      (managerSession && !instanceIdFromBase(apiBase))
-    ) {
-      setCodexPrismSupported(false);
-      return;
-    }
+    if (!canProbeCodexCapabilities) return;
     let cancelled = false;
     void oauthApi
       .getCodexCapabilities(configRequestScope)
       .then((capabilities) => {
-        if (!cancelled) setCodexPrismSupported(capabilities.prism?.supported === true);
+        if (!cancelled) {
+          setCodexCapabilities({ scope: configRequestScope, prism: capabilities.prism });
+        }
       })
       .catch(() => {
-        if (!cancelled) setCodexPrismSupported(false);
+        if (!cancelled) setCodexCapabilities(null);
       });
     return () => {
       cancelled = true;
     };
-  }, [apiBase, configRequestScope, connectionStatus, managerOnly, managerSession]);
+  }, [canProbeCodexCapabilities, configRequestScope]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1781,7 +1787,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
             <>
               <VisualConfigEditor
                 values={visualValues}
-                codexPrismSupported={codexPrismSupported}
+                codexPrismCapabilities={codexPrismCapabilities}
                 validationErrors={visualValidationErrors}
                 hasPayloadValidationErrors={visualHasPayloadValidationErrors}
                 disabled={

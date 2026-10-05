@@ -39,8 +39,6 @@ export interface AuthFileItem {
   size?: number;
   authIndex?: string | number | null;
   runtimeOnly?: boolean | string;
-  auth_kind?: string;
-  openai_prism_browser?: boolean;
   disabled?: boolean;
   weight?: number;
   unavailable?: boolean;

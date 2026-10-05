@@ -41,6 +41,20 @@ const buildRows = (
   );
 
 describe('buildEventRows', () => {
+  it('keeps successful unknown-usage requests in counts with unavailable cost and TPS', () => {
+    const [row] = buildRows({ usage_unavailable: true, tokens: null });
+    expect(row).toMatchObject({
+      usageUnavailable: true,
+      statsIncluded: true,
+      failed: false,
+      latencyMs: 1500,
+      totalCost: null,
+      tokensPerSecond: null,
+    });
+    const [knownZero] = buildRows({ tokens: { input_tokens: 0, output_tokens: 0 } });
+    expect(knownZero.usageUnavailable).toBe(false);
+    expect(knownZero.totalCost).toBe(0);
+  });
   it('uses only the per-request node without changing request identity', () => {
     const [legacy] = buildRows();
     const [row] = buildRows({ oailb_node: 'UNIFIED-96' });

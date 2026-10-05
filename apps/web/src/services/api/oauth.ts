@@ -32,9 +32,6 @@ export interface CodexCapabilitiesResponse {
   prism?: {
     supported?: boolean;
     enabled?: boolean;
-    adapter_configured?: boolean;
-    client_tools_enabled?: boolean;
-    models?: string[];
   };
 }
 

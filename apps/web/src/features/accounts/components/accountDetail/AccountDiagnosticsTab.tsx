@@ -276,11 +276,23 @@ export function AccountDiagnosticsTab({
                         <div className={styles.diagnosticRequestMetrics}>
                           <span>
                             {t('accounts.value_input_tokens')}:{' '}
-                            <b>{formatCompactNumber(event.input_tokens)}</b>
+                            <b>
+                              {event.usage_unavailable ||
+                              event.response_metadata?.usage_unavailable ||
+                              event.input_tokens === null
+                                ? '—'
+                                : formatCompactNumber(event.input_tokens)}
+                            </b>
                           </span>
                           <span>
                             {t('accounts.value_output_tokens')}:{' '}
-                            <b>{formatCompactNumber(event.output_tokens)}</b>
+                            <b>
+                              {event.usage_unavailable ||
+                              event.response_metadata?.usage_unavailable ||
+                              event.output_tokens === null
+                                ? '—'
+                                : formatCompactNumber(event.output_tokens)}
+                            </b>
                           </span>
                           <span>
                             {t('accounts.detail_event_col_latency')}:{' '}

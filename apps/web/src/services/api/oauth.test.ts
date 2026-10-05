@@ -90,16 +90,13 @@ describe('oauthApi', () => {
     );
   });
 
-  it('preserves the explicit Prism P1 capability contract', async () => {
+  it('reads Prism support and enabled state', async () => {
     const requestScope = { apiBase: 'http://cpa.local:8317', managementKey: 'key' };
     mocks.get.mockResolvedValue({
       system_scoped_oauth: true,
       prism: {
         supported: true,
         enabled: true,
-        adapter_configured: true,
-        client_tools_enabled: false,
-        models: ['gpt-5.6-sol'],
       },
     });
     await expect(oauthApi.getCodexCapabilities(requestScope)).resolves.toEqual({
@@ -107,9 +104,6 @@ describe('oauthApi', () => {
       prism: {
         supported: true,
         enabled: true,
-        adapter_configured: true,
-        client_tools_enabled: false,
-        models: ['gpt-5.6-sol'],
       },
     });
   });

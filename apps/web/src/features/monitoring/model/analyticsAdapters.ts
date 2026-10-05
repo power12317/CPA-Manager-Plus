@@ -22,6 +22,7 @@ import {
 } from '@/utils/sourceResolver';
 import {
   normalizeAnalyticsModel,
+  isUsageUnavailable,
   normalizeAuthIndex,
   type UsageDetailWithEndpoint,
 } from '@/utils/usage';
@@ -1064,15 +1065,19 @@ export const buildUsageDetailsFromAnalyticsEvents = (
       executor_type: readString(item.executor_type),
       latency_ms: item.latency_ms ?? undefined,
       ttft_ms: item.ttft_ms ?? undefined,
-      tokens: {
-        input_tokens: item.input_tokens,
-        output_tokens: item.output_tokens,
-        reasoning_tokens: item.reasoning_tokens,
-        cached_tokens: item.cached_tokens,
-        cache_read_tokens: item.cache_read_tokens ?? 0,
-        cache_creation_tokens: item.cache_creation_tokens ?? 0,
-        total_tokens: item.total_tokens,
-      },
+      usage_unavailable: isUsageUnavailable(item) || item.total_tokens === null || undefined,
+      tokens:
+        isUsageUnavailable(item) || item.total_tokens === null
+          ? null
+          : {
+              input_tokens: item.input_tokens ?? 0,
+              output_tokens: item.output_tokens ?? 0,
+              reasoning_tokens: item.reasoning_tokens ?? 0,
+              cached_tokens: item.cached_tokens ?? 0,
+              cache_read_tokens: item.cache_read_tokens ?? 0,
+              cache_creation_tokens: item.cache_creation_tokens ?? 0,
+              total_tokens: item.total_tokens,
+            },
       failed: item.failed === true,
       fail_status_code: item.fail_status_code ?? null,
       fail_summary: readString(item.fail_summary),

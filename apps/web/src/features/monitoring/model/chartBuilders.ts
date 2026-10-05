@@ -33,7 +33,7 @@ export const buildTimeline = (
       if (!bucket) return;
       bucket.requests += 1;
       bucket.tokens += row.totalTokens;
-      bucket.cost += row.totalCost;
+      bucket.cost += row.totalCost ?? 0;
     });
 
     return { granularity: 'hour', points: Array.from(map.values()) };
@@ -50,7 +50,7 @@ export const buildTimeline = (
     };
     existing.requests += 1;
     existing.tokens += row.totalTokens;
-    existing.cost += row.totalCost;
+    existing.cost += row.totalCost ?? 0;
     grouped.set(row.dayKey, existing);
   });
 
@@ -78,7 +78,7 @@ export const buildHourlyDistribution = (rows: MonitoringEventRow[]) => {
     if (!bucket) return;
     bucket.requests += 1;
     bucket.tokens += row.totalTokens;
-    bucket.cost += row.totalCost;
+    bucket.cost += row.totalCost ?? 0;
   });
 
   return buckets;
@@ -134,7 +134,7 @@ export const buildModelShareRows = (rows: MonitoringEventRow[]): MonitoringModel
     existing.requests += 1;
     existing.failures += row.failed ? 1 : 0;
     existing.totalTokens += row.totalTokens;
-    existing.totalCost += row.totalCost;
+    existing.totalCost += row.totalCost ?? 0;
     grouped.set(row.model, existing);
   });
 
@@ -197,7 +197,7 @@ export const buildChannelRows = (rows: MonitoringEventRow[]): MonitoringChannelR
     existing.requests += 1;
     existing.failures += row.failed ? 1 : 0;
     existing.totalTokens += row.totalTokens;
-    existing.totalCost += row.totalCost;
+    existing.totalCost += row.totalCost ?? 0;
     if (row.latencyMs !== null) {
       existing.latencySum += row.latencyMs;
       existing.latencyCount += 1;
@@ -258,7 +258,7 @@ export const buildModelRows = (rows: MonitoringEventRow[]): MonitoringModelRow[]
     existing.requests += 1;
     existing.failures += row.failed ? 1 : 0;
     existing.totalTokens += row.totalTokens;
-    existing.totalCost += row.totalCost;
+    existing.totalCost += row.totalCost ?? 0;
     existing.sources.add(row.source);
     existing.channels.add(row.channel);
     if (row.latencyMs !== null) {
@@ -401,7 +401,7 @@ export const buildTaskBuckets = (rows: MonitoringEventRow[]): MonitoringTaskBuck
     existing.cachedTokens += row.cachedTokens;
     existing.cacheReadTokens += row.cacheReadTokens;
     existing.cacheCreationTokens += row.cacheCreationTokens;
-    existing.totalCost += row.totalCost;
+    existing.totalCost += row.totalCost ?? 0;
     if (row.latencyMs !== null) {
       existing.latencySum += row.latencyMs;
       existing.latencyCount += 1;

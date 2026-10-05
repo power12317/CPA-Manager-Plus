@@ -3,6 +3,9 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ApiKeyMutation } from '@/components/config/ApiKeysCardEditor';
 import type { ManagerConfigResponse } from '@/services/api/usageService';
+import type { VisualConfigValues } from '@/types/visualConfig';
+import type { CodexCapabilitiesResponse } from '@/services/api/oauth';
+import { parse as parseYaml } from 'yaml';
 
 vi.mock('react-dom', () => ({
   createPortal: (children: ReactNode) => children,
@@ -10,6 +13,9 @@ vi.mock('react-dom', () => ({
 
 const mocks = vi.hoisted(() => ({
   apiBase: 'https://manager.local/api/instances/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  sessionMode: '',
+  realVisualConfig: false,
+  getCodexCapabilities: vi.fn(),
   fetchConfigYaml: vi.fn(),
   saveConfigYaml: vi.fn(),
   apiKeysList: vi.fn(),
@@ -63,11 +69,17 @@ vi.mock('@/hooks/useMediaQuery', () => ({
 vi.mock('@/components/config/VisualConfigEditor', () => ({
   VisualConfigEditor: ({
     codexModeSettings,
+    values,
+    onChange,
+    codexPrismCapabilities,
     onPersistApiKeyMutation,
     onApiKeyOperationStart,
     onApiKeyOperationEnd,
   }: {
     codexModeSettings?: ReactNode;
+    values: VisualConfigValues;
+    onChange: (patch: Partial<VisualConfigValues>) => void;
+    codexPrismCapabilities?: CodexCapabilitiesResponse['prism'];
     onPersistApiKeyMutation: (mutation: ApiKeyMutation) => Promise<string[]>;
     onApiKeyOperationStart: () => void;
     onApiKeyOperationEnd: () => void;
@@ -87,8 +99,12 @@ vi.mock('@/components/config/VisualConfigEditor', () => ({
     };
 
     return (
-      <div data-test="visual-editor">
+      <div data-test="visual-editor" data-prism={codexPrismCapabilities}>
         {codexModeSettings}
+        <button
+          data-test="prism-toggle"
+          onClick={() => onChange({ codexPrismEnabled: !values.codexPrismEnabled })}
+        />
         <button
           type="button"
           data-test="create-key"
@@ -159,8 +175,25 @@ vi.mock('./components/ManagerConfigPanel', () => ({
 }));
 
 vi.mock('@/components/config/DiffModal', () => ({
-  DiffModal: ({ open, onConfirm }: { open: boolean; onConfirm: () => Promise<void> }) =>
-    open ? <button data-test="confirm-yaml" onClick={onConfirm} /> : null,
+  DiffModal: ({
+    open,
+    onConfirm,
+    onCancel,
+    original,
+    modified,
+  }: {
+    open: boolean;
+    onConfirm: () => Promise<void>;
+    onCancel: () => void;
+    original: string;
+    modified: string;
+  }) =>
+    open ? (
+      <div data-test="yaml-diff" data-original={original} data-modified={modified}>
+        <button data-test="confirm-yaml" onClick={onConfirm} />
+        <button data-test="cancel-yaml" onClick={onCancel} />
+      </div>
+    ) : null,
 }));
 
 vi.mock('@/components/config/ConfigSourceEditor', () => ({
@@ -215,12 +248,14 @@ vi.mock('@/stores', () => ({
       connectionStatus: string;
       managementKey: string;
       apiBase: string;
+      sessionMode: string;
     }) => unknown
   ) =>
     selector({
       connectionStatus: 'connected',
       managementKey: 'management-key',
       apiBase: mocks.apiBase,
+      sessionMode: mocks.sessionMode,
     }),
   useNotificationStore: (
     selector: (state: {
@@ -245,27 +280,41 @@ vi.mock('@/stores', () => ({
   ) => selector({ setUsageServiceConfig: mocks.setUsageServiceConfig }),
 }));
 
-vi.mock('@/hooks/useVisualConfig', () => ({
-  useVisualConfig: () => ({
-    visualValues: {
-      apiKeysText: mocks.visualState.apiKeysText,
-      redisUsageQueueRetentionSeconds: '60',
+vi.mock('@/hooks/useVisualConfig', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/hooks/useVisualConfig')>();
+  return {
+    useVisualConfig: () => {
+      const real = actual.useVisualConfig();
+      return mocks.realVisualConfig
+        ? real
+        : {
+            visualValues: {
+              apiKeysText: mocks.visualState.apiKeysText,
+              redisUsageQueueRetentionSeconds: '60',
+            },
+            visualDirty: mocks.visualState.dirty,
+            visualParseError: null,
+            visualValidationErrors: {},
+            visualHasPayloadValidationErrors: false,
+            loadVisualValuesFromYaml: mocks.loadVisualValuesFromYaml,
+            applyVisualChangesToYaml: mocks.applyVisualChangesToYaml,
+            setVisualValues: mocks.setVisualValues,
+            commitApiKeysText: mocks.commitApiKeysText,
+          };
     },
-    visualDirty: mocks.visualState.dirty,
-    visualParseError: null,
-    visualValidationErrors: {},
-    visualHasPayloadValidationErrors: false,
-    loadVisualValuesFromYaml: mocks.loadVisualValuesFromYaml,
-    applyVisualChangesToYaml: mocks.applyVisualChangesToYaml,
-    setVisualValues: mocks.setVisualValues,
-    commitApiKeysText: mocks.commitApiKeysText,
-  }),
-}));
+  };
+});
 
 vi.mock('@/services/api/configFile', () => ({
   configFileApi: {
     fetchConfigYaml: mocks.fetchConfigYaml,
     saveConfigYaml: mocks.saveConfigYaml,
+  },
+}));
+
+vi.mock('@/services/api/oauth', () => ({
+  oauthApi: {
+    getCodexCapabilities: mocks.getCodexCapabilities,
   },
 }));
 
@@ -427,6 +476,14 @@ const configureManagerMode = () => {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.apiBase = 'https://manager.local/api/instances/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  mocks.sessionMode = '';
+  mocks.realVisualConfig = false;
+  mocks.getCodexCapabilities.mockReset().mockResolvedValue({
+    prism: {
+      supported: true,
+      enabled: false,
+    },
+  });
   Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,
     value: {
@@ -521,6 +578,121 @@ describe('Codex settings configuration persistence', () => {
     });
     await flush();
     expect(renderer!.root.findAllByProps({ 'data-test': 'codex-settings' })).toHaveLength(0);
+  });
+});
+
+describe('Prism config persistence', () => {
+  it.each(['manager_embedded', 'cpa_panel'] as const)(
+    'saves Prism and Codex mode together only after confirmation in %s mode',
+    async (mode) => {
+      mocks.realVisualConfig = true;
+      mocks.sessionMode = mode;
+      if (mode === 'cpa_panel') mocks.apiBase = 'http://cpa.local:8317';
+      const scope = { apiBase: mocks.apiBase, managementKey: 'management-key' };
+      mocks.fetchConfigYaml.mockResolvedValue('codex:\n  basispoints:\n    enabled: true\n');
+      mocks.saveConfigYaml.mockImplementation(async (yaml: string) => {
+        mocks.fetchConfigYaml.mockResolvedValue(yaml);
+      });
+      await mountPage();
+      act(() => {
+        mocks.codexSettings!.onLoaded?.(false);
+        mocks.codexSettings!.onDraftChange?.(true);
+      });
+      await click('prism-toggle');
+      expect(mocks.codexRuntimeUpdate).not.toHaveBeenCalled();
+      expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
+
+      await clickSave();
+      await click('cancel-yaml');
+      expect(mocks.codexRuntimeUpdate).not.toHaveBeenCalled();
+      expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
+
+      await clickSave();
+      const preview = renderer!.root.findByProps({ 'data-test': 'yaml-diff' }).props[
+        'data-modified'
+      ];
+      expect(parseYaml(preview).codex).toEqual({
+        basispoints: { enabled: true },
+        prism: { enabled: true },
+      });
+      expect(mocks.codexRuntimeUpdate).not.toHaveBeenCalled();
+      expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
+      await click('confirm-yaml');
+      expect(mocks.saveConfigYaml).toHaveBeenCalledExactlyOnceWith(preview, scope);
+      expect(mocks.codexRuntimeUpdate).toHaveBeenCalledExactlyOnceWith({ enabled: true }, scope);
+      expect(
+        renderer!.root.findByProps({ 'aria-label': 'config_management.save' }).props.disabled
+      ).toBe(true);
+    }
+  );
+
+  it.each([
+    ['manager_embedded', false],
+    ['cpa_panel', false],
+    ['manager_embedded', true],
+    ['cpa_panel', true],
+  ] as const)(
+    'waits for diff confirmation in %s mode (initially enabled=%s)',
+    async (mode, initiallyEnabled) => {
+      mocks.realVisualConfig = true;
+      mocks.sessionMode = mode;
+      if (mode === 'cpa_panel') mocks.apiBase = 'http://cpa.local:8317';
+      const scope = { apiBase: mocks.apiBase, managementKey: 'management-key' };
+      const yaml = initiallyEnabled
+        ? 'codex:\n  prism:\n    enabled: true\n  basispoints:\n    enabled: true\n'
+        : 'codex:\n  basispoints:\n    enabled: true\n';
+      mocks.fetchConfigYaml.mockResolvedValue(yaml);
+      mocks.saveConfigYaml.mockImplementation(async (savedYaml: string) => {
+        mocks.fetchConfigYaml.mockResolvedValue(savedYaml);
+      });
+      await mountPage();
+      await click('prism-toggle');
+      expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
+      expect(renderer!.root.findAllByProps({ 'data-test': 'yaml-diff' })).toHaveLength(0);
+      await clickSave();
+      const preview = renderer!.root.findByProps({ 'data-test': 'yaml-diff' }).props[
+        'data-modified'
+      ];
+      expect(parseYaml(preview).codex).toEqual({
+        prism: {
+          enabled: !initiallyEnabled,
+        },
+        basispoints: { enabled: true },
+      });
+      expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
+      await click('cancel-yaml');
+      expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
+      await clickSave();
+      await click('confirm-yaml');
+      expect(mocks.saveConfigYaml).toHaveBeenCalledExactlyOnceWith(preview, scope);
+      expect(
+        renderer!.root.findByProps({ 'aria-label': 'config_management.save' }).props.disabled
+      ).toBe(true);
+    }
+  );
+
+  it('scopes the Prism switch to a single CPA and hides it at aggregate Manager scope', async () => {
+    await mountPage();
+    expect(
+      renderer!.root.findByProps({ 'data-test': 'visual-editor' }).props['data-prism']
+    ).toEqual({ supported: true, enabled: false });
+    act(() => renderer!.unmount());
+    mocks.getCodexCapabilities.mockClear();
+    mocks.apiBase = 'https://manager.local';
+    mocks.sessionMode = 'manager_embedded';
+    await mountPage();
+    expect(mocks.getCodexCapabilities).not.toHaveBeenCalled();
+    expect(
+      renderer!.root.findByProps({ 'data-test': 'visual-editor' }).props['data-prism']
+    ).toBeUndefined();
+  });
+
+  it('hides capabilities after a failed probe', async () => {
+    mocks.getCodexCapabilities.mockRejectedValueOnce(new Error('capability request failed'));
+    await mountPage();
+    expect(
+      renderer!.root.findByProps({ 'data-test': 'visual-editor' }).props['data-prism']
+    ).toBeUndefined();
   });
 });
 

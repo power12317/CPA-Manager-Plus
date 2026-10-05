@@ -90,6 +90,24 @@ describe('oauthApi', () => {
     );
   });
 
+  it('reads Prism support and enabled state', async () => {
+    const requestScope = { apiBase: 'http://cpa.local:8317', managementKey: 'key' };
+    mocks.get.mockResolvedValue({
+      system_scoped_oauth: true,
+      prism: {
+        supported: true,
+        enabled: true,
+      },
+    });
+    await expect(oauthApi.getCodexCapabilities(requestScope)).resolves.toEqual({
+      system_scoped_oauth: true,
+      prism: {
+        supported: true,
+        enabled: true,
+      },
+    });
+  });
+
   it('adds client_system for system-scoped Codex OAuth', async () => {
     mocks.get.mockResolvedValue({ url: 'https://auth.example/codex', state: 'state-windows' });
 

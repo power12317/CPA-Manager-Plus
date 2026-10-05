@@ -209,9 +209,20 @@ describe('buildUsageDetailsFromAnalyticsEvents', () => {
 
     const details = buildUsageDetailsFromAnalyticsEvents(events);
 
-    expect(details[0].tokens.cached_tokens).toBe(5);
-    expect(details[0].tokens.cache_read_tokens).toBe(4);
-    expect(details[0].tokens.cache_creation_tokens).toBe(1);
+    expect(details[0].tokens?.cached_tokens).toBe(5);
+    expect(details[0].tokens?.cache_read_tokens).toBe(4);
+    expect(details[0].tokens?.cache_creation_tokens).toBe(1);
+    const [unavailable] = buildUsageDetailsFromAnalyticsEvents(events.map((event) => ({
+      ...event,
+      input_tokens: null,
+      output_tokens: null,
+      total_tokens: null,
+      usage_unavailable: true,
+      response_metadata: { usage_unavailable: true },
+    })));
+    expect(unavailable.tokens).toBeNull();
+    expect(unavailable.usage_unavailable).toBe(true);
+    expect(unavailable.failed).toBe(false);
   });
 });
 

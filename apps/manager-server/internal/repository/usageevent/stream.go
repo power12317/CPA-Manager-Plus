@@ -104,10 +104,11 @@ type usageStreamQueryer interface {
 }
 
 type compatibleUsageTotals struct {
-	totalRequests int64
-	successCount  int64
-	failureCount  int64
-	totalTokens   int64
+	usageUnavailableRequests int64
+	totalRequests            int64
+	successCount             int64
+	failureCount             int64
+	totalTokens              int64
 }
 
 type rawMetadataDetail struct {
@@ -571,7 +572,10 @@ func (r *repository) compatibleUsageTotals(ctx context.Context, snapshot usageSn
 		count(*),
 		count(*) - coalesce(sum(case when failed <> 0 then 1 else 0 end), 0),
 		coalesce(sum(case when failed <> 0 then 1 else 0 end), 0),
-		coalesce(sum(total_tokens), 0)
+		coalesce(sum(total_tokens), 0),
+        coalesce(sum(case when json_valid(response_metadata_json)
+            then coalesce(json_extract(response_metadata_json, '$.usage_unavailable'), 0)
+            else 0 end), 0)
 	from usage_events
 	where id <= ? and (
 		timestamp_ms > ? or (timestamp_ms = ? and id >= ?)
@@ -580,7 +584,7 @@ func (r *repository) compatibleUsageTotals(ctx context.Context, snapshot usageSn
 		snapshot.cutoffTimestampMS,
 		snapshot.cutoffTimestampMS,
 		snapshot.cutoffID,
-	).Scan(&totals.totalRequests, &totals.successCount, &totals.failureCount, &totals.totalTokens); err != nil {
+	).Scan(&totals.totalRequests, &totals.successCount, &totals.failureCount, &totals.totalTokens, &totals.usageUnavailableRequests); err != nil {
 		return compatibleUsageTotals{}, err
 	}
 	return totals, nil
@@ -929,6 +933,7 @@ func writeCompatibleUsageHeader(writer io.Writer, totals compatibleUsageTotals) 
 			`,"success_count":`+int64String(totals.successCount)+
 			`,"failure_count":`+int64String(totals.failureCount)+
 			`,"total_tokens":`+int64String(totals.totalTokens)+
+			`,"usage_unavailable_requests":`+int64String(totals.usageUnavailableRequests)+
 			`,"apis":{`,
 	)
 	return err

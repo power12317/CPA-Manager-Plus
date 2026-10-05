@@ -28,6 +28,43 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe('unavailable Prism usage', () => {
+  it.each([
+    { usage_unavailable: true, tokens: null },
+    { response_metadata: { usage_unavailable: true }, tokens: { input_tokens: 99 } },
+    { tokens: null },
+  ])('retains unknown usage through both payload readers and does not price it: %j', (extra) => {
+    const payload = {
+      apis: {
+        '/v1/responses': {
+          models: {
+            'gpt-6.1-sol': {
+              details: [
+                {
+                  timestamp: '2026-10-04T10:00:00Z',
+                  failed: false,
+                  latency_ms: 800,
+                  ...extra,
+                },
+              ],
+            },
+          },
+        },
+      },
+    };
+    for (const read of [collectUsageDetails, collectUsageDetailsWithEndpoint]) {
+      const [detail] = read(payload);
+      expect(detail.usage_unavailable).toBe(true);
+      expect(detail.tokens).toBeNull();
+      expect(detail.latency_ms).toBe(800);
+      expect(detail.failed).toBe(false);
+      expect(
+        calculateCost(detail, { 'gpt-6.1-sol': { prompt: 1, completion: 2, cache: 0 } })
+      ).toBeNull();
+    }
+  });
+});
+
 describe('formatCompactNumber', () => {
   it('keeps large values compact across units and rounding boundaries', () => {
     expect(formatCompactNumber(0)).toBe('0');
@@ -448,8 +485,8 @@ describe('usage detail collection', () => {
 
     const detail = collectUsageDetailsWithEndpoint(usageData)[0];
 
-    expect(detail.tokens.cached_tokens).toBe(0);
-    expect(detail.tokens.cache_read_tokens).toBe(500);
+    expect(detail.tokens?.cached_tokens).toBe(0);
+    expect(detail.tokens?.cache_read_tokens).toBe(500);
   });
 
   it('normalizes Anthropic cache input token fields', () => {
@@ -481,10 +518,10 @@ describe('usage detail collection', () => {
 
     const detail = collectUsageDetailsWithEndpoint(usageData)[0];
 
-    expect(detail.tokens.cached_tokens).toBe(0);
-    expect(detail.tokens.cache_creation_tokens).toBe(11);
-    expect(detail.tokens.cache_read_tokens).toBe(23);
-    expect(detail.tokens.total_tokens).toBe(154);
+    expect(detail.tokens?.cached_tokens).toBe(0);
+    expect(detail.tokens?.cache_creation_tokens).toBe(11);
+    expect(detail.tokens?.cache_read_tokens).toBe(23);
+    expect(detail.tokens?.total_tokens).toBe(154);
   });
 });
 
@@ -563,11 +600,11 @@ describe('cache input accounting semantics', () => {
   it.each(cacheInputAccountingFixtures)('matches shared fixture: $name', (fixture) => {
     const accounting = normalizeCacheAccounting({
       context: fixture.context,
-      inputTokens: fixture.tokens.input,
-      cachedTokens: fixture.tokens.cached,
-      cacheTokens: fixture.tokens.cache,
-      cacheReadTokens: fixture.tokens.read,
-      cacheCreationTokens: fixture.tokens.creation,
+      inputTokens: fixture.tokens?.input,
+      cachedTokens: fixture.tokens?.cached,
+      cacheTokens: fixture.tokens?.cache,
+      cacheReadTokens: fixture.tokens?.read,
+      cacheCreationTokens: fixture.tokens?.creation,
     });
 
     expect(accounting).toMatchObject({
@@ -808,8 +845,8 @@ describe('cache input accounting semantics', () => {
     };
     const [normalized] = collectUsageDetails(usageData);
 
-    expect(normalized.tokens.input_tokens).toBe(totalInput);
-    expect(normalized.tokens.total_tokens).toBe(totalInput);
+    expect(normalized.tokens?.input_tokens).toBe(totalInput);
+    expect(normalized.tokens?.total_tokens).toBe(totalInput);
   });
 
   it('prices xAI cache without double-counting included input', () => {
@@ -838,13 +875,13 @@ describe('cache input accounting semantics', () => {
       'grok-4': { prompt: 1, completion: 2, cache: 0.1, cacheRead: 0.1 },
     });
 
-    expect(detail.tokens.input_tokens).toBe(100);
+    expect(detail.tokens?.input_tokens).toBe(100);
     expect(
       calculateCacheHitRate({
-        inputTokens: detail.tokens.input_tokens,
-        cachedTokens: detail.tokens.cached_tokens,
-        cacheReadTokens: detail.tokens.cache_read_tokens,
-        cacheCreationTokens: detail.tokens.cache_creation_tokens,
+        inputTokens: detail.tokens?.input_tokens,
+        cachedTokens: detail.tokens?.cached_tokens,
+        cacheReadTokens: detail.tokens?.cache_read_tokens,
+        cacheCreationTokens: detail.tokens?.cache_creation_tokens,
       })
     ).toBeCloseTo(0.4);
     expect(cost).toBeCloseTo(0.000064);
@@ -884,10 +921,10 @@ describe('cache input accounting semantics', () => {
     const [detail] = collectUsageDetails(usageData);
 
     expect(detail.cache_input_mode).toBe('read_included_creation_separate');
-    expect(detail.tokens.input_tokens).toBe(229788);
-    expect(detail.tokens.total_tokens).toBe(231563);
-    expect(detail.tokens.cache_read_tokens).toBe(228021);
-    expect(detail.tokens.cache_creation_tokens).toBe(0);
+    expect(detail.tokens?.input_tokens).toBe(229788);
+    expect(detail.tokens?.total_tokens).toBe(231563);
+    expect(detail.tokens?.cache_read_tokens).toBe(228021);
+    expect(detail.tokens?.cache_creation_tokens).toBe(0);
   });
 
   it('prices Devin cache without provider-specific logic in pricing', () => {
@@ -1135,7 +1172,7 @@ describe('calculateCost model price preference', () => {
       { tokens, __modelName: 'gpt-5.5', service_tier: 'priority' },
       modelPrices
     );
-    expect(priority).toBeCloseTo(standard);
+    expect(priority).toBeCloseTo(standard!);
   });
 
   it('uses flex pricing at half the standard rate', () => {
@@ -1156,7 +1193,7 @@ describe('calculateCost model price preference', () => {
     for (const serviceTier of ['flex', 'batch']) {
       expect(
         calculateCost({ tokens, __modelName: 'gpt-5.5', service_tier: serviceTier }, modelPrices)
-      ).toBeCloseTo(standard * 0.5);
+      ).toBeCloseTo(standard! * 0.5);
     }
   });
 
@@ -1580,7 +1617,7 @@ describe('calculateCost model price preference', () => {
       modelPrices
     );
 
-    expect(priority).toBeCloseTo(standard);
+    expect(priority).toBeCloseTo(standard!);
   });
 
   it('inherits missing tier cache rates and preserves explicit zero overrides', () => {

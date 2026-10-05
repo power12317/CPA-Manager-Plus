@@ -40,6 +40,7 @@ import {
 import { configFileApi } from '@/services/api/configFile';
 import { apiKeysApi } from '@/services/api/apiKeys';
 import { codexRuntimeApi } from '@/services/api/codexRuntime';
+import { oauthApi, type CodexCapabilitiesResponse } from '@/services/api/oauth';
 import {
   getUsageServiceErrorCode,
   isUsageServiceId,
@@ -50,6 +51,7 @@ import {
   type ManagerConfigResponse,
 } from '@/services/api/usageService';
 import { detectApiBaseFromLocation } from '@/utils/connection';
+import { instanceIdFromBase } from '@/utils/instanceScope';
 import { ManagerConfigPanel } from './components/ManagerConfigPanel';
 import styles from './ConfigPage.module.scss';
 
@@ -378,6 +380,19 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
   const [codexSettingsRevision, setCodexSettingsRevision] = useState(0);
   const [codexRuntimeDraft, setCodexRuntimeDraft] = useState<boolean | null>(null);
   const [codexRuntimeBaseline, setCodexRuntimeBaseline] = useState<boolean | null>(null);
+  const [codexCapabilities, setCodexCapabilities] = useState<{
+    scope: typeof configRequestScope;
+    prism: CodexCapabilitiesResponse['prism'];
+  } | null>(null);
+  const canProbeCodexCapabilities =
+    !managerOnly &&
+    connectionStatus === 'connected' &&
+    Boolean(apiBase) &&
+    (!managerSession || Boolean(instanceIdFromBase(apiBase)));
+  const codexPrismCapabilities =
+    canProbeCodexCapabilities && codexCapabilities?.scope === configRequestScope
+      ? codexCapabilities.prism
+      : undefined;
   const [sourceSnapshotStale, setSourceSnapshotStale] = useState(false);
   const [error, setError] = useState('');
   const [dirty, setDirty] = useState(false);
@@ -524,6 +539,24 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
     if (sourceConfigLoaded) return;
     void loadConfig();
   }, [activeTab, loadConfig, sourceConfigLoaded]);
+
+  useEffect(() => {
+    if (!canProbeCodexCapabilities) return;
+    let cancelled = false;
+    void oauthApi
+      .getCodexCapabilities(configRequestScope)
+      .then((capabilities) => {
+        if (!cancelled) {
+          setCodexCapabilities({ scope: configRequestScope, prism: capabilities.prism });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCodexCapabilities(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canProbeCodexCapabilities, configRequestScope]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1781,6 +1814,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
             <>
               <VisualConfigEditor
                 values={visualValues}
+                codexPrismCapabilities={codexPrismCapabilities}
                 validationErrors={visualValidationErrors}
                 hasPayloadValidationErrors={visualHasPayloadValidationErrors}
                 disabled={

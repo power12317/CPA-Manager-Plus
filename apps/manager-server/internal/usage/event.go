@@ -192,11 +192,12 @@ type APIAggregate struct {
 }
 
 type Payload struct {
-	TotalRequests int64                    `json:"total_requests"`
-	SuccessCount  int64                    `json:"success_count"`
-	FailureCount  int64                    `json:"failure_count"`
-	TotalTokens   int64                    `json:"total_tokens"`
-	APIs          map[string]*APIAggregate `json:"apis"`
+	UsageUnavailableRequests int64                    `json:"usage_unavailable_requests,omitempty"`
+	TotalRequests            int64                    `json:"total_requests"`
+	SuccessCount             int64                    `json:"success_count"`
+	FailureCount             int64                    `json:"failure_count"`
+	TotalTokens              int64                    `json:"total_tokens"`
+	APIs                     map[string]*APIAggregate `json:"apis"`
 }
 
 const (
@@ -720,6 +721,9 @@ func NormalizeRaw(raw []byte) (Event, error) {
 func BuildPayload(events []Event) Payload {
 	payload := Payload{APIs: map[string]*APIAggregate{}}
 	for _, event := range events {
+		if event.ResponseMetadata != nil && event.ResponseMetadata.UsageUnavailable {
+			payload.UsageUnavailableRequests++
+		}
 		payload.TotalRequests++
 		if event.Failed {
 			payload.FailureCount++
@@ -839,6 +843,9 @@ func readTimestamp(record map[string]any) (int64, string) {
 }
 
 func readTokenFields(record map[string]any) (int64, int64, int64, int64, int64, int64, int64, int64) {
+	if usageUnavailableFromRecord(record) {
+		return 0, 0, 0, 0, 0, 0, 0, 0
+	}
 	input := readNestedThenTopInt(record, []string{"input_tokens", "inputTokens", "prompt_tokens", "promptTokens"})
 	output := readNestedThenTopInt(record, []string{"output_tokens", "outputTokens", "completion_tokens", "completionTokens"})
 	reasoning := readNestedThenTopInt(record, []string{"reasoning_tokens", "reasoningTokens"})

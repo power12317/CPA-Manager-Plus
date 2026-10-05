@@ -44,6 +44,7 @@ export interface Config {
   wsAuth?: boolean;
   codexForceWebsocket?: boolean;
   codexBasispointsEnabled?: boolean;
+  codexPrismEnabled?: boolean;
   forceModelPrefix?: boolean;
   routingStrategy?: string;
   apiKeys?: string[];

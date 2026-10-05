@@ -53,6 +53,29 @@ describe('useVisualConfig', () => {
     harness.unmount();
   });
 
+  it('round trips the global Prism setting through codex.prism.enabled', () => {
+    const harness = mountUseVisualConfig();
+    const defaultYaml = 'codex:\n  future: keep\n';
+    act(() => harness.getCurrent().loadVisualValuesFromYaml(defaultYaml));
+    expect(harness.getCurrent().visualValues.codexPrismEnabled).toBe(false);
+    expect(harness.getCurrent().visualDirty).toBe(false);
+    expect(harness.getCurrent().applyVisualChangesToYaml(defaultYaml)).toBe(defaultYaml);
+    expect(
+      Object.keys(harness.getCurrent().visualValues).filter((key) => key.startsWith('codexPrism'))
+    ).toEqual(['codexPrismEnabled']);
+    const yaml = 'codex:\n  prism:\n    enabled: false\n  future: keep\n';
+    act(() => harness.getCurrent().loadVisualValuesFromYaml(yaml));
+    expect(harness.getCurrent().visualValues.codexPrismEnabled).toBe(false);
+    act(() => harness.getCurrent().setVisualValues({ codexPrismEnabled: true }));
+    const saved = harness.getCurrent().applyVisualChangesToYaml(yaml);
+    expect(parseYaml(saved)).toEqual({
+      codex: { prism: { enabled: true }, future: 'keep' },
+    });
+    act(() => harness.getCurrent().setVisualValues({ codexPrismEnabled: false }));
+    expect(harness.getCurrent().visualDirty).toBe(false);
+    harness.unmount();
+  });
+
   it.each(['auto', 'default', 'fast', 'ultrafast'] as const)(
     'round trips fast mode %s while preserving unrelated settings',
     (mode) => {

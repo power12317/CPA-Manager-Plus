@@ -1630,6 +1630,8 @@ func TestIsManagementPath(t *testing.T) {
 		{path: "/v0/management/", want: true},
 		{path: "/v0/management/auth-files", want: true},
 		{path: "/v0/management/auth-files/status", want: true},
+		{path: "/v0/management/auth-files/fields", want: true},
+		{path: "/v0/management/codex-capabilities", want: true},
 		{path: "/v0/management/api-call", want: true},
 		{path: "/v0/management/api-key-usage", want: true},
 		{path: "/v0/resource/plugins", want: true},

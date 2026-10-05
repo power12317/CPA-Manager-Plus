@@ -95,7 +95,7 @@ const createPresentationSnapshot = (id: string): MonitoringPresentationSnapshot 
       max_deleted_timestamp_ms: 2,
       fidelity_limitations: [],
     },
-    timeline: [{ label: id, requests: 1, tokens: row.totalTokens, cost: row.totalCost }],
+    timeline: [{ label: id, requests: 1, tokens: row.totalTokens, cost: row.totalCost ?? 0 }],
     timelineGranularity: 'hour',
     hourlyDistribution: [],
     modelShareRows: [],

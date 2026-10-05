@@ -203,6 +203,7 @@ export type MonitoringEventRow = {
   channelDisabled: boolean;
   failed: boolean;
   statsIncluded: boolean;
+  usageUnavailable?: boolean;
   latencyMs: number | null;
   ttftMs: number | null;
   tokensPerSecond: number | null;
@@ -213,7 +214,7 @@ export type MonitoringEventRow = {
   cacheReadTokens: number;
   cacheCreationTokens: number;
   totalTokens: number;
-  totalCost: number;
+  totalCost: number | null;
   reasoningEffort?: string;
   serviceTier?: string;
   requestServiceTier?: string;

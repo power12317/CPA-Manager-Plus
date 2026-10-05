@@ -169,7 +169,7 @@ describe('Codex device convergence setting', () => {
       const convergence = renderer.root.findByProps({
         'aria-label': 'config_management.visual.sections.headers.device_convergence',
       });
-      const confuse = renderer.root.findByProps({
+      const confuse = renderer.root.findAllByProps({
         'aria-label': 'config_management.visual.sections.headers.identity_confuse',
       });
       const stabilize = renderer.root.findByProps({
@@ -177,7 +177,7 @@ describe('Codex device convergence setting', () => {
       });
       expect(convergence.props.checked).toBe(true);
       expect(convergence.props.disabled).toBe(disabled);
-      expect(confuse.props.checked).toBe(false);
+      expect(confuse).toHaveLength(0);
       expect(stabilize.props.checked).toBe(false);
       if (!disabled) {
         act(() => convergence.props.onChange({ target: { checked: false } }));

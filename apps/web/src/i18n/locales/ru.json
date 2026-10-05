@@ -4237,10 +4237,8 @@
           "stabilize_device": "Стабилизировать профиль устройства",
           "stabilize_device_desc": "Фиксировать OS/Arch и стабилизировать программный отпечаток для учётных данных/API-ключа",
           "beta_features": "Beta Features",
-          "identity_confuse": "Включить Codex identity-confuse",
           "device_convergence": "Фиксация устройства Codex",
-          "device_convergence_desc": "По умолчанию фиксирует ID устройства для аккаунта и системы учётных данных. При отключении передаёт ID без изменений и не добавляет отсутствующий.",
-          "identity_confuse_desc": "Записывает codex.identity-confuse, чтобы CPA смешивал identity-заголовки Codex для совместимости"
+          "device_convergence_desc": "По умолчанию фиксирует ID устройства для аккаунта и системы учётных данных. При отключении передаёт ID без изменений и не добавляет отсутствующий."
         },
         "network": {
           "title": "Сетевые настройки",

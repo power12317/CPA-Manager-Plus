@@ -358,8 +358,6 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
   const managerSession = useAuthStore((state) => state.sessionMode === 'manager_embedded');
   const managementKey = useAuthStore((state) => state.managementKey);
   const configRequestScope = useMemo(() => ({ apiBase, managementKey }), [apiBase, managementKey]);
-  const serverVersion = useAuthStore((state) => state.serverVersion);
-  const serverCommit = useAuthStore((state) => state.serverCommit);
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
   const setUsageServiceConfig = useUsageServiceStore((state) => state.setUsageServiceConfig);
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -378,10 +376,6 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
       ? codexCapabilities.capabilities
       : undefined;
   const codexPrismCapabilities = activeCodexCapabilities?.prism;
-  // Older builds of this fork expose system-scoped OAuth before per-feature flags.
-  const codexIdentityConfuseSupported =
-    activeCodexCapabilities?.identity_confuse?.supported ??
-    (activeCodexCapabilities?.system_scoped_oauth === true ? true : undefined);
 
   const {
     visualValues,
@@ -393,11 +387,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
     applyVisualChangesToYaml,
     setVisualValues,
     commitApiKeysText,
-  } = useVisualConfig({
-    serverVersion,
-    serverCommit,
-    codexIdentityConfuseSupported,
-  });
+  } = useVisualConfig();
 
   const [activeTab, setActiveTab] = useState<ConfigEditorTab>(() => {
     const saved = localStorage.getItem(CONFIG_TAB_STORAGE_KEY);

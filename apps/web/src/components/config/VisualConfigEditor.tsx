@@ -1371,17 +1371,6 @@ export function VisualConfigEditor({
                           fullWidth
                         />
                       </FieldShell>
-                      {values.codexIdentityConfuseSupported && (
-                        <ToggleRow
-                          title={t('config_management.visual.sections.headers.identity_confuse')}
-                          description={t(
-                            'config_management.visual.sections.headers.identity_confuse_desc'
-                          )}
-                          checked={values.codexIdentityConfuse}
-                          disabled={disabled}
-                          onChange={(codexIdentityConfuse) => onChange({ codexIdentityConfuse })}
-                        />
-                      )}
                       <ToggleRow
                         title={t('config_management.visual.sections.headers.device_convergence')}
                         description={t(

@@ -184,7 +184,6 @@ export type VisualConfigValues = {
   codexHeaderUserAgent: string;
   codexHeaderBetaFeatures: string;
   codexFastMode: 'auto' | 'default' | 'fast' | 'ultrafast';
-  codexIdentityConfuse: boolean;
   codexDeviceConvergence: boolean;
   codexTicketEnabled: boolean;
   codexTicketFailClosed: boolean;
@@ -194,7 +193,6 @@ export type VisualConfigValues = {
   codexTicketRefreshBeforeSeconds: string;
   codexTicketProbeIntervalSeconds: string;
   codexTicketAttemptTimeoutSeconds: string;
-  codexIdentityConfuseSupported: boolean;
   devinSensitiveWords: string[];
   payloadDefaultRules: PayloadRule[];
   payloadDefaultRawRules: PayloadRule[];
@@ -274,7 +272,6 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   codexHeaderUserAgent: '',
   codexHeaderBetaFeatures: '',
   codexFastMode: 'auto',
-  codexIdentityConfuse: false,
   codexDeviceConvergence: true,
   codexTicketEnabled: false,
   codexTicketFailClosed: false,
@@ -284,7 +281,6 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   codexTicketRefreshBeforeSeconds: '600',
   codexTicketProbeIntervalSeconds: '60',
   codexTicketAttemptTimeoutSeconds: '25',
-  codexIdentityConfuseSupported: true,
   devinSensitiveWords: [],
   payloadDefaultRules: [],
   payloadDefaultRawRules: [],

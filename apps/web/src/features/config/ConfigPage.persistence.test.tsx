@@ -102,7 +102,6 @@ vi.mock('@/components/config/VisualConfigEditor', () => ({
       <div
         data-test="visual-editor"
         data-prism={codexPrismCapabilities}
-        data-identity-supported={values.codexIdentityConfuseSupported}
       >
         {codexModeSettings}
         <button
@@ -298,8 +297,8 @@ vi.mock('@/stores', () => ({
 vi.mock('@/hooks/useVisualConfig', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/hooks/useVisualConfig')>();
   return {
-    useVisualConfig: (runtime?: Parameters<typeof actual.useVisualConfig>[0]) => {
-      const realConfig = actual.useVisualConfig(runtime);
+    useVisualConfig: () => {
+      const realConfig = actual.useVisualConfig();
       if (mocks.realVisualConfig) return realConfig;
       return {
         visualValues: {
@@ -596,20 +595,6 @@ describe('Codex settings configuration persistence', () => {
 });
 
 describe('Prism config persistence', () => {
-  it.each([
-    [{ system_scoped_oauth: true }, true],
-    [{ identity_confuse: { supported: true } }, true],
-    [{ system_scoped_oauth: true, identity_confuse: { supported: false } }, false],
-    [{ prism: { supported: true } }, false],
-  ] as const)('resolves fork identity support from capabilities %j', async (capabilities, expected) => {
-    mocks.realVisualConfig = true;
-    mocks.getCodexCapabilities.mockResolvedValue(capabilities);
-    await mountPage();
-    expect(
-      renderer!.root.findByProps({ 'data-test': 'visual-editor' }).props['data-identity-supported']
-    ).toBe(expected);
-  });
-
   it.each([
     ['manager_embedded', false],
     ['cpa_panel', false],

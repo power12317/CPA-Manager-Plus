@@ -4256,10 +4256,8 @@
           "stabilize_device": "Stabilize Device Profile",
           "stabilize_device_desc": "Pin OS/Arch and stabilize the software fingerprint per credential/API key",
           "beta_features": "Beta Features",
-          "identity_confuse": "Enable Codex Identity Confuse",
           "device_convergence": "Codex device pinning",
-          "device_convergence_desc": "On by default. Keep a fixed device ID per account and credential system; when off, pass it through without adding one.",
-          "identity_confuse_desc": "Write codex.identity-confuse to let CPA mix Codex request identity headers for compatibility"
+          "device_convergence_desc": "On by default. Keep a fixed device ID per account and credential system; when off, pass it through without adding one."
         },
         "network": {
           "title": "Network Configuration",

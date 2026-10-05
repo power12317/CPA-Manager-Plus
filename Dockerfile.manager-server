@@ -21,7 +21,10 @@ RUN go mod download
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags "-X github.com/seakee/cpa-manager-plus/apps/manager-server/internal/buildinfo.Version=$VERSION -X github.com/seakee/cpa-manager-plus/apps/manager-server/internal/buildinfo.SourceCommit=$SOURCE_COMMIT" -o /out/cpa-manager-plus ./cmd/cpa-manager-plus
 
 FROM alpine:3.21
-RUN apk add --no-cache ca-certificates wget tzdata
+ENV TZ=Asia/Singapore
+RUN apk add --no-cache ca-certificates wget tzdata \
+    && ln -snf /usr/share/zoneinfo/Asia/Singapore /etc/localtime \
+    && echo Asia/Singapore > /etc/timezone
 WORKDIR /app
 COPY --from=service-build /out/cpa-manager-plus /usr/local/bin/cpa-manager-plus
 ENV HTTP_ADDR=0.0.0.0:18317

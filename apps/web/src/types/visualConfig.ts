@@ -194,6 +194,7 @@ export type VisualConfigValues = {
   codexTicketRefreshBeforeSeconds: string;
   codexTicketProbeIntervalSeconds: string;
   codexTicketAttemptTimeoutSeconds: string;
+  codexIdentityConfuseSupported: boolean;
   devinSensitiveWords: string[];
   payloadDefaultRules: PayloadRule[];
   payloadDefaultRawRules: PayloadRule[];
@@ -283,6 +284,7 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   codexTicketRefreshBeforeSeconds: '600',
   codexTicketProbeIntervalSeconds: '60',
   codexTicketAttemptTimeoutSeconds: '25',
+  codexIdentityConfuseSupported: true,
   devinSensitiveWords: [],
   payloadDefaultRules: [],
   payloadDefaultRawRules: [],

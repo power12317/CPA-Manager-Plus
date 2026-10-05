@@ -29,6 +29,9 @@ export interface OAuthCallbackResponse {
 
 export interface CodexCapabilitiesResponse {
   system_scoped_oauth?: boolean;
+  identity_confuse?: {
+    supported?: boolean;
+  };
   prism?: {
     supported?: boolean;
     enabled?: boolean;

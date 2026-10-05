@@ -13,7 +13,7 @@ import (
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/store"
 )
 
-//go:embed web/management.html
+//go:embed web/management.html web/favicon.ico web/apple-touch-icon.png
 var embeddedPanel embed.FS
 
 const serviceID = "cpa-manager-plus"

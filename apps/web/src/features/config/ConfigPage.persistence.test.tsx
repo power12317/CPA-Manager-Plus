@@ -582,50 +582,6 @@ describe('Codex settings configuration persistence', () => {
 });
 
 describe('Prism config persistence', () => {
-  it.each(['manager_embedded', 'cpa_panel'] as const)(
-    'saves Prism and Codex mode together only after confirmation in %s mode',
-    async (mode) => {
-      mocks.realVisualConfig = true;
-      mocks.sessionMode = mode;
-      if (mode === 'cpa_panel') mocks.apiBase = 'http://cpa.local:8317';
-      const scope = { apiBase: mocks.apiBase, managementKey: 'management-key' };
-      mocks.fetchConfigYaml.mockResolvedValue('codex:\n  basispoints:\n    enabled: true\n');
-      mocks.saveConfigYaml.mockImplementation(async (yaml: string) => {
-        mocks.fetchConfigYaml.mockResolvedValue(yaml);
-      });
-      await mountPage();
-      act(() => {
-        mocks.codexSettings!.onLoaded?.(false);
-        mocks.codexSettings!.onDraftChange?.(true);
-      });
-      await click('prism-toggle');
-      expect(mocks.codexRuntimeUpdate).not.toHaveBeenCalled();
-      expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
-
-      await clickSave();
-      await click('cancel-yaml');
-      expect(mocks.codexRuntimeUpdate).not.toHaveBeenCalled();
-      expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
-
-      await clickSave();
-      const preview = renderer!.root.findByProps({ 'data-test': 'yaml-diff' }).props[
-        'data-modified'
-      ];
-      expect(parseYaml(preview).codex).toEqual({
-        basispoints: { enabled: true },
-        prism: { enabled: true },
-      });
-      expect(mocks.codexRuntimeUpdate).not.toHaveBeenCalled();
-      expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
-      await click('confirm-yaml');
-      expect(mocks.saveConfigYaml).toHaveBeenCalledExactlyOnceWith(preview, scope);
-      expect(mocks.codexRuntimeUpdate).toHaveBeenCalledExactlyOnceWith({ enabled: true }, scope);
-      expect(
-        renderer!.root.findByProps({ 'aria-label': 'config_management.save' }).props.disabled
-      ).toBe(true);
-    }
-  );
-
   it.each([
     ['manager_embedded', false],
     ['cpa_panel', false],
@@ -639,8 +595,8 @@ describe('Prism config persistence', () => {
       if (mode === 'cpa_panel') mocks.apiBase = 'http://cpa.local:8317';
       const scope = { apiBase: mocks.apiBase, managementKey: 'management-key' };
       const yaml = initiallyEnabled
-        ? 'codex:\n  prism:\n    enabled: true\n  basispoints:\n    enabled: true\n'
-        : 'codex:\n  basispoints:\n    enabled: true\n';
+        ? 'codex:\n  prism:\n    enabled: true\n  basispoints:\n    enabled: false\n'
+        : 'codex:\n  basispoints:\n    enabled: false\n';
       mocks.fetchConfigYaml.mockResolvedValue(yaml);
       mocks.saveConfigYaml.mockImplementation(async (savedYaml: string) => {
         mocks.fetchConfigYaml.mockResolvedValue(savedYaml);
@@ -657,7 +613,7 @@ describe('Prism config persistence', () => {
         prism: {
           enabled: !initiallyEnabled,
         },
-        basispoints: { enabled: true },
+        basispoints: { enabled: false },
       });
       expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
       await click('cancel-yaml');

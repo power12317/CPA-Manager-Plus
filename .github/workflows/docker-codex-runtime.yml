@@ -2,7 +2,7 @@ name: Publish Codex runtime development image
 
 on:
   push:
-    branches: [codex/codex-runtime-control]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   publish:
-    if: github.repository == 'power12317/CPA-Manager-Plus' && github.ref == 'refs/heads/codex/codex-runtime-control'
+    if: github.repository == 'power12317/CPA-Manager-Plus' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read

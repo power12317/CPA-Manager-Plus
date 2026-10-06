@@ -27,67 +27,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.picker {
-  position: relative;
-}
-.picker summary {
-  cursor: pointer;
-  list-style: none;
-  min-height: 40px;
-  display: flex;
-  align-items: center;
-  padding: 8px 12px;
-  border: 1px solid var(--border-color, #8885);
-  border-radius: 6px;
-  background: var(--bg-primary, transparent);
-}
-.pickerPanel {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 6px);
-  left: 0;
-  width: min(360px, calc(100vw - 24px));
-  padding: 10px;
-  border: 1px solid var(--border-color, #8885);
-  border-radius: 10px;
-  background: var(--bg-primary);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
-}
-.pickerPanel input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 9px 10px;
-}
-.pickerOptions {
-  display: grid;
-  gap: 4px;
-  margin-top: 8px;
-  max-height: 320px;
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-.pickerOptions button {
-  display: grid;
-  gap: 2px;
-  text-align: left;
-  padding: 9px 10px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-}
-.pickerOptions button:hover,
-.pickerOptions button:focus-visible,
-.pickerOptions button[aria-pressed='true'] {
-  background: var(--surface-subtle-hover);
-}
-.pickerOptions small {
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .partialMessage summary {
   cursor: pointer;
 }

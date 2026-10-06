@@ -1,8 +1,11 @@
 {
   "codex_runtime": {
     "enabled": "Enable Codex mode",
+    "enabled_hint": "Process requests with Codex.",
+    "saved": "Saved.",
     "load_failed": "Failed to load Codex mode.",
-    "pending_change": "Codex mode: {{from}} → {{to}}"
+    "action_failed": "Operation failed.",
+    "pending_change": "Apply the Codex mode change on save."
   },
   "manager_updates": {
     "server_version": "Manager Server version",
@@ -4242,10 +4245,7 @@
           "claude_title": "Claude Header Defaults",
           "codex_title": "Codex Header Defaults",
           "codex_fast_mode": "Fast mode",
-          "codex_fast_mode_auto": "Follow request",
-          "codex_fast_mode_default": "Standard",
-          "codex_fast_mode_fast": "Fast",
-          "codex_fast_mode_ultrafast": "Ultra fast",
+          "codex_fast_mode_desc": "auto: follow request; default: standard; fast: fast; ultrafast: ultra fast.",
           "user_agent": "User-Agent",
           "package_version": "Package Version",
           "runtime_version": "Runtime Version",
@@ -4255,7 +4255,8 @@
           "stabilize_device": "Stabilize Device Profile",
           "stabilize_device_desc": "Pin OS/Arch and stabilize the software fingerprint per credential/API key",
           "beta_features": "Beta Features",
-          "device_convergence": "Fixed Codex device"
+          "device_convergence": "Fixed Codex device",
+          "device_convergence_desc": "Keep a fixed device ID per account."
         },
         "network": {
           "title": "Network Configuration",
@@ -4298,8 +4299,11 @@
           "session_affinity": "Session Affinity Routing",
           "codex_force_websocket": "Force upstream WebSocket",
           "codex_basispoints": "Use Basispoints",
+          "codex_basispoints_desc": "Send Codex requests through Basispoints.",
           "codex_basispoints_unavailable": "This CPA does not support Basispoints.",
           "codex_prism": "Enable Prism browser mode",
+          "codex_prism_desc": "Send requests in browser mode.",
+          "codex_force_websocket_desc": "Fall back to SSE after 5 failed handshakes.",
           "ws_auth": "WebSocket Authentication",
           "ws_auth_desc": "Enable WebSocket authentication (/v1/ws)"
         },
@@ -5084,9 +5088,14 @@
   },
   "codex_turn_state": {
     "ttl_seconds": "Ticket lifetime (seconds)",
+    "ttl_seconds_hint": "Default: 3600 seconds.",
     "refresh_before_seconds": "Refresh before expiry (seconds)",
+    "refresh_before_seconds_hint": "Default: 600 seconds before expiry.",
     "probe_interval_seconds": "Probe interval (seconds)",
+    "probe_interval_seconds_hint": "Default: 60 seconds.",
     "attempt_timeout_seconds": "Attempt timeout (seconds)",
+    "attempt_timeout_seconds_hint": "Default: 25 seconds.",
+    "target_length_hint": "CPA determines ticket length.",
     "harvest_proxy_hint": "Leave blank to use the default proxy.",
     "title": "Codex tickets",
     "unsupported_backend": "This CPA does not support Codex tickets.",
@@ -5096,8 +5105,12 @@
     "harvest_proxy": "Harvest proxy",
     "models": "Ticket models",
     "settings": "Codex ticket settings",
+    "settings_description": "Set ticket lifetime and harvesting.",
+    "global_settings_hint": "Harvest and renew automatically.",
+    "fail_closed_hint": "When off, allow requests without tickets.",
     "models_hint": "Separate with commas or new lines. Leave blank to use default models.",
-    "proxy_placeholder": "socks5://user:password@proxy.example:1080"
+    "proxy_placeholder": "socks5://user:password@proxy.example:1080",
+    "draft_hint": "Apply on save."
   },
   "system_info": {
     "title": "System Info",

@@ -1,8 +1,11 @@
 {
   "codex_runtime": {
     "enabled": "Включить режим Codex",
+    "enabled_hint": "Обрабатывать запросы через Codex.",
+    "saved": "Сохранено.",
     "load_failed": "Не удалось загрузить режим Codex.",
-    "pending_change": "Режим Codex: {{from}} → {{to}}"
+    "action_failed": "Операция не выполнена.",
+    "pending_change": "Применить изменение режима Codex при сохранении."
   },
   "manager_updates": {
     "server_version": "Версия Manager Server",
@@ -4224,10 +4227,7 @@
           "claude_title": "Claude Header Defaults",
           "codex_title": "Codex Header Defaults",
           "codex_fast_mode": "Быстрый режим",
-          "codex_fast_mode_auto": "Из запроса",
-          "codex_fast_mode_default": "Стандартный",
-          "codex_fast_mode_fast": "Быстрый",
-          "codex_fast_mode_ultrafast": "Ультрабыстрый",
+          "codex_fast_mode_desc": "auto: из запроса; default: стандартный; fast: быстрый; ultrafast: ультрабыстрый.",
           "user_agent": "User-Agent",
           "package_version": "Package Version",
           "runtime_version": "Runtime Version",
@@ -4237,7 +4237,8 @@
           "stabilize_device": "Стабилизировать профиль устройства",
           "stabilize_device_desc": "Фиксировать OS/Arch и стабилизировать программный отпечаток для учётных данных/API-ключа",
           "beta_features": "Beta Features",
-          "device_convergence": "Постоянное устройство Codex"
+          "device_convergence": "Постоянное устройство Codex",
+          "device_convergence_desc": "Фиксировать ID устройства для каждого аккаунта."
         },
         "network": {
           "title": "Сетевые настройки",
@@ -4280,8 +4281,11 @@
           "session_affinity": "Маршрутизация с привязкой к сессии",
           "codex_force_websocket": "Принудительный WebSocket к серверу",
           "codex_basispoints": "Использовать Basispoints",
+          "codex_basispoints_desc": "Отправлять запросы Codex через Basispoints.",
           "codex_basispoints_unavailable": "Этот CPA не поддерживает Basispoints.",
           "codex_prism": "Включить режим браузера Prism",
+          "codex_prism_desc": "Отправлять запросы в режиме браузера.",
+          "codex_force_websocket_desc": "Переходить на SSE после 5 неудачных рукопожатий.",
           "ws_auth": "Аутентификация WebSocket",
           "ws_auth_desc": "Включить аутентификацию WebSocket (/v1/ws)"
         },
@@ -5064,9 +5068,14 @@
   },
   "codex_turn_state": {
     "ttl_seconds": "Срок действия билета (секунды)",
+    "ttl_seconds_hint": "По умолчанию: 3600 секунд.",
     "refresh_before_seconds": "Обновлять до истечения (секунды)",
+    "refresh_before_seconds_hint": "По умолчанию: за 600 секунд до истечения.",
     "probe_interval_seconds": "Интервал проверки (секунды)",
+    "probe_interval_seconds_hint": "По умолчанию: 60 секунд.",
     "attempt_timeout_seconds": "Тайм-аут попытки (секунды)",
+    "attempt_timeout_seconds_hint": "По умолчанию: 25 секунд.",
+    "target_length_hint": "CPA определяет длину билета.",
     "harvest_proxy_hint": "Оставьте пустым для прокси по умолчанию.",
     "title": "Билеты Codex",
     "unsupported_backend": "Этот CPA не поддерживает билеты Codex.",
@@ -5076,8 +5085,12 @@
     "harvest_proxy": "Прокси для получения билетов",
     "models": "Модели",
     "settings": "Настройки билетов Codex",
+    "settings_description": "Срок действия и получение билетов.",
+    "global_settings_hint": "Получать и обновлять автоматически.",
+    "fail_closed_hint": "При отключении разрешать запросы без билета.",
     "models_hint": "Разделяйте запятыми или переносами строк. Пустое поле — модели по умолчанию.",
-    "proxy_placeholder": "socks5://user:password@proxy.example:1080"
+    "proxy_placeholder": "socks5://user:password@proxy.example:1080",
+    "draft_hint": "Применяется при сохранении."
   },
   "system_info": {
     "title": "Информация о системе",

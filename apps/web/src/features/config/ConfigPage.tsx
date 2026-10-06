@@ -1969,14 +1969,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
         onConfirm={handleConfirmSave}
         onCancel={() => setDiffModalOpen(false)}
         loading={saving}
-        notice={
-          codexRuntimeDirty
-            ? t('codex_runtime.pending_change', {
-                from: t(codexRuntimeBaseline ? 'common.enabled' : 'common.disabled'),
-                to: t(codexRuntimeDraft ? 'common.enabled' : 'common.disabled'),
-              })
-            : undefined
-        }
+        notice={codexRuntimeDirty ? t('codex_runtime.pending_change') : undefined}
       />
     </div>
   );

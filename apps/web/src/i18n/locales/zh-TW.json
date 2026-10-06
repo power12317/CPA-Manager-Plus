@@ -1,8 +1,11 @@
 {
   "codex_runtime": {
     "enabled": "啟用 Codex 模式",
+    "enabled_hint": "使用 Codex 處理請求。",
+    "saved": "已儲存。",
     "load_failed": "Codex 模式載入失敗。",
-    "pending_change": "Codex 模式：{{from}} → {{to}}"
+    "action_failed": "操作失敗。",
+    "pending_change": "儲存後套用 Codex 模式變更。"
   },
   "manager_updates": {
     "server_version": "Manager Server 版本",
@@ -4220,10 +4223,7 @@
           "claude_title": "Claude Header Defaults",
           "codex_title": "Codex Header Defaults",
           "codex_fast_mode": "快速模式",
-          "codex_fast_mode_auto": "跟隨請求",
-          "codex_fast_mode_default": "標準",
-          "codex_fast_mode_fast": "快速",
-          "codex_fast_mode_ultrafast": "極速",
+          "codex_fast_mode_desc": "auto：跟隨請求；default：標準；fast：快速；ultrafast：極速。",
           "user_agent": "User-Agent",
           "package_version": "Package Version",
           "runtime_version": "Runtime Version",
@@ -4233,7 +4233,8 @@
           "stabilize_device": "穩定設備指紋",
           "stabilize_device_desc": "固定 OS/Arch，並按憑證/API Key 穩定軟體指紋",
           "beta_features": "Beta Features",
-          "device_convergence": "Codex 裝置固定"
+          "device_convergence": "Codex 裝置固定",
+          "device_convergence_desc": "依帳號固定裝置識別碼。"
         },
         "network": {
           "title": "網路設定",
@@ -4276,8 +4277,11 @@
           "session_affinity": "會話黏性路由",
           "codex_force_websocket": "強制上游 WebSocket",
           "codex_basispoints": "使用 Basispoints 介面",
+          "codex_basispoints_desc": "透過 Basispoints 傳送 Codex 請求。",
           "codex_basispoints_unavailable": "目前 CPA 不支援 Basispoints。",
           "codex_prism": "啟用 Prism 瀏覽器模式",
+          "codex_prism_desc": "使用瀏覽器模式傳送請求。",
+          "codex_force_websocket_desc": "交握失敗 5 次後改用 SSE。",
           "ws_auth": "WebSocket 驗證",
           "ws_auth_desc": "啟用 WebSocket 連線驗證（/v1/ws）"
         },
@@ -5060,9 +5064,14 @@
   },
   "codex_turn_state": {
     "ttl_seconds": "門票有效期（秒）",
+    "ttl_seconds_hint": "預設 3600 秒。",
     "refresh_before_seconds": "提前更新時間（秒）",
+    "refresh_before_seconds_hint": "預設提前 600 秒。",
     "probe_interval_seconds": "探測間隔（秒）",
+    "probe_interval_seconds_hint": "預設 60 秒。",
     "attempt_timeout_seconds": "單次探測逾時（秒）",
+    "attempt_timeout_seconds_hint": "預設 25 秒。",
+    "target_length_hint": "門票長度由 CPA 決定。",
     "harvest_proxy_hint": "留空使用預設代理。",
     "title": "Codex 門票",
     "unsupported_backend": "目前 CPA 不支援 Codex 門票。",
@@ -5072,8 +5081,12 @@
     "harvest_proxy": "門票採集代理",
     "models": "門票模型",
     "settings": "Codex 門票設定",
+    "settings_description": "設定門票有效期與採集方式。",
+    "global_settings_hint": "自動採集和續期。",
+    "fail_closed_hint": "關閉後允許無票請求。",
     "models_hint": "以換行或逗號分隔；留空使用預設模型。",
-    "proxy_placeholder": "socks5://使用者名稱:密碼@代理位址:1080"
+    "proxy_placeholder": "socks5://使用者名稱:密碼@代理位址:1080",
+    "draft_hint": "儲存後生效。"
   },
   "system_info": {
     "title": "系統資訊",

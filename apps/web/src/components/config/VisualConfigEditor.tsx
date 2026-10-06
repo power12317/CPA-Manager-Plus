@@ -102,7 +102,10 @@ type ToggleRowProps = {
   onChange: (value: boolean) => void;
 };
 
-const CODEX_FAST_MODE_OPTIONS = ['auto', 'default', 'fast', 'ultrafast'] as const;
+const CODEX_FAST_MODE_OPTIONS = ['auto', 'default', 'fast', 'ultrafast'].map((value) => ({
+  value,
+  label: value,
+}));
 
 function ToggleRow({ title, description, checked, disabled, onChange }: ToggleRowProps) {
   return (
@@ -1252,6 +1255,9 @@ export function VisualConfigEditor({
                 />
                 <ToggleRow
                   title={t('config_management.visual.sections.network.codex_force_websocket')}
+                  description={t(
+                    'config_management.visual.sections.network.codex_force_websocket_desc'
+                  )}
                   checked={values.codexForceWebsocket}
                   disabled={disabled}
                   onChange={(codexForceWebsocket) => onChange({ codexForceWebsocket })}
@@ -1265,6 +1271,7 @@ export function VisualConfigEditor({
                 {codexPrismCapabilities?.supported === true ? (
                   <ToggleRow
                     title={t('config_management.visual.sections.network.codex_prism')}
+                    description={t('config_management.visual.sections.network.codex_prism_desc')}
                     checked={values.codexPrismEnabled}
                     disabled={disabled}
                     onChange={(codexPrismEnabled) => onChange({ codexPrismEnabled })}
@@ -1349,15 +1356,11 @@ export function VisualConfigEditor({
                       />
                       <FieldShell
                         label={t('config_management.visual.sections.headers.codex_fast_mode')}
+                        hint={t('config_management.visual.sections.headers.codex_fast_mode_desc')}
                       >
                         <Select
                           value={values.codexFastMode}
-                          options={CODEX_FAST_MODE_OPTIONS.map((value) => ({
-                            value,
-                            label: t(
-                              `config_management.visual.sections.headers.codex_fast_mode_${value}`
-                            ),
-                          }))}
+                          options={CODEX_FAST_MODE_OPTIONS}
                           onChange={(value) =>
                             onChange({
                               codexFastMode: value as VisualConfigValues['codexFastMode'],
@@ -1370,6 +1373,9 @@ export function VisualConfigEditor({
                       </FieldShell>
                       <ToggleRow
                         title={t('config_management.visual.sections.headers.device_convergence')}
+                        description={t(
+                          'config_management.visual.sections.headers.device_convergence_desc'
+                        )}
                         checked={values.codexDeviceConvergence}
                         disabled={disabled}
                         onChange={(codexDeviceConvergence) => onChange({ codexDeviceConvergence })}
@@ -1617,11 +1623,11 @@ function BasispointsToggle(props: Pick<ToggleRowProps, 'checked' | 'disabled' | 
     <ToggleRow
       {...props}
       title={t('config_management.visual.sections.network.codex_basispoints')}
-      description={
+      description={t(
         supported
-          ? undefined
-          : t('config_management.visual.sections.network.codex_basispoints_unavailable')
-      }
+          ? 'config_management.visual.sections.network.codex_basispoints_desc'
+          : 'config_management.visual.sections.network.codex_basispoints_unavailable'
+      )}
       disabled={props.disabled || !supported}
     />
   );

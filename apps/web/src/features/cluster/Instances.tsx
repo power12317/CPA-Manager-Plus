@@ -147,7 +147,7 @@ export function Instances() {
                 onChange={(e) => setInput({ ...input, managementKey: e.target.value })}
               />
             </label>
-            {editing ? <small>{t('cluster.keyHelp')}</small> : null}
+            <small>{t('cluster.keyHelp')}</small>
             <label>
               <span>
                 <input

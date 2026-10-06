@@ -65,6 +65,7 @@ function RuntimeToggle({
     <div className={styles.toggleRow}>
       <div className={styles.toggleCopy}>
         <div className={styles.toggleTitle}>{t('codex_runtime.enabled')}</div>
+        <div className={styles.toggleDescription}>{t('codex_runtime.enabled_hint')}</div>
       </div>
       <ToggleSwitch
         checked={enabled}

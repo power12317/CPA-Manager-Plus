@@ -34,7 +34,7 @@ const mount = async (onChange = vi.fn()) => {
 };
 
 describe('原生门票配置草稿', () => {
-  it('显示四个时间输入并将修改送到共享草稿', async () => {
+  it('显示四个时间输入并将修改送到共享草稿，同时说明默认代理和账号长度', async () => {
     mocks.status.mockResolvedValue({ enabled: false });
     const onChange = await mount();
     const inputs = view!.root.findAllByType('input').filter((node) => node.props.type === 'number');
@@ -45,6 +45,7 @@ describe('原生门票配置草稿', () => {
       expect(onChange).toHaveBeenLastCalledWith({ [field]: '42' });
     });
     const text = JSON.stringify(view!.toJSON());
+    expect(text).toContain('codex_turn_state.target_length_hint');
     expect(text).toContain('codex_turn_state.harvest_proxy_hint');
   });
 

@@ -47,8 +47,8 @@ send a mode update when the switch is clicked.
 
 The main branch publishes one image package with two tags:
 
-- `ghcr.io/power12317/cpa-manager-plus:main`
 - `ghcr.io/power12317/cpa-manager-plus:latest`
+- `ghcr.io/power12317/cpa-manager-plus:sha-<full-commit-sha>`
 
 Both Linux amd64 and arm64 are included. Non-main manual runs are skipped.
 The repository has one standalone Compose entry point:

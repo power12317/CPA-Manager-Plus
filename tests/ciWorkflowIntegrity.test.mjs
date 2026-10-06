@@ -43,11 +43,11 @@ describe('GitHub Actions workflow integrity', () => {
     );
   });
 
-  it('publishes only main and latest and keeps one standalone Compose file', () => {
+  it('publishes latest and the original SHA tag and keeps one standalone Compose file', () => {
     const workflow = readWorkflow('docker-publish.yml');
-    expect(workflow).toContain('type=raw,value=main');
+    expect(workflow).not.toContain('type=raw,value=main');
     expect(workflow).toContain('type=raw,value=latest');
-    expect(workflow).not.toContain('type=sha');
+    expect(workflow).toContain('type=sha,format=long');
     expect(workflow).toContain('SOURCE_COMMIT=${{ github.sha }}');
     expect(workflow).toContain('platforms: linux/amd64,linux/arm64');
     expect(existsSync(path.join(workflowDir, 'docker-codex-runtime.yml'))).toBe(false);

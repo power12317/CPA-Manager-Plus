@@ -8,7 +8,6 @@
 推送到 main 后，**Publish Docker image** 工作流构建 amd64、arm64 镜像并发布：
 
 ```text
-ghcr.io/power12317/cpa-manager-plus:main
 ghcr.io/power12317/cpa-manager-plus:latest
 ```
 
@@ -19,8 +18,8 @@ docker compose up -d --pull always
 docker compose logs cpa-manager-plus
 ```
 
-以后更新也执行同一条命令。默认使用 latest，也可在 `.env` 中设置
-`CPAMP_IMAGE=ghcr.io/power12317/cpa-manager-plus:main`。
+以后更新也执行同一条命令。默认使用 latest；如需固定到某次构建，可在 `.env`
+中将 `CPAMP_IMAGE` 设置为已发布镜像的 `sha-<完整提交哈希>` 标签。
 不需要在部署服务器克隆源码或运行 Node/Go 构建。
 
 只有工作流成功才表示镜像已发布。仓库自身的 GITHUB_TOKEN 用于 CI 推送，
@@ -57,7 +56,7 @@ Compose 已提供 `host.docker.internal:host-gateway`，适配 Linux 宿主机�
 | `CPA_MANAGER_ADMIN_KEY` | 空 | 空值由首次启动生成；也可指定自己的长随机密钥 |
 | `CPA_MANAGER_BASE_PATH` | 空 | 代理保留前缀时填 `/cpamp`；代理去除前缀时留空 |
 | `USAGE_COLLECTOR_MODE` | `auto` | 采集方式；需要 HTTP 代理时可选择 `http` |
-| `CPAMP_IMAGE` | 自己的 GHCR `latest` | 选择 main 或 latest 镜像 |
+| `CPAMP_IMAGE` | 自己的 GHCR `latest` | 选择 latest 或已发布的 SHA 镜像标签 |
 
 子路径并未固定为 `/cpamp`，Nginx 示例及详细说明见[多实例部署](multi-instance.md#子路径反向代理)。
 

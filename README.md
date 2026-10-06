@@ -138,7 +138,8 @@ docker compose logs cpa-manager-plus
 ```
 
 Wait for **Publish Docker image** on this repository's `main` branch to succeed.
-It publishes `ghcr.io/power12317/cpa-manager-plus:main` and `:latest`.
+It publishes `ghcr.io/power12317/cpa-manager-plus:latest` and the original
+`sha-<full-commit-sha>` tag.
 The only repository Compose entry point is `docker-compose.yml`:
 
 ```bash

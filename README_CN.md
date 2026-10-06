@@ -134,7 +134,7 @@ docker compose up -d --pull always
 docker compose logs cpa-manager-plus
 ```
 
-推送到本仓库 `main` 后，Actions 发布 `ghcr.io/power12317/cpa-manager-plus:main` 和 `:latest`。
+推送到本仓库 `main` 后，Actions 发布 `ghcr.io/power12317/cpa-manager-plus:latest`，并保留原有的 `sha-<完整提交哈希>` 标签。
 等 **Publish Docker image** 成功后，使用唯一的 `docker-compose.yml` 部署：
 
 ```bash

@@ -40,8 +40,8 @@ jobs:
           images: ${{ steps.image.outputs.name }}
           flavor: latest=false
           tags: |
-            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,format=long
           labels: |
             org.opencontainers.image.title=CPA Manager Plus
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}

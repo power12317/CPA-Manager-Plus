@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -20,6 +20,8 @@ export function InstanceBar() {
   );
   const root = managerRootBase(base);
   const api = useMemo(() => clusterApi(root, key), [root, key]);
+  const [query, setQuery] = useState('');
+  const pickerRef = useRef<HTMLDetailsElement>(null);
   const currentId = instanceIdFromBase(base);
   const [items, setItems] = useState<CPAInstance[]>([]);
   const [error, setError] = useState(false);
@@ -72,25 +74,88 @@ export function InstanceBar() {
   if (mode !== 'manager_embedded' || globalManagementPage) return null;
   return (
     <div className={`${styles.toolbar} ${styles.workspace}`} aria-label={t('cluster.scope')}>
-      <label>
-        {t('cluster.scope')}
-        <select
-          className={styles.scopeSelect}
-          value={instanceIdFromBase(base)}
-          onChange={(e) => {
-            const id = e.target.value;
-            navigateInstance(id, `${pathname}${search}`);
+      {items.length > 5 ? (
+        <details
+          ref={pickerRef}
+          className={styles.picker}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && pickerRef.current) {
+              pickerRef.current.open = false;
+              pickerRef.current.querySelector('summary')?.focus();
+            }
           }}
         >
-          {aggregateRoutes.has(pathname) && <option value="">{t('cluster.all')}</option>}
-          {items.map((item) => (
-            <option key={item.id} value={item.id} disabled={!item.enabled || !item.ready}>
-              {item.name}
-              {!item.enabled ? ` (${t('cluster.disabled')})` : ''}
-            </option>
-          ))}
-        </select>
-      </label>
+          <summary>
+            {t('cluster.scope')}:{' '}
+            {items.find((item) => item.id === currentId)?.name || t('cluster.all')}
+          </summary>
+          <div className={styles.pickerPanel}>
+            <input
+              type="search"
+              aria-label={t('cluster.searchInstances')}
+              placeholder={t('cluster.searchInstances')}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            <div className={styles.pickerOptions}>
+              {(aggregateRoutes.has(pathname)
+                ? [
+                    { id: '', name: t('cluster.all'), enabled: true, ready: true, baseUrl: '' },
+                    ...items,
+                  ]
+                : items
+              )
+                .filter((item) =>
+                  `${item.name} ${item.baseUrl}`
+                    .toLocaleLowerCase()
+                    .includes(query.toLocaleLowerCase())
+                )
+                .map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    aria-pressed={currentId === item.id}
+                    disabled={!item.enabled || !item.ready}
+                    onClick={() => {
+                      if (pickerRef.current) pickerRef.current.open = false;
+                      setQuery('');
+                      navigateInstance(item.id, `${pathname}${search}`);
+                    }}
+                  >
+                    <strong>{item.name}</strong>
+                    <small>{item.baseUrl}</small>
+                  </button>
+                ))}
+              {query &&
+                !items.some((item) =>
+                  `${item.name} ${item.baseUrl}`
+                    .toLocaleLowerCase()
+                    .includes(query.toLocaleLowerCase())
+                ) && <p>{t('cluster.noMatches')}</p>}
+            </div>
+          </div>
+        </details>
+      ) : (
+        <label>
+          {t('cluster.scope')}
+          <select
+            className={styles.scopeSelect}
+            value={instanceIdFromBase(base)}
+            onChange={(e) => {
+              const id = e.target.value;
+              navigateInstance(id, `${pathname}${search}`);
+            }}
+          >
+            {aggregateRoutes.has(pathname) && <option value="">{t('cluster.all')}</option>}
+            {items.map((item) => (
+              <option key={item.id} value={item.id} disabled={!item.enabled || !item.ready}>
+                {item.name}
+                {!item.enabled ? ` (${t('cluster.disabled')})` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <span className={styles.scopeMeta}>
         {currentId
           ? items.find((item) => item.id === currentId)?.baseUrl

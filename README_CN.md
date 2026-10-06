@@ -125,20 +125,20 @@ CPAMP 管理和观测经过 CPA / CLIProxyAPI 的流量，本身不是模型代�
 
 ### 部署 CPA Manager Plus
 
-本仓库默认从自己的源码构建，包含多实例汇总、无刷新实例切换及子路径部署改动：
+本仓库使用 main 分支发布的镜像，包含多实例汇总、无刷新实例切换及子路径部署改动：
 
 ```bash
 git clone https://github.com/power12317/CPA-Manager-Plus.git
 cd CPA-Manager-Plus
-docker compose up -d --build
+docker compose up -d --pull always
 docker compose logs cpa-manager-plus
 ```
 
-需要 Docker Compose v2.20+。推送到本仓库 `main` 后，Actions 会发布自己的 GHCR 镜像；
-等 **Publish Docker image** 成功后，也可使用镜像部署：
+推送到本仓库 `main` 后，Actions 发布 `ghcr.io/power12317/cpa-manager-plus:main` 和 `:latest`。
+等 **Publish Docker image** 成功后，使用唯一的 `docker-compose.yml` 部署：
 
 ```bash
-docker compose -f docker-compose.image.yml up -d --pull always
+docker compose -f docker-compose.yml up -d --pull always
 ```
 
 管理员密钥、网络、镜像权限、更新及备份见[Docker 部署](docs/docker-deployment.md)。
@@ -236,10 +236,10 @@ go vet ./...
 go run ./cmd/cpa-manager-plus
 ```
 
-本地构建 Docker stack：
+启动已发布的 Docker 镜像：
 
 ```bash
-docker compose -f docker-compose.manager.yml up --build
+docker compose -f docker-compose.yml up -d --pull always
 ```
 
 ## 发布

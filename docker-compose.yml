@@ -1,8 +1,8 @@
-# Development branch image. Use after "Publish Codex runtime development image" succeeds:
-# docker compose -f docker-compose.image.yml up -d --pull always
+# Deploy the image published from this fork's main branch.
+# docker compose up -d --pull always
 services:
   cpa-manager-plus:
-    image: ${CPAMP_IMAGE:-ghcr.io/power12317/cpamp-codex-runtime:dev}
+    image: ${CPAMP_IMAGE:-ghcr.io/power12317/cpa-manager-plus:latest}
     pull_policy: always
     restart: unless-stopped
     ports:

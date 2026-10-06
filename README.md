@@ -127,21 +127,22 @@ CPAMP manages and observes traffic through CPA / CLIProxyAPI. It is not a replac
 
 ### Deploy CPA Manager Plus
 
-Build this repository's Manager and panel, including multi-instance aggregation,
-in-page switching and deployment prefixes:
+Deploy this fork's Manager and panel from the image published by main, including
+multi-instance aggregation, in-page switching and deployment prefixes:
 
 ```bash
 git clone https://github.com/power12317/CPA-Manager-Plus.git
 cd CPA-Manager-Plus
-docker compose up -d --build
+docker compose up -d --pull always
 docker compose logs cpa-manager-plus
 ```
 
-Requires Docker Compose v2.20+. After pushing to this repository's `main` branch and
-waiting for **Publish Docker image** to succeed, you can deploy its GHCR image:
+Wait for **Publish Docker image** on this repository's `main` branch to succeed.
+It publishes `ghcr.io/power12317/cpa-manager-plus:main` and `:latest`.
+The only repository Compose entry point is `docker-compose.yml`:
 
 ```bash
-docker compose -f docker-compose.image.yml up -d --pull always
+docker compose -f docker-compose.yml up -d --pull always
 ```
 
 See [Docker Deployment](docs/docker-deployment.md) for configuration, credentials,
@@ -240,10 +241,10 @@ go vet ./...
 go run ./cmd/cpa-manager-plus
 ```
 
-Build the Docker stack locally:
+Run the published Docker image:
 
 ```bash
-docker compose -f docker-compose.manager.yml up --build
+docker compose -f docker-compose.yml up -d --pull always
 ```
 
 ## Release

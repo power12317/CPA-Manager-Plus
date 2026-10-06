@@ -43,30 +43,22 @@ describe('GitHub Actions workflow integrity', () => {
     );
   });
 
-  it('publishes the runtime compatibility package from main and preserves Compose defaults', () => {
-    const workflow = readWorkflow('docker-codex-runtime.yml');
-    expect(workflow).toContain('branches: [main]');
-    expect(workflow).toContain(
-      "if: github.repository == 'power12317/CPA-Manager-Plus' && github.ref == 'refs/heads/main'"
-    );
-    expect(workflow).toContain('images: ghcr.io/power12317/cpamp-codex-runtime');
-    expect(workflow).not.toContain('ghcr.io/power12317/cpa-manager-plus');
-    expect(workflow).toContain('flavor: latest=false');
-    expect(workflow).toContain('type=raw,value=dev');
-    expect(workflow).toContain('type=sha,format=long');
+  it('publishes only main and latest and keeps one standalone Compose file', () => {
+    const workflow = readWorkflow('docker-publish.yml');
+    expect(workflow).toContain('type=raw,value=main');
+    expect(workflow).toContain('type=raw,value=latest');
+    expect(workflow).not.toContain('type=sha');
     expect(workflow).toContain('SOURCE_COMMIT=${{ github.sha }}');
     expect(workflow).toContain('platforms: linux/amd64,linux/arm64');
-    expect(workflow).toContain('DIGEST: ${{ steps.build.outputs.digest }}');
-    for (const name of ['docker-compose.image.yml', 'docker-compose.manager.yml']) {
-      const compose = readFileSync(path.join(repoRoot, name), 'utf8');
-      expect(compose).toContain(
-        'image: ${CPAMP_IMAGE:-ghcr.io/power12317/cpamp-codex-runtime:dev}'
-      );
-      expect(compose).not.toContain('ghcr.io/power12317/cpa-manager-plus:');
-    }
-    expect(readWorkflow('pr-check.yml')).toMatch(
-      /push:\s*\n\s+branches:\s*\n\s+- main\s*\n\s+- dev/
-    );
+    expect(existsSync(path.join(workflowDir, 'docker-codex-runtime.yml'))).toBe(false);
+    expect(existsSync(path.join(workflowDir, 'docker-basispoints.yml'))).toBe(false);
+    const composeFiles = readdirSync(repoRoot).filter((file) => /^(?:docker-)?compose.*\.ya?ml$/.test(file));
+    expect(composeFiles).toEqual(['docker-compose.yml']);
+    const compose = readFileSync(path.join(repoRoot, 'docker-compose.yml'), 'utf8');
+    expect(compose).toContain('image: ${CPAMP_IMAGE:-ghcr.io/power12317/cpa-manager-plus:latest}');
+    expect(compose).toContain('pull_policy: always');
+    expect(compose).not.toMatch(/^  (?:cli-proxy-api|codex-master):/m);
+    expect(compose).not.toMatch(/^\s+(?:include|extends|build):/m);
   });
 
   it('pins every external action to a full commit SHA', () => {

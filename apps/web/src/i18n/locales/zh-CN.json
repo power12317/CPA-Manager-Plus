@@ -610,7 +610,7 @@
     "advanced_stop_all": "停止所有 Manager Server",
     "advanced_backup_set": "备份上面的完整文件集合",
     "advanced_command_note": "命令仅供运维人员离线执行，浏览器不会执行它。",
-    "advanced_note_docker_compose": "需在包含 docker-compose.manager.yml 或项目 compose 配置的目录下执行。",
+    "advanced_note_docker_compose": "需在包含 docker-compose.yml 或项目 compose 配置的目录下执行。",
     "advanced_note_docker_run": "默认数据卷为 cpa-manager-plus-data，若自定义了数据挂载路径请替换 -v 参数。",
     "advanced_note_binary": "请替换 --db-path 为实际的 usage.sqlite 绝对路径；执行前确保所有后台进程已停止。",
     "advanced_step_backup_title": "第 1 步：备份数据库关键文件集合（推荐）",

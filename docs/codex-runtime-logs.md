@@ -45,21 +45,16 @@ changes only after that confirmation. Cancelling or reloading discards the draft
 The editor keeps the pending mode change alongside other visual edits and does not
 send a mode update when the switch is clicked.
 
-The runtime branch publishes:
+The main branch publishes one image package with two tags:
 
-- `ghcr.io/power12317/cpamp-codex-runtime:dev`
-- `ghcr.io/power12317/cpamp-codex-runtime:sha-<full-commit>`
+- `ghcr.io/power12317/cpa-manager-plus:main`
+- `ghcr.io/power12317/cpa-manager-plus:latest`
 
-Both Linux amd64 and arm64 are included. This development image has a separate
-package and workflow. The production name `cpa-manager-plus` is reserved for
-`main`; non-main manual runs of the production workflow are skipped.
-Use the immutable SHA tag or manifest digest when pinning a deployment.
-
-Use the existing standalone Compose file with the desired published image:
+Both Linux amd64 and arm64 are included. Non-main manual runs are skipped.
+The repository has one standalone Compose entry point:
 
 ```sh
-CPAMP_IMAGE=ghcr.io/power12317/cpamp-codex-runtime:dev \
-  docker compose -f docker-compose.image.yml up -d --pull always
+docker compose -f docker-compose.yml up -d --pull always
 ```
 
 This starts CPAMP only. Configure the CPA base URL and CPA Management Key in the

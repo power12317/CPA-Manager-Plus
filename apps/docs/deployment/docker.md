@@ -1,7 +1,7 @@
 # Docker 部署
 
-> 部署本仓库请使用仓库根目录的 `docker compose up -d --build`，
-> 或在自己的镜像发布成功后使用 `docker compose -f docker-compose.image.yml up -d --pull always`。
+> 本仓库只使用根目录的 `docker-compose.yml`。main 分支发布 `main` 和 `latest` 镜像标签。
+> 镜像发布成功后执行 `docker compose up -d --pull always`。
 > 下文保留上游部署说明，其中 `seakee/cpa-manager-plus` 和上游安装脚本不包含本仓库的多实例改动。
 
 Docker 是新部署最省心的方式。CPAMP 镜像包含 Manager Server 和内置 `management.html` 面板；CPA / CLI Proxy API 仍是单独服务，可以和 CPAMP 放在同一个 Compose 文件里。

@@ -310,7 +310,7 @@ export function UsageMaintenanceAdvancedView({
                     {deploymentType === 'docker-compose'
                       ? t('usage_maintenance.advanced_note_docker_compose', {
                           defaultValue:
-                            'Run in the directory containing your docker-compose.manager.yml or compose file.',
+                            'Run in the directory containing your docker-compose.yml or compose file.',
                         })
                       : deploymentType === 'docker-run'
                         ? t('usage_maintenance.advanced_note_docker_run', {

@@ -607,7 +607,7 @@
     "advanced_stop_all": "停止所有 Manager Server",
     "advanced_backup_set": "備份上面的完整檔案集合",
     "advanced_command_note": "指令僅供維運人員離線執行，瀏覽器不會執行它。",
-    "advanced_note_docker_compose": "需在包含 docker-compose.manager.yml 或專案 compose 配置的目錄下執行。",
+    "advanced_note_docker_compose": "需在包含 docker-compose.yml 或專案 compose 配置的目錄下執行。",
     "advanced_note_docker_run": "預設資料磁碟區為 cpa-manager-plus-data，若自訂了資料掛載路徑請替換 -v 參數。",
     "advanced_note_binary": "請替換 --db-path 為實際的 usage.sqlite 絕對路徑；執行前確保所有後台處理程序已停止。",
     "advanced_step_backup_title": "第 1 步：備份資料庫關鍵檔案集合（推薦）",

@@ -612,7 +612,7 @@
     "advanced_stop_all": "Stop every Manager Server",
     "advanced_backup_set": "Back up the complete set above",
     "advanced_command_note": "The command is copied for an operator to run offline; the browser never executes it.",
-    "advanced_note_docker_compose": "Run in the directory containing your docker-compose.manager.yml or compose file.",
+    "advanced_note_docker_compose": "Run in the directory containing your docker-compose.yml or compose file.",
     "advanced_note_docker_run": "Uses default volume cpa-manager-plus-data; replace -v with your host data path if customized.",
     "advanced_note_binary": "Replace --db-path with the actual usage.sqlite absolute path; ensure all processes are stopped.",
     "advanced_step_backup_title": "Step 1: Back up database key files (Recommended)",

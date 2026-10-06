@@ -613,7 +613,7 @@
     "advanced_stop_all": "Остановите все Manager Server",
     "advanced_backup_set": "Создайте резервную копию полного набора выше",
     "advanced_command_note": "Команда предназначена для офлайн-запуска оператором; браузер ее не выполняет.",
-    "advanced_note_docker_compose": "Выполняйте в каталоге, содержащем docker-compose.manager.yml или файл compose проекта.",
+    "advanced_note_docker_compose": "Выполняйте в каталоге, содержащем docker-compose.yml или файл compose проекта.",
     "advanced_note_docker_run": "Используется том cpa-manager-plus-data; замените -v на пользовательский путь, если требуется.",
     "advanced_note_binary": "Замените --db-path на абсолютный путь к usage.sqlite; остановите все процессы перед запуском.",
     "advanced_step_backup_title": "Шаг 1: Резервное копирование ключевых файлов базы данных (Рекомендуется)",

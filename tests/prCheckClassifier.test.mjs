@@ -131,7 +131,7 @@ describe('PR check classifier', () => {
     });
   });
 
-  it.each(['docker-compose.manager.yml', 'docker-compose.image.yml', 'compose.yaml', '.env.example'])('runs Docker validation for %s', (file) => {
+  it.each(['docker-compose.yml', '.env.example'])('runs Docker validation for %s', (file) => {
     expect(classifyChangedFiles([file])).toEqual({
       ...noChecks,
       docker: true,

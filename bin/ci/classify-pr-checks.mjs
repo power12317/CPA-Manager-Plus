@@ -63,9 +63,7 @@ const triggersDocker = (filePath) =>
   startsWithPath(filePath, 'apps/web') ||
   startsWithPath(filePath, 'apps/manager-server') ||
   filePath === 'Dockerfile.manager-server' ||
-  filePath === 'docker-compose.manager.yml' ||
-  filePath === 'docker-compose.image.yml' ||
-  filePath === 'compose.yaml' ||
+  filePath === 'docker-compose.yml' ||
   filePath === '.env.example' ||
   filePath === '.dockerignore' ||
   filePath === 'package.json' ||

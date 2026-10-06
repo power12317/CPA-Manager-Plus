@@ -19,7 +19,7 @@ interface Props {
   onChange: (patch: Partial<VisualConfigValues>) => void;
 }
 
-// 配置值属于整页 YAML 草稿；接口只用于确认当前实例支持原生门票。
+// Values belong to the page draft; the API only checks instance capabilities.
 export function CodexTurnStateSettingsCard({
   disabled = false,
   values,
@@ -61,11 +61,7 @@ export function CodexTurnStateSettingsCard({
 
   const blocked = disabled || current?.state !== 'ready';
   return (
-    <ConfigSection
-      title={t('codex_turn_state.settings')}
-      description={t('codex_turn_state.settings_description')}
-      icon={<IconTimer size={18} />}
-    >
+    <ConfigSection title={t('codex_turn_state.settings')} icon={<IconTimer size={18} />}>
       {connectionStatus !== 'connected' ? (
         <p>{t('notification.connection_required')}</p>
       ) : !current ? (
@@ -86,7 +82,6 @@ export function CodexTurnStateSettingsCard({
             <div className={styles.toggleField}>
               <div>
                 <strong>{t('codex_turn_state.enabled')}</strong>
-                <span>{t('codex_turn_state.global_settings_hint')}</span>
               </div>
               <ToggleSwitch
                 checked={values.codexTicketEnabled}
@@ -98,7 +93,6 @@ export function CodexTurnStateSettingsCard({
             <div className={styles.toggleField}>
               <div>
                 <strong>{t('codex_turn_state.fail_closed')}</strong>
-                <span>{t('codex_turn_state.fail_closed_hint')}</span>
               </div>
               <ToggleSwitch
                 checked={values.codexTicketFailClosed}
@@ -121,7 +115,6 @@ export function CodexTurnStateSettingsCard({
                 placeholder={String(defaultSeconds)}
                 onChange={(event) => onChange({ [field]: event.target.value })}
                 disabled={blocked}
-                hint={t(`codex_turn_state.${labelKey}_hint`)}
                 error={
                   validationErrors?.[field]
                     ? t(`config_management.visual.validation.${validationErrors[field]}`)
@@ -130,7 +123,6 @@ export function CodexTurnStateSettingsCard({
               />
             ))}
           </div>
-          <p className={styles.muted}>{t('codex_turn_state.target_length_hint')}</p>
           <label className={styles.field}>
             <span>{t('codex_turn_state.models')}</span>
             <textarea
@@ -151,7 +143,6 @@ export function CodexTurnStateSettingsCard({
             placeholder={t('codex_turn_state.proxy_placeholder')}
             hint={t('codex_turn_state.harvest_proxy_hint')}
           />
-          <p className={styles.muted}>{t('codex_turn_state.draft_hint')}</p>
         </div>
       ) : null}
     </ConfigSection>

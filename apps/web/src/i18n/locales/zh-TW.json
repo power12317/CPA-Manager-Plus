@@ -1,11 +1,8 @@
 {
   "codex_runtime": {
     "enabled": "啟用 Codex 模式",
-    "enabled_hint": "先儲存為草稿，確認儲存後才套用至目前 CPA；OAuth 登入開啟時由 Codex 處理，關閉時使用 CPA 原生授權。",
-    "saved": "已儲存至 CPA。",
-    "load_failed": "無法載入 Codex 模式設定，請重新整理後重試。",
-    "action_failed": "操作失敗，請重試。",
-    "pending_change": "確認儲存設定後，Codex 模式變更才會套用至目前 CPA。"
+    "load_failed": "Codex 模式載入失敗。",
+    "pending_change": "Codex 模式：{{from}} → {{to}}"
   },
   "manager_updates": {
     "server_version": "Manager Server 版本",
@@ -2982,7 +2979,7 @@
     "models": "模型統計",
     "success_rate": "成功率",
     "total_cost": "總花費",
-    "total_cost_hint": "依已回報 Token 與已設定單價估算；用量不可用的請求未計入，並不代表免費。",
+    "total_cost_hint": "依已知用量及模型單價估算。",
     "model_price_title": "模型定價",
     "model_price_reset": "清除定價",
     "model_price_model_label": "選擇模型",
@@ -3054,7 +3051,7 @@
     "newest": "最新"
   },
   "monitoring": {
-    "usage_unavailable": "Token 用量與費用不可用",
+    "usage_unavailable": "用量不可用",
     "eyebrow": "Runtime Overview",
     "title": "請求監控",
     "subtitle": "這裡統計模型請求、帳號、渠道和預估花費。模型請求不等同於業務請求；任務數為系統估算，僅供參考。",
@@ -3149,8 +3146,8 @@
     "request_monitoring_not_configured_body": "請求監控只在 Manager Server 託管面板完成初始化後可用。CPA 控制面板方案不支援用量統計類功能。",
     "empty_diagnostics_body": "如果 CPA 已有請求但這裡沒有資料，請確認請求監控已開啟、Manager Server 執行正常，並且同一個 CPA 只由一個 Manager Server 讀取用量。",
     "empty_diagnostics_link": "為什麼沒有資料？",
-    "zero_token_notice_title": "存在零 Token 或用量不可用的呼叫",
-    "zero_token_notice_body": "目前範圍內有 {{count}} 次零 Token 或用量不可用的呼叫（{{models}}）。費用僅依已回報 Token 與已設定單價估算；用量不可用不代表請求免費。",
+    "zero_token_notice_title": "零 Token 或用量缺失",
+    "zero_token_notice_body": "共 {{count}} 次（{{models}}），費用僅包含已知用量。",
     "model_calls": "模型呼叫數",
     "model_calls_short": "呼叫",
     "total_calls": "總呼叫",
@@ -3173,7 +3170,7 @@
     "avg_latency": "平均延遲",
     "estimated_cost": "Token 型估算花費",
     "estimated_cost_short": "花費",
-    "estimated_cost_hint": "僅加總已回報 Token 且已設定單價的用量。不可用用量未計入，不能代表完整費用。",
+    "estimated_cost_hint": "僅統計用量和單價皆已知的請求。",
     "estimated_cost_missing": "尚未設定模型單價，暫時無法顯示花費。",
     "zero_token_model_calls": "零 Token 模型呼叫",
     "zero_token_model_calls_hint": "用於識別圖片類或其他非純 Token 計費模型。",
@@ -4223,7 +4220,10 @@
           "claude_title": "Claude Header Defaults",
           "codex_title": "Codex Header Defaults",
           "codex_fast_mode": "快速模式",
-          "codex_fast_mode_desc": "auto：不覆寫；default：移除 service_tier；fast：強制 priority；ultrafast：強制 ultrafast。原生 Codex 與 Basispoints 皆適用。",
+          "codex_fast_mode_auto": "跟隨請求",
+          "codex_fast_mode_default": "標準",
+          "codex_fast_mode_fast": "快速",
+          "codex_fast_mode_ultrafast": "極速",
           "user_agent": "User-Agent",
           "package_version": "Package Version",
           "runtime_version": "Runtime Version",
@@ -4233,8 +4233,7 @@
           "stabilize_device": "穩定設備指紋",
           "stabilize_device_desc": "固定 OS/Arch，並按憑證/API Key 穩定軟體指紋",
           "beta_features": "Beta Features",
-          "device_convergence": "codex設備固定",
-          "device_convergence_desc": "預設開啟，依帳號及憑證系統固定裝置識別碼；關閉後原樣傳遞，不補識別碼。"
+          "device_convergence": "Codex 裝置固定"
         },
         "network": {
           "title": "網路設定",
@@ -4277,11 +4276,8 @@
           "session_affinity": "會話黏性路由",
           "codex_force_websocket": "強制上游 WebSocket",
           "codex_basispoints": "使用 Basispoints 介面",
-          "codex_basispoints_desc": "Codex 請求使用 Basispoints，託管工具走原生介面。有帳號遭封鎖的風險，請謹慎開啟。",
-          "codex_basispoints_unavailable": "目前後端尚未宣告支援 Basispoints，請連線至支援此功能的 CPA 版本。",
+          "codex_basispoints_unavailable": "目前 CPA 不支援 Basispoints。",
           "codex_prism": "啟用 Prism 瀏覽器模式",
-          "codex_prism_desc": "預設關閉。開啟後自動使用完整四模型範圍，工具依模型能力預設啟用。儲存並確認後生效，帳號仍透過原 OAuth 登入。",
-          "codex_force_websocket_desc": "Codex 上游優先使用 WebSocket，5 次握手失敗後本次請求改用 SSE。",
           "ws_auth": "WebSocket 驗證",
           "ws_auth_desc": "啟用 WebSocket 連線驗證（/v1/ws）"
         },
@@ -5063,30 +5059,21 @@
     "empty_src_desc": "該插件選單沒有提供可開啟的頁面地址。"
   },
   "codex_turn_state": {
-    "ttl_seconds": "門票有效期 TTL（秒）",
-    "ttl_seconds_hint": "預設 3600 秒（1 小時）。留空並儲存使用預設值。",
+    "ttl_seconds": "門票有效期（秒）",
     "refresh_before_seconds": "提前更新時間（秒）",
-    "refresh_before_seconds_hint": "預設在到期前 600 秒（10 分鐘）更新。留空並儲存使用預設值。",
     "probe_interval_seconds": "探測間隔（秒）",
-    "probe_interval_seconds_hint": "背景探測間隔，預設 60 秒（1 分鐘）。留空並儲存使用 CPA 預設值。",
     "attempt_timeout_seconds": "單次探測逾時（秒）",
-    "attempt_timeout_seconds_hint": "單次主動取得的逾時時間，預設 25 秒。留空並儲存使用預設值。",
-    "target_length_hint": "門票長度和驗證規則由 CPA 後端決定，面板不覆寫這些規則。",
-    "harvest_proxy_hint": "可選的探測專用代理。留空使用 CPA 後端的預設連線方式，修改後使用頁面統一儲存。",
+    "harvest_proxy_hint": "留空使用預設代理。",
     "title": "Codex 門票",
-    "unsupported_backend": "目前 CPA 不支援原生 Codex 門票設定，請升級支援此介面的版本。",
-    "load_failed": "讀取原生 Codex 門票設定失敗。",
+    "unsupported_backend": "目前 CPA 不支援 Codex 門票。",
+    "load_failed": "門票設定載入失敗。",
     "enabled": "啟用 Codex 門票",
     "fail_closed": "缺票時阻止請求",
     "harvest_proxy": "門票採集代理",
     "models": "門票模型",
     "settings": "Codex 門票設定",
-    "settings_description": "門票按憑證和模型生效，與 turn_id 無關。驗證、重用和續期遵循 CPA 後端策略。",
-    "global_settings_hint": "CPA 背景自動採集和續期，憑證列表及詳情顯示狀態。",
-    "fail_closed_hint": "開啟時缺票阻止請求；關閉時缺票繼續傳送，有效票仍強制替換。",
-    "models_hint": "每行或逗號分隔一個模型；留空使用 CPA 預設模型 gpt-6-astra、gpt-5.6-sol。",
-    "proxy_placeholder": "socks5://使用者名稱:密碼@代理位址:1080",
-    "draft_hint": "修改已納入本頁未儲存草稿，請使用頁面統一儲存並確認差異；代理輸入隱藏顯示，清空後儲存可移除代理。"
+    "models_hint": "以換行或逗號分隔；留空使用預設模型。",
+    "proxy_placeholder": "socks5://使用者名稱:密碼@代理位址:1080"
   },
   "system_info": {
     "title": "系統資訊",

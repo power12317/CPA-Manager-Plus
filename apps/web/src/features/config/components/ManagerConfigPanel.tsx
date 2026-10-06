@@ -102,7 +102,6 @@ export function ManagerConfigPanel({
         <div className={styles.managerSectionHeader}>
           <div>
             <h3>{t('config_management.manager.admin_key_title')}</h3>
-            <p>{t('config_management.manager.admin_key_hint')}</p>
           </div>
         </div>
         <div className={styles.managerConnectionGrid}>

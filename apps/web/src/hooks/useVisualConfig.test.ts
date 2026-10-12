@@ -8,16 +8,19 @@ import { CODEX_TICKET_TIMING_FIELDS } from '@/types/visualConfig';
 type UseVisualConfigResult = ReturnType<typeof useVisualConfig>;
 
 type UseVisualConfigHarness = {
+  setDefaultInstanceName: (name: string) => void;
   getCurrent: () => UseVisualConfigResult;
   unmount: () => void;
 };
 
 function HookHarness({
   hookRef,
+  defaultInstanceName = '',
 }: {
   hookRef: Ref<UseVisualConfigResult>;
+  defaultInstanceName?: string;
 }) {
-  const hook = useVisualConfig();
+  const hook = useVisualConfig(defaultInstanceName);
   useImperativeHandle(hookRef, () => hook, [hook]);
   return null;
 }
@@ -31,6 +34,9 @@ const mountUseVisualConfig = (): UseVisualConfigHarness => {
   });
 
   return {
+    setDefaultInstanceName: (defaultInstanceName) => {
+      act(() => renderer?.update(createElement(HookHarness, { hookRef, defaultInstanceName })));
+    },
     getCurrent: () => {
       if (!hookRef.current) {
         throw new Error('Failed to mount useVisualConfig test harness');
@@ -47,6 +53,151 @@ const mountUseVisualConfig = (): UseVisualConfigHarness => {
 };
 
 describe('useVisualConfig', () => {
+  it('uses a late Manager name without marking the form dirty or replacing a user name', () => {
+    const harness = mountUseVisualConfig();
+    const yaml = 'config-version: 8\nserver: { port: 8317 }\n';
+    act(() => harness.getCurrent().loadVisualValuesFromYaml(yaml));
+    harness.setDefaultInstanceName('Singapore CPA');
+    expect(harness.getCurrent().visualValues.eventNotificationInstanceName).toBe('Singapore CPA');
+    expect(harness.getCurrent().visualDirty).toBe(false);
+    expect(parseYaml(harness.getCurrent().applyVisualChangesToYaml(yaml))).toEqual(parseYaml(yaml));
+    act(() => harness.getCurrent().setVisualValues({ eventNotificationInstanceName: 'My CPA' }));
+    harness.setDefaultInstanceName('Renamed Manager');
+    expect(harness.getCurrent().visualValues.eventNotificationInstanceName).toBe('My CPA');
+    act(() => harness.getCurrent().setVisualValues({ eventNotificationInstanceName: '' }));
+    harness.setDefaultInstanceName('Late name');
+    expect(harness.getCurrent().visualValues.eventNotificationInstanceName).toBe('');
+    act(() =>
+      harness
+        .getCurrent()
+        .loadVisualValuesFromYaml(
+          'observability:\n  event-notifications:\n    instance-name: Saved CPA\n'
+        )
+    );
+    expect(harness.getCurrent().visualValues.eventNotificationInstanceName).toBe('Saved CPA');
+    harness.unmount();
+  });
+
+  it.each(['config-version: 8\nserver: { port: 8317 }\n', 'port: 8317\n'])(
+    'round trips a single notification destination without changing other YAML: %s',
+    (yaml) => {
+      const harness = mountUseVisualConfig();
+      act(() => harness.getCurrent().loadVisualValuesFromYaml(yaml));
+      harness.setDefaultInstanceName('CPA One');
+      act(() =>
+        harness.getCurrent().setVisualValues({
+          eventNotificationWebhook: ' https://example.com/robot?key=test ',
+          eventNotificationSecret: ' signing-key ',
+        })
+      );
+      const saved = harness.getCurrent().applyVisualChangesToYaml(yaml);
+      expect(parseYaml(saved)).toEqual({
+        ...parseYaml(yaml),
+        observability: {
+          'event-notifications': {
+            'instance-name': 'CPA One',
+            platform: 'feishu',
+            webhook: 'https://example.com/robot?key=test',
+            secret: 'signing-key',
+          },
+        },
+      });
+      act(() => harness.getCurrent().loadVisualValuesFromYaml(saved));
+      expect(harness.getCurrent().visualDirty).toBe(false);
+      expect(harness.getCurrent().visualValues).toMatchObject({
+        eventNotificationInstanceName: 'CPA One',
+        eventNotificationPlatform: 'feishu',
+        eventNotificationWebhook: 'https://example.com/robot?key=test',
+        eventNotificationSecret: 'signing-key',
+      });
+      harness.unmount();
+    }
+  );
+
+  it('saves a name-only edit and preserves newly changed server fields', () => {
+    const harness = mountUseVisualConfig();
+    const yaml =
+      'observability:\n  event-notifications:\n    instance-name: Old\n    platform: feishu\n    webhook: https://example.com/old\n    secret: old\n';
+    act(() => harness.getCurrent().loadVisualValuesFromYaml(yaml));
+    act(() => harness.getCurrent().setVisualValues({ eventNotificationInstanceName: 'New' }));
+    const latest = yaml
+      .replace('platform: feishu', 'platform: dingtalk')
+      .replace('/old', '/new')
+      .replace('secret: old', 'secret: new');
+    expect(
+      parseYaml(harness.getCurrent().applyVisualChangesToYaml(latest)).observability[
+        'event-notifications'
+      ]
+    ).toEqual({
+      'instance-name': 'New',
+      platform: 'dingtalk',
+      webhook: 'https://example.com/new',
+      secret: 'new',
+    });
+    harness.unmount();
+  });
+
+  it('clears inherited Webhook and WeCom secret without modifying the anchor', () => {
+    const harness = mountUseVisualConfig();
+    const yaml =
+      'defaults: &notices\n  instance-name: CPA One\n  platform: feishu\n  webhook: https://example.com/robot\n  secret: signing-key\n  future-option: keep\nobservability:\n  event-notifications:\n    <<: *notices\n';
+    act(() => harness.getCurrent().loadVisualValuesFromYaml(yaml));
+    expect(harness.getCurrent().visualValues.eventNotificationWebhook).toBe(
+      'https://example.com/robot'
+    );
+    act(() =>
+      harness
+        .getCurrent()
+        .setVisualValues({ eventNotificationWebhook: '', eventNotificationPlatform: 'wecom' })
+    );
+    const saved = harness.getCurrent().applyVisualChangesToYaml(yaml);
+    const parsed = parseYaml(saved, { merge: true });
+    expect(parsed.defaults.webhook).toBe('https://example.com/robot');
+    expect(parsed.defaults.secret).toBe('signing-key');
+    expect(parsed.observability['event-notifications']).toEqual({
+      'instance-name': 'CPA One',
+      platform: 'wecom',
+      webhook: '',
+      secret: '',
+      'future-option': 'keep',
+    });
+    act(() => harness.getCurrent().loadVisualValuesFromYaml(saved));
+    expect(harness.getCurrent().visualValues.eventNotificationWebhook).toBe('');
+    expect(harness.getCurrent().visualValidationErrors.eventNotificationWebhook).toBeUndefined();
+    harness.unmount();
+  });
+
+  it.each([
+    'not a URL',
+    'javascript:alert(1)',
+    'https://user:password@example.com/bot',
+    'https://example.com/bot#fragment',
+  ])('validates notification Webhook %s and requires a name only when enabled', (webhook) => {
+    const harness = mountUseVisualConfig();
+    act(() => harness.getCurrent().loadVisualValuesFromYaml('{}'));
+    expect(
+      harness.getCurrent().visualValidationErrors.eventNotificationInstanceName
+    ).toBeUndefined();
+    act(() => harness.getCurrent().setVisualValues({ eventNotificationWebhook: webhook }));
+    expect(harness.getCurrent().visualValidationErrors).toMatchObject({
+      eventNotificationWebhook: 'event_notification_webhook_invalid',
+      eventNotificationInstanceName: 'event_notification_name_required',
+    });
+    act(() =>
+      harness
+        .getCurrent()
+        .setVisualValues({ eventNotificationWebhook: 'https://example.com/bot?key=test' })
+    );
+    expect(harness.getCurrent().visualValidationErrors.eventNotificationWebhook).toBeUndefined();
+    harness.setDefaultInstanceName('CPA One');
+    expect(
+      harness.getCurrent().visualValidationErrors.eventNotificationInstanceName
+    ).toBeUndefined();
+    act(() => harness.getCurrent().setVisualValues({ eventNotificationWebhook: '' }));
+    expect(harness.getCurrent().visualValidationErrors.eventNotificationWebhook).toBeUndefined();
+    harness.unmount();
+  });
+
   it.each([
     ['codexPrismEnabled', ['prism', 'enabled']],
     ['codexBasispointsEnabled', ['basispoints', 'enabled']],

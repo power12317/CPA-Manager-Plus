@@ -4424,6 +4424,8 @@
         "boolean_false": "false"
       },
       "validation": {
+        "event_notification_name_required": "請填寫 CPA 實例名稱後開啟通知",
+        "event_notification_webhook_invalid": "請輸入有效的 HTTP 或 HTTPS Webhook 位址，不含使用者名稱、密碼或片段",
         "positive_integer": "請輸入正整數秒數，或留空使用預設值",
         "validation_blocked": "請先修復表單驗證錯誤再儲存",
         "port_range": "請輸入 1 到 65535 之間的有效連接埠",
@@ -5398,5 +5400,20 @@
       "ultra": "Ultra",
       "ultra_lite": "Ultra Lite"
     }
+  },
+  "event_notifications": {
+    "title": "事件通知",
+    "description": "CPA 偵測到憑據可能降智時傳送通知；Webhook 留空即關閉。",
+    "instance_name": "CPA 執行個體名稱",
+    "instance_name_hint": "通知中會顯示此名稱，用於識別發生事件的 CPA 執行個體",
+    "platform": "通知平台",
+    "feishu": "飛書",
+    "wecom": "企業微信",
+    "dingtalk": "釘釘",
+    "webhook": "Webhook 位址",
+    "webhook_hint": "留空即可關閉事件通知",
+    "secret": "簽章密鑰",
+    "secret_hint": "選填，填入所選機器人設定的簽章密鑰",
+    "secret_not_used": "企業微信機器人 Webhook 不使用簽章密鑰"
   }
 }

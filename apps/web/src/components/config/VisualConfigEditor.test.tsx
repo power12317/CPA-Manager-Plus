@@ -16,6 +16,27 @@ afterEach(() => {
 });
 
 describe('Codex fast mode setting', () => {
+  it('places event notifications in a separate config section outside ticket settings', () => {
+    act(() => {
+      renderer = create(
+        <VisualConfigEditor
+          values={DEFAULT_VISUAL_VALUES}
+          onChange={() => {}}
+          onPersistApiKeyMutation={async () => []}
+          onRefreshApiKeys={async () => []}
+          onApiKeyOperationStart={() => {}}
+          onApiKeyOperationEnd={() => {}}
+          codexTicketSettings={<span data-tickets />}
+          eventNotificationSettings={<span data-notifications />}
+        />
+      );
+    });
+    const notifications = renderer.root.findByProps({ id: 'eventNotifications' });
+    expect(notifications.findAllByProps({ 'data-notifications': true })).toHaveLength(1);
+    const tickets = renderer.root.findByProps({ id: 'codexTickets' });
+    expect(tickets.findAllByProps({ 'data-notifications': true })).toHaveLength(0);
+  });
+
   it('places the mode toggle immediately beside Basispoints in the same network settings grid', () => {
     act(() => {
       renderer = create(

@@ -4428,6 +4428,8 @@
         "boolean_false": "false"
       },
       "validation": {
+        "event_notification_name_required": "Укажите имя экземпляра CPA для включения уведомлений.",
+        "event_notification_webhook_invalid": "Введите корректный HTTP/HTTPS URL Webhook без имени пользователя, пароля или фрагмента.",
         "positive_integer": "Введите положительное целое число секунд или оставьте поле пустым",
         "validation_blocked": "Исправьте ошибки валидации перед сохранением",
         "port_range": "Введите корректный порт от 1 до 65535",
@@ -5402,5 +5404,20 @@
       "ultra": "Ultra",
       "ultra_lite": "Ultra Lite"
     }
+  },
+  "event_notifications": {
+    "title": "Уведомления о событиях",
+    "description": "CPA отправляет уведомление при возможном снижении качества учётных данных. Пустой Webhook отключает уведомления.",
+    "instance_name": "Имя экземпляра CPA",
+    "instance_name_hint": "Это имя указывается в уведомлении для определения экземпляра CPA",
+    "platform": "Платформа уведомлений",
+    "feishu": "Feishu",
+    "wecom": "WeCom",
+    "dingtalk": "DingTalk",
+    "webhook": "URL Webhook",
+    "webhook_hint": "Оставьте пустым, чтобы отключить уведомления",
+    "secret": "Секрет подписи",
+    "secret_hint": "Необязательный секрет подписи выбранного робота",
+    "secret_not_used": "Webhook-роботы WeCom не используют секрет подписи"
   }
 }

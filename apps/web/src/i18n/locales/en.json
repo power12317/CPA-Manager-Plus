@@ -4446,6 +4446,8 @@
         "boolean_false": "false"
       },
       "validation": {
+        "event_notification_name_required": "Enter a CPA instance name to enable notifications.",
+        "event_notification_webhook_invalid": "Enter a valid HTTP or HTTPS Webhook URL without user information or a fragment.",
         "positive_integer": "Enter a positive whole number of seconds, or leave blank for the default",
         "validation_blocked": "Fix validation errors before saving",
         "port_range": "Enter a valid port between 1 and 65535",
@@ -5422,5 +5424,20 @@
       "ultra": "Ultra",
       "ultra_lite": "Ultra Lite"
     }
+  },
+  "event_notifications": {
+    "title": "Event notifications",
+    "description": "Send a notification when CPA detects a degraded credential. Leave the webhook empty to disable notifications.",
+    "instance_name": "CPA instance name",
+    "instance_name_hint": "Included in the notification so the affected CPA instance is identifiable",
+    "platform": "Notification platform",
+    "feishu": "Feishu",
+    "wecom": "WeCom",
+    "dingtalk": "DingTalk",
+    "webhook": "Webhook URL",
+    "webhook_hint": "Leave empty to disable event notifications",
+    "secret": "Signing secret",
+    "secret_hint": "Optional signing secret configured for the selected robot",
+    "secret_not_used": "WeCom robot webhooks do not use a signing secret"
   }
 }

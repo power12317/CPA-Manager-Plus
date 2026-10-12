@@ -39,6 +39,8 @@ export type CodexTicketTimingField = (typeof CODEX_TICKET_TIMING_FIELDS)[number]
 
 export type VisualConfigFieldPath =
   | CodexTicketTimingField
+  | 'eventNotificationInstanceName'
+  | 'eventNotificationWebhook'
   | 'port'
   | 'errorLogsMaxFiles'
   | 'logsMaxTotalSizeMb'
@@ -53,6 +55,8 @@ export type VisualConfigFieldPath =
   | 'streaming.nonstreamKeepaliveInterval';
 
 export type VisualConfigValidationErrorCode =
+  | 'event_notification_name_required'
+  | 'event_notification_webhook_invalid'
   | 'port_range'
   | 'positive_integer'
   | 'non_negative_integer'
@@ -193,6 +197,10 @@ export type VisualConfigValues = {
   codexTicketRefreshBeforeSeconds: string;
   codexTicketProbeIntervalSeconds: string;
   codexTicketAttemptTimeoutSeconds: string;
+  eventNotificationPlatform: 'feishu' | 'wecom' | 'dingtalk';
+  eventNotificationInstanceName: string;
+  eventNotificationWebhook: string;
+  eventNotificationSecret: string;
   devinSensitiveWords: string[];
   payloadDefaultRules: PayloadRule[];
   payloadDefaultRawRules: PayloadRule[];
@@ -281,6 +289,10 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   codexTicketRefreshBeforeSeconds: '600',
   codexTicketProbeIntervalSeconds: '60',
   codexTicketAttemptTimeoutSeconds: '25',
+  eventNotificationPlatform: 'feishu',
+  eventNotificationInstanceName: '',
+  eventNotificationWebhook: '',
+  eventNotificationSecret: '',
   devinSensitiveWords: [],
   payloadDefaultRules: [],
   payloadDefaultRawRules: [],

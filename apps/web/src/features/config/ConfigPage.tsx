@@ -25,6 +25,8 @@ import {
 } from '@/components/ui/icons';
 import { VisualConfigEditor } from '@/components/config/VisualConfigEditor';
 import { CodexTurnStateSettingsCard } from '@/features/codexTurnState/CodexTurnStateSettingsCard';
+import { EventNotificationsSettingsCard } from '@/features/eventNotifications/EventNotificationsSettingsCard';
+import { useEventNotificationInstanceName } from '@/features/eventNotifications/useEventNotificationInstanceName';
 import { CodexRuntimeToggle } from '@/features/codexRuntime/CodexRuntimeToggle';
 import type { ApiKeyMutation } from '@/components/config/ApiKeysCardEditor';
 import { DiffModal } from '@/components/config/DiffModal';
@@ -376,6 +378,10 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
       ? codexCapabilities.capabilities
       : undefined;
   const codexPrismCapabilities = activeCodexCapabilities?.prism;
+  const eventNotificationDefaultInstanceName = useEventNotificationInstanceName(
+    configRequestScope,
+    managerSession && !managerOnly && connectionStatus === 'connected'
+  );
 
   const {
     visualValues,
@@ -387,7 +393,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
     applyVisualChangesToYaml,
     setVisualValues,
     commitApiKeysText,
-  } = useVisualConfig();
+  } = useVisualConfig(eventNotificationDefaultInstanceName);
 
   const [activeTab, setActiveTab] = useState<ConfigEditorTab>(() => {
     const saved = localStorage.getItem(CONFIG_TAB_STORAGE_KEY);
@@ -946,6 +952,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
   }, [activeTab, loadManagerConfig]);
 
   const handleConfirmSave = async () => {
+    if (hasVisualValidationErrors) return;
     if (
       shouldBlockStaleSourceSave({
         activeTab,
@@ -1243,6 +1250,8 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
       await handleManagerSave();
       return;
     }
+
+    if (hasVisualValidationErrors) return;
 
     if (savingRef.current || managerSavingRef.current || configMutationInFlightRef.current) {
       return;
@@ -1872,6 +1881,23 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
                       configMutationInFlight
                     }
                   />
+                }
+                eventNotificationSettings={
+                  !managerOnly && (!managerSession || instanceIdFromBase(apiBase)) ? (
+                    <EventNotificationsSettingsCard
+                      values={visualValues}
+                      validationErrors={visualValidationErrors}
+                      onChange={setVisualValues}
+                      disabled={
+                        disableControls ||
+                        loading ||
+                        saving ||
+                        managerSaving ||
+                        diffModalOpen ||
+                        configMutationInFlight
+                      }
+                    />
+                  ) : null
                 }
               />
             </>

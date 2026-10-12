@@ -5,6 +5,8 @@ import type { ApiKeyMutation } from '@/components/config/ApiKeysCardEditor';
 import type { ManagerConfigResponse } from '@/services/api/usageService';
 import type { VisualConfigValues } from '@/types/visualConfig';
 import type { CodexCapabilitiesResponse } from '@/services/api/oauth';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 vi.mock('react-dom', () => ({
@@ -16,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   sessionMode: '',
   realVisualConfig: false,
   getCodexCapabilities: vi.fn(),
+  listInstances: vi.fn(),
   fetchConfigYaml: vi.fn(),
   saveConfigYaml: vi.fn(),
   apiKeysList: vi.fn(),
@@ -69,6 +72,7 @@ vi.mock('@/hooks/useMediaQuery', () => ({
 vi.mock('@/components/config/VisualConfigEditor', () => ({
   VisualConfigEditor: ({
     codexModeSettings,
+    eventNotificationSettings,
     values,
     onChange,
     codexPrismCapabilities,
@@ -77,6 +81,7 @@ vi.mock('@/components/config/VisualConfigEditor', () => ({
     onApiKeyOperationEnd,
   }: {
     codexModeSettings?: ReactNode;
+    eventNotificationSettings?: ReactNode;
     values: VisualConfigValues;
     onChange: (patch: Partial<VisualConfigValues>) => void;
     codexPrismCapabilities?: CodexCapabilitiesResponse['prism'];
@@ -104,6 +109,7 @@ vi.mock('@/components/config/VisualConfigEditor', () => ({
         data-prism={codexPrismCapabilities}
       >
         {codexModeSettings}
+        {eventNotificationSettings}
         <button
           data-test="prism-toggle"
           onClick={() => onChange({ codexPrismEnabled: !values.codexPrismEnabled })}
@@ -297,8 +303,8 @@ vi.mock('@/stores', () => ({
 vi.mock('@/hooks/useVisualConfig', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/hooks/useVisualConfig')>();
   return {
-    useVisualConfig: () => {
-      const realConfig = actual.useVisualConfig();
+    useVisualConfig: (defaultName?: string) => {
+      const realConfig = actual.useVisualConfig(defaultName);
       if (mocks.realVisualConfig) return realConfig;
       return {
         visualValues: {
@@ -323,6 +329,10 @@ vi.mock('@/services/api/configFile', () => ({
     fetchConfigYaml: mocks.fetchConfigYaml,
     saveConfigYaml: mocks.saveConfigYaml,
   },
+}));
+
+vi.mock('@/services/api/cluster', () => ({
+  clusterApi: () => ({ list: mocks.listInstances }),
 }));
 
 vi.mock('@/services/api/oauth', () => ({
@@ -491,6 +501,12 @@ beforeEach(() => {
   mocks.apiBase = 'https://manager.local/api/instances/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
   mocks.sessionMode = '';
   mocks.realVisualConfig = false;
+  mocks.listInstances.mockReset().mockResolvedValue([
+    {
+      id: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      name: 'Manager CPA A',
+    },
+  ]);
   mocks.getCodexCapabilities.mockReset().mockResolvedValue({
     prism: {
       supported: true,
@@ -530,7 +546,7 @@ beforeEach(() => {
   vi.stubGlobal('window', { location: { reload: mocks.reloadPage } });
   Object.defineProperty(globalThis, 'document', {
     configurable: true,
-    value: { body: {} },
+    value: { body: {}, addEventListener: vi.fn(), removeEventListener: vi.fn() },
   });
 });
 
@@ -556,6 +572,165 @@ afterEach(() => {
       value: originalDocument,
     });
   }
+});
+
+describe('Event notification configuration persistence', () => {
+  const input = (field: string) =>
+    renderer!.root
+      .findAllByType(Input)
+      .find((node) => node.props.label === `event_notifications.${field}`)!;
+  const edit = async (field: string, value: string) => {
+    await act(async () => input(field).props.onChange({ target: { value } }));
+  };
+  const saveDisabled = () =>
+    renderer!.root.findByProps({ 'aria-label': 'config_management.save' }).props.disabled;
+
+  it.each(['manager_embedded', 'external_panel'])(
+    'saves to the captured CPA only after diff confirmation in %s',
+    async (mode) => {
+      mocks.realVisualConfig = true;
+      mocks.sessionMode = mode;
+      if (mode === 'external_panel') mocks.apiBase = 'http://single-cpa.local:8317';
+      const scope = { apiBase: mocks.apiBase, managementKey: 'management-key' };
+      const yaml = 'config-version: 8\nserver: { port: 8317 }\n';
+      mocks.fetchConfigYaml.mockResolvedValue(yaml);
+      mocks.saveConfigYaml.mockImplementation(async (saved: string) => {
+        mocks.fetchConfigYaml.mockResolvedValue(saved);
+      });
+      await mountPage();
+      expect(input('instance_name').props.value).toBe(
+        mode === 'manager_embedded' ? 'Manager CPA A' : ''
+      );
+      expect(saveDisabled()).toBe(true);
+      if (mode === 'external_panel') {
+        expect(mocks.listInstances).not.toHaveBeenCalled();
+        await edit('instance_name', 'Standalone CPA');
+      }
+      await edit('webhook', 'https://example.com/robot?key=test');
+      expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
+      await clickSave();
+      const preview = renderer!.root.findByProps({ 'data-test': 'yaml-diff' }).props[
+        'data-modified'
+      ];
+      expect(parseYaml(preview)).toEqual({
+        'config-version': 8,
+        server: { port: 8317 },
+        observability: {
+          'event-notifications': {
+            'instance-name': mode === 'manager_embedded' ? 'Manager CPA A' : 'Standalone CPA',
+            platform: 'feishu',
+            webhook: 'https://example.com/robot?key=test',
+          },
+        },
+      });
+      expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
+      await click('cancel-yaml');
+      expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
+      await clickSave();
+      await click('confirm-yaml');
+      expect(mocks.saveConfigYaml).toHaveBeenCalledExactlyOnceWith(preview, scope);
+      expect(saveDisabled()).toBe(true);
+      expect(mocks.codexRuntimeUpdate).not.toHaveBeenCalled();
+      await edit('webhook', '');
+      await clickSave();
+      await click('confirm-yaml');
+      expect(
+        parseYaml(mocks.saveConfigYaml.mock.calls[1][0]).observability['event-notifications']
+          .webhook
+      ).toBe('');
+    }
+  );
+
+  it('keeps invalid configuration unsaved and allows clearing Webhook without an instance name', async () => {
+    mocks.realVisualConfig = true;
+    await mountPage();
+    await edit('webhook', 'not-a-url');
+    expect(input('webhook').props.error).toBe(
+      'config_management.visual.validation.event_notification_webhook_invalid'
+    );
+    expect(input('instance_name').props.error).toBe(
+      'config_management.visual.validation.event_notification_name_required'
+    );
+    expect(saveDisabled()).toBe(true);
+    await clickSave();
+    expect(renderer!.root.findAllByProps({ 'data-test': 'confirm-yaml' })).toHaveLength(0);
+    expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
+    await edit('webhook', '');
+    expect(input('webhook').props.error).toBeUndefined();
+    expect(input('instance_name').props.error).toBeUndefined();
+  });
+
+  it('does not let delayed Manager discovery overwrite a typed name or cause a save', async () => {
+    mocks.realVisualConfig = true;
+    mocks.sessionMode = 'manager_embedded';
+    const lookup = createDeferred<Array<{ id: string; name: string }>>();
+    mocks.listInstances.mockReturnValueOnce(lookup.promise);
+    await mountPage();
+    await edit('instance_name', 'Typed name');
+    await act(async () =>
+      lookup.resolve([{ id: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', name: 'Late default' }])
+    );
+    expect(input('instance_name').props.value).toBe('Typed name');
+    expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
+  });
+
+  it('retains the saved notification destination when only the name is edited', async () => {
+    mocks.realVisualConfig = true;
+    const yaml =
+      'observability:\n  event-notifications:\n    instance-name: Old\n    platform: dingtalk\n    webhook: https://example.com/robot\n    secret: saved-secret\n';
+    mocks.fetchConfigYaml.mockResolvedValue(yaml);
+    await mountPage();
+    expect(renderer!.root.findByType(Select).props.value).toBe('dingtalk');
+    await edit('instance_name', 'New');
+    await clickSave();
+    const preview = parseYaml(
+      renderer!.root.findByProps({ 'data-test': 'yaml-diff' }).props['data-modified']
+    );
+    expect(preview.observability['event-notifications']).toEqual({
+      'instance-name': 'New',
+      platform: 'dingtalk',
+      webhook: 'https://example.com/robot',
+      secret: 'saved-secret',
+    });
+  });
+
+  it('drops the previous instance draft on the existing route remount', async () => {
+    mocks.realVisualConfig = true;
+    mocks.sessionMode = 'manager_embedded';
+    await mountPage();
+    await edit('instance_name', 'Private draft A');
+    await edit('webhook', 'https://example.com/instance-a');
+    act(() => renderer!.unmount());
+    mocks.apiBase = 'https://manager.local/api/instances/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+    mocks.listInstances.mockResolvedValue([
+      { id: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', name: 'Manager CPA B' },
+    ]);
+    await mountPage();
+    expect(input('instance_name').props.value).toBe('Manager CPA B');
+    expect(input('webhook').props.value).toBe('');
+    expect(saveDisabled()).toBe(true);
+    expect(mocks.saveConfigYaml).not.toHaveBeenCalled();
+  });
+
+  it('keeps the draft and shows CPA save rejection without reporting success', async () => {
+    mocks.realVisualConfig = true;
+    await mountPage();
+    await edit('instance_name', 'Standalone CPA');
+    await edit('webhook', 'https://example.com/robot');
+    mocks.saveConfigYaml.mockRejectedValueOnce(new Error('notification configuration rejected'));
+    await clickSave();
+    await click('confirm-yaml');
+    expect(mocks.showNotification).toHaveBeenCalledWith(
+      'notification.save_failed: notification configuration rejected',
+      'error'
+    );
+    expect(mocks.showNotification).not.toHaveBeenCalledWith(
+      'config_management.save_success',
+      'success'
+    );
+    expect(input('webhook').props.value).toBe('https://example.com/robot');
+    expect(renderer!.root.findByProps({ 'data-test': 'confirm-yaml' })).toBeDefined();
+  });
 });
 
 describe('Codex settings configuration persistence', () => {

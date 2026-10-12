@@ -4441,6 +4441,8 @@
         "boolean_false": "false"
       },
       "validation": {
+        "event_notification_name_required": "请填写 CPA 实例名称后开启通知",
+        "event_notification_webhook_invalid": "请输入有效的 HTTP 或 HTTPS Webhook 地址，不含用户名、密码或片段",
         "positive_integer": "请输入正整数秒数，或留空使用默认值",
         "validation_blocked": "请先修复表单校验错误再保存",
         "port_range": "请输入 1 到 65535 之间的有效端口",
@@ -5415,5 +5417,20 @@
       "ultra": "Ultra",
       "ultra_lite": "Ultra Lite"
     }
+  },
+  "event_notifications": {
+    "title": "事件通知",
+    "description": "CPA 检测到凭据可能降智时发送通知；Webhook 留空即关闭。",
+    "instance_name": "CPA 实例名称",
+    "instance_name_hint": "通知中会显示该名称，用于识别发生事件的 CPA 实例",
+    "platform": "通知平台",
+    "feishu": "飞书",
+    "wecom": "企业微信",
+    "dingtalk": "钉钉",
+    "webhook": "Webhook 地址",
+    "webhook_hint": "留空关闭事件通知",
+    "secret": "签名密钥",
+    "secret_hint": "选填，填写所选机器人配置的签名密钥",
+    "secret_not_used": "企业微信机器人 Webhook 不使用签名密钥"
   }
 }

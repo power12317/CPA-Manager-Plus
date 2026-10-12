@@ -640,6 +640,11 @@ export function getVisualConfigValidationErrors(
   values: VisualConfigValues
 ): VisualConfigValidationErrors {
   return {
+    eventNotificationInstanceName:
+      values.eventNotificationWebhook.trim() && !values.eventNotificationInstanceName.trim()
+        ? 'event_notification_name_required'
+        : undefined,
+    eventNotificationWebhook: getEventNotificationWebhookError(values.eventNotificationWebhook),
     port: getPortError(values.port),
     ...Object.fromEntries(
       CODEX_TICKET_TIMING_FIELDS.map(({ field }) => [field, getPositiveIntegerError(values[field])])
@@ -662,6 +667,25 @@ export function getVisualConfigValidationErrors(
   };
 }
 
+function getEventNotificationWebhookError(value: string) {
+  if (!value.trim()) return undefined;
+  try {
+    const url = new URL(value.trim());
+    if (
+      ['https:', 'http:'].includes(url.protocol) &&
+      url.hostname &&
+      !url.username &&
+      !url.password &&
+      !url.hash
+    ) {
+      return undefined;
+    }
+  } catch {
+    // Render an inline error and block visual-mode save.
+  }
+  return 'event_notification_webhook_invalid' as const;
+}
+
 function deleteLegacyApiKeysProvider(doc: YamlDocument): void {
   if (docHas(doc, ['auth', 'providers', 'config-api-key', 'api-key-entries'])) {
     doc.deleteIn(['auth', 'providers', 'config-api-key', 'api-key-entries']);
@@ -680,6 +704,7 @@ function deepClone<T>(value: T): T {
 }
 
 type VisualConfigState = {
+  eventNotificationNameEdited: boolean;
   visualValues: VisualConfigValues;
   baselineValues: VisualConfigValues;
   dirtyFields: Set<string>;
@@ -707,6 +732,7 @@ type VisualConfigAction =
 function createInitialVisualConfigState(): VisualConfigState {
   const initialValues = deepClone(DEFAULT_VISUAL_VALUES);
   return {
+    eventNotificationNameEdited: false,
     visualValues: initialValues,
     baselineValues: deepClone(initialValues),
     dirtyFields: new Set(),
@@ -776,6 +802,10 @@ function getNextDirtyFields(
       'codexHeaderBetaFeatures',
       'codexFastMode',
       'codexDeviceConvergence',
+      'eventNotificationPlatform',
+      'eventNotificationInstanceName',
+      'eventNotificationWebhook',
+      'eventNotificationSecret',
       'codexTicketEnabled',
       'codexTicketFailClosed',
       'codexTicketModels',
@@ -1014,6 +1044,7 @@ function visualConfigReducer(
   switch (action.type) {
     case 'load_success':
       return {
+        eventNotificationNameEdited: false,
         visualValues: action.values,
         baselineValues: deepClone(action.values),
         dirtyFields: new Set(),
@@ -1035,6 +1066,9 @@ function visualConfigReducer(
 
       return {
         ...state,
+        eventNotificationNameEdited:
+          state.eventNotificationNameEdited ||
+          Object.prototype.hasOwnProperty.call(action.values, 'eventNotificationInstanceName'),
         visualValues: nextValues,
         dirtyFields: nextDirtyFields,
       };
@@ -1061,17 +1095,22 @@ function visualConfigReducer(
   }
 }
 
-export function useVisualConfig() {
+export function useVisualConfig(eventNotificationDefaultInstanceName = '') {
   const [state, dispatch] = useReducer(
     visualConfigReducer,
     undefined,
     createInitialVisualConfigState
   );
-  const {
-    visualValues,
-    visualParseError,
-    dirtyFields,
-  } = state;
+  const { visualValues: draftValues, visualParseError, dirtyFields } = state;
+  // Derive the suggestion without an initialization effect: an asynchronous
+  // instance lookup must never replace a saved name or an explicitly edited draft.
+  const visualValues = useMemo(
+    () =>
+      !draftValues.eventNotificationInstanceName && !state.eventNotificationNameEdited
+        ? { ...draftValues, eventNotificationInstanceName: eventNotificationDefaultInstanceName }
+        : draftValues,
+    [draftValues, state.eventNotificationNameEdited, eventNotificationDefaultInstanceName]
+  );
   const visualDirty = dirtyFields.size > 0;
   const visualValidationErrors = useMemo(
     () => getVisualConfigValidationErrors(visualValues),
@@ -1114,6 +1153,8 @@ export function useVisualConfig() {
           'refresh-before-seconds', 'probe-interval-seconds', 'attempt-timeout-seconds',
         ].map((key) => [key, readCompat(['codex', 'turn-state-ticket', key])])
       );
+      const eventNotifications =
+        asRecord(readCompat(['observability', 'event-notifications'])) ?? {};
 
       const newValues: VisualConfigValues = {
         host: typeof readCompat(['host']) === 'string' ? (readCompat(['host']) as string) : '',
@@ -1286,6 +1327,18 @@ export function useVisualConfig() {
           codexTicket?.['attempt-timeout-seconds'],
           DEFAULT_VISUAL_VALUES.codexTicketAttemptTimeoutSeconds
         ),
+        eventNotificationPlatform:
+          eventNotifications.platform === 'wecom' || eventNotifications.platform === 'dingtalk'
+            ? eventNotifications.platform
+            : 'feishu',
+        eventNotificationInstanceName:
+          typeof eventNotifications['instance-name'] === 'string'
+            ? eventNotifications['instance-name']
+            : '',
+        eventNotificationWebhook:
+          typeof eventNotifications.webhook === 'string' ? eventNotifications.webhook : '',
+        eventNotificationSecret:
+          typeof eventNotifications.secret === 'string' ? eventNotifications.secret : '',
         devinSensitiveWords: parseStringList(readCompat(['devin', 'sensitive-words'])),
 
         quotaSwitchProject: Boolean(quotaExceeded?.['switch-project'] ?? false),
@@ -1855,6 +1908,48 @@ export function useVisualConfig() {
           ensureCompatMap(['codex']);
           // Absence defaults to true in CPA, so disabling must persist an explicit false.
           setCompatValue(['codex', 'device-convergence'], values.codexDeviceConvergence);
+        }
+
+        if (
+          isDirty('eventNotificationPlatform') ||
+          isDirty('eventNotificationInstanceName') ||
+          isDirty('eventNotificationWebhook') ||
+          isDirty('eventNotificationSecret')
+        ) {
+          ensureCompatMap(['observability', 'event-notifications']);
+          const notificationPath = ['observability', 'event-notifications'];
+          const currentNotification = asRecord(
+            readObjectPath(parsedCurrent, notificationPath).value
+          );
+          if (isDirty('eventNotificationInstanceName') || !currentNotification?.['instance-name']) {
+            setCompatValue(
+              [...notificationPath, 'instance-name'],
+              values.eventNotificationInstanceName.trim()
+            );
+          }
+          if (isDirty('eventNotificationPlatform') || !currentNotification?.platform) {
+            setCompatValue([...notificationPath, 'platform'], values.eventNotificationPlatform);
+          }
+          if (isDirty('eventNotificationWebhook')) {
+            // An explicit empty string overrides inherited Webhooks and disables delivery.
+            setCompatValue(
+              [...notificationPath, 'webhook'],
+              values.eventNotificationWebhook.trim()
+            );
+          }
+          if (
+            isDirty('eventNotificationSecret') ||
+            (isDirty('eventNotificationPlatform') &&
+              values.eventNotificationPlatform === 'wecom' &&
+              hasCompat([...notificationPath, 'secret']))
+          ) {
+            setCompatValue(
+              [...notificationPath, 'secret'],
+              values.eventNotificationPlatform === 'wecom'
+                ? ''
+                : values.eventNotificationSecret.trim()
+            );
+          }
         }
 
         const ticketFields = [

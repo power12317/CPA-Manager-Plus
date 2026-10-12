@@ -22,6 +22,7 @@ import {
   IconDiamond,
   IconKey,
   IconSatellite,
+  IconSend,
   IconSettings,
   IconShield,
   IconTimer,
@@ -59,6 +60,7 @@ type VisualSectionId =
   | 'system'
   | 'network'
   | 'codexTickets'
+  | 'eventNotifications'
   | 'quota'
   | 'streaming'
   | 'payload';
@@ -74,6 +76,7 @@ type VisualSection = {
 interface VisualConfigEditorProps {
   codexModeSettings?: ReactNode;
   codexTicketSettings?: ReactNode;
+  eventNotificationSettings?: ReactNode;
   codexPrismCapabilities?: CodexCapabilitiesResponse['prism'];
   values: VisualConfigValues;
   validationErrors?: VisualConfigValidationErrors;
@@ -193,6 +196,7 @@ function FieldShell({
 export function VisualConfigEditor({
   codexModeSettings,
   codexTicketSettings,
+  eventNotificationSettings,
   codexPrismCapabilities,
   values,
   validationErrors,
@@ -359,6 +363,20 @@ export function VisualConfigEditor({
             },
           ]
         : []),
+      ...(eventNotificationSettings
+        ? [
+            {
+              id: 'eventNotifications' as const,
+              title: t('event_notifications.title'),
+              description: t('event_notifications.description'),
+              icon: IconSend,
+              errorCount: countErrors([
+                'eventNotificationInstanceName',
+                'eventNotificationWebhook',
+              ]),
+            },
+          ]
+        : []),
       {
         id: 'quota',
         title: t('config_management.visual.sections.quota.title'),
@@ -385,7 +403,7 @@ export function VisualConfigEditor({
         errorCount: hasPayloadValidationErrors ? 1 : 0,
       },
     ],
-    [countErrors, hasPayloadValidationErrors, t, codexTicketSettings]
+    [countErrors, eventNotificationSettings, hasPayloadValidationErrors, t, codexTicketSettings]
   );
 
   useEffect(() => {
@@ -1395,6 +1413,16 @@ export function VisualConfigEditor({
               }}
             >
               {codexTicketSettings}
+            </div>
+          ) : null}
+          {eventNotificationSettings ? (
+            <div
+              id="eventNotifications"
+              ref={(node) => {
+                sectionRefs.current.eventNotifications = node;
+              }}
+            >
+              {eventNotificationSettings}
             </div>
           ) : null}
           <ConfigSection

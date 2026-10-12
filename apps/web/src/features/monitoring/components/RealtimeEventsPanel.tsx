@@ -739,16 +739,6 @@ type RealtimeTokenUsageDetails = {
 };
 
 const buildRealtimeTokenUsageDetails = (row: MonitoringEventRow, t: TFunction) => {
-  if (row.usageUnavailable) {
-    const label = t('monitoring.usage_unavailable');
-    return {
-      total: '—',
-      input: '—',
-      output: '—',
-      fields: [{ label, value: '—' }],
-      ariaLabel: label,
-    } satisfies RealtimeTokenUsageDetails;
-  }
   const fields = [
     {
       label: t('monitoring.realtime_usage_total_label'),
@@ -1396,13 +1386,7 @@ export function RealtimeEventsPanel({
                       tooltipId={`${tooltipIdPrefix}-token-usage-tooltip-${row.id}`}
                     />
                   </td>
-                  <td>
-                    {row.usageUnavailable || row.totalCost === null
-                      ? '—'
-                      : hasPrices
-                        ? formatUsd(row.totalCost, 3)
-                        : '--'}
-                  </td>
+                  <td>{hasPrices ? formatUsd(row.totalCost, 3) : '--'}</td>
                 </tr>
               );
             })}

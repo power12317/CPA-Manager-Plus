@@ -11,18 +11,15 @@ import (
 )
 
 type ResponseHeaderMetadata struct {
-	// Stored in the existing metadata JSON so unknown usage survives ingestion,
-	// projections and archives without a data migration.
-	UsageUnavailable bool                      `json:"usage_unavailable,omitempty"`
-	Quota            *HeaderQuotaMetadata      `json:"quota,omitempty"`
-	Errors           *HeaderErrorMetadata      `json:"errors,omitempty"`
-	Trace            *HeaderTraceMetadata      `json:"trace,omitempty"`
-	Routing          *HeaderRoutingMetadata    `json:"routing,omitempty"`
-	Response         *HeaderResponseMetadata   `json:"response,omitempty"`
-	Providers        *HeaderProviderMetadata   `json:"providers,omitempty"`
-	RateLimit        *HeaderRateLimitMetadata  `json:"rate_limit,omitempty"`
-	DataPolicy       *HeaderDataPolicyMetadata `json:"data_policy,omitempty"`
-	ProviderUsage    *ProviderUsageMetadata    `json:"provider_usage,omitempty"`
+	Quota         *HeaderQuotaMetadata      `json:"quota,omitempty"`
+	Errors        *HeaderErrorMetadata      `json:"errors,omitempty"`
+	Trace         *HeaderTraceMetadata      `json:"trace,omitempty"`
+	Routing       *HeaderRoutingMetadata    `json:"routing,omitempty"`
+	Response      *HeaderResponseMetadata   `json:"response,omitempty"`
+	Providers     *HeaderProviderMetadata   `json:"providers,omitempty"`
+	RateLimit     *HeaderRateLimitMetadata  `json:"rate_limit,omitempty"`
+	DataPolicy    *HeaderDataPolicyMetadata `json:"data_policy,omitempty"`
+	ProviderUsage *ProviderUsageMetadata    `json:"provider_usage,omitempty"`
 }
 
 type HeaderQuotaMetadata struct {
@@ -164,7 +161,6 @@ func ParseResponseHeaderMetadataFromRawJSON(rawJSON string, base time.Time) *Res
 		return nil
 	}
 	metadata := ParseResponseHeaderMetadata(first(record, "response_headers", "responseHeaders", "headers"), base)
-	metadata = attachUsageAvailability(metadata, record)
 	return attachProviderUsageMetadata(metadata, ProviderUsageMetadataFromRecord(record, base))
 }
 
@@ -187,7 +183,6 @@ func ResponseHeaderMetadataFromRecord(record map[string]any, base time.Time) *Re
 		metadata,
 		ParseResponseHeaderMetadata(first(record, "response_headers", "responseHeaders", "headers"), base),
 	)
-	metadata = attachUsageAvailability(metadata, record)
 	return attachProviderUsageMetadata(metadata, ProviderUsageMetadataFromRecord(record, base))
 }
 
@@ -468,7 +463,7 @@ func sanitizeResponseHeaderMetadata(metadata *ResponseHeaderMetadata) {
 
 func (m *ResponseHeaderMetadata) isEmpty() bool {
 	return m == nil ||
-		(!m.UsageUnavailable && m.Quota == nil &&
+		(m.Quota == nil &&
 			m.Errors == nil &&
 			m.Trace == nil &&
 			m.Routing == nil &&

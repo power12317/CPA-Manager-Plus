@@ -91,7 +91,6 @@ export interface UsageResponseHeaderQuotaWindow {
 }
 
 export interface UsageResponseHeaderMetadata {
-  usage_unavailable?: boolean;
   quota?: {
     plan_type?: string;
     active_limit?: string;
@@ -181,7 +180,6 @@ export interface UsageResponseHeaderMetadata {
 }
 
 export interface UsageDetail {
-  usage_unavailable?: boolean;
   timestamp: string;
   request_id?: string;
   requestId?: string;
@@ -251,7 +249,7 @@ export interface UsageDetail {
   stream?: boolean;
   latency_ms?: number;
   ttft_ms?: number;
-  tokens: UsageTokens | null;
+  tokens: UsageTokens;
   failed: boolean;
   fail_status_code?: number | null;
   failStatusCode?: number | null;
@@ -851,22 +849,7 @@ export function extractTTFTMs(detail: unknown): number | null {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
-export const isUsageUnavailable = (detail: {
-  usage_unavailable?: unknown;
-  tokens?: unknown;
-  response_metadata?: unknown;
-  responseMetadata?: unknown;
-}): boolean => {
-  const metadata = detail.response_metadata ?? detail.responseMetadata;
-  return (
-    detail.usage_unavailable === true ||
-    detail.tokens === null ||
-    (isRecord(metadata) && metadata.usage_unavailable === true)
-  );
-};
-
-const readTokens = (detail: Record<string, unknown>, modelName: string): UsageTokens | null => {
-  if (isUsageUnavailable(detail)) return null;
+const readTokens = (detail: Record<string, unknown>, modelName: string): UsageTokens => {
   const tokensRaw = isRecord(detail.tokens) ? detail.tokens : {};
   const cacheReadTokens = readFirstTokenNumber(tokensRaw, CACHE_READ_TOKEN_KEYS);
   const cacheCreationTokens = readFirstTokenNumber(tokensRaw, CACHE_CREATION_TOKEN_KEYS);
@@ -1009,7 +992,6 @@ export function collectUsageDetails(usageData: unknown): UsageDetail[] {
           cache_input_mode: readDetailString(
             detailRaw.cache_input_mode ?? detailRaw.cacheInputMode
           ),
-          usage_unavailable: isUsageUnavailable(detailRaw) || undefined,
           tokens: readTokens(detailRaw, modelName),
           failed: detailRaw.failed === true,
           fail_status_code:
@@ -1146,7 +1128,6 @@ export function collectUsageDetailsWithEndpoint(usageData: unknown): UsageDetail
           ),
           latency_ms: latencyMs ?? undefined,
           ttft_ms: ttftMs ?? undefined,
-          usage_unavailable: isUsageUnavailable(detailRaw) || undefined,
           tokens: readTokens(detailRaw, modelName),
           failed: detailRaw.failed === true,
           fail_status_code:
@@ -1234,9 +1215,6 @@ export function calculateCost(
   detail: Pick<
     UsageDetail,
     | 'tokens'
-    | 'usage_unavailable'
-    | 'response_metadata'
-    | 'responseMetadata'
     | '__modelName'
     | '__requestedModel'
     | '__resolvedModel'
@@ -1255,8 +1233,7 @@ export function calculateCost(
     | 'authType'
   >,
   modelPrices: Record<string, ModelPrice>
-): number | null {
-  if (!detail.tokens || isUsageUnavailable(detail)) return null;
+): number {
   const resolvedModel = detail.__resolvedModel || '';
   const analyticsModel = detail.__modelName || '';
   const requestedModel = detail.__requestedModel || analyticsModel;

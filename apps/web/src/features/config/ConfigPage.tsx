@@ -42,7 +42,6 @@ import {
 import { configFileApi } from '@/services/api/configFile';
 import { apiKeysApi } from '@/services/api/apiKeys';
 import { codexRuntimeApi } from '@/services/api/codexRuntime';
-import { oauthApi, type CodexCapabilitiesResponse } from '@/services/api/oauth';
 import {
   getUsageServiceErrorCode,
   isUsageServiceId,
@@ -364,20 +363,6 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
   const setUsageServiceConfig = useUsageServiceStore((state) => state.setUsageServiceConfig);
   const isMobile = useMediaQuery('(max-width: 768px)');
 
-  const [codexCapabilities, setCodexCapabilities] = useState<{
-    scope: typeof configRequestScope;
-    capabilities: CodexCapabilitiesResponse;
-  } | null>(null);
-  const canProbeCodexCapabilities =
-    !managerOnly &&
-    connectionStatus === 'connected' &&
-    Boolean(apiBase) &&
-    (!managerSession || Boolean(instanceIdFromBase(apiBase)));
-  const activeCodexCapabilities =
-    canProbeCodexCapabilities && codexCapabilities?.scope === configRequestScope
-      ? codexCapabilities.capabilities
-      : undefined;
-  const codexPrismCapabilities = activeCodexCapabilities?.prism;
   const eventNotificationDefaultInstanceName = useEventNotificationInstanceName(
     configRequestScope,
     managerSession && !managerOnly && connectionStatus === 'connected'
@@ -556,24 +541,6 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
     if (sourceConfigLoaded) return;
     void loadConfig();
   }, [activeTab, loadConfig, sourceConfigLoaded]);
-
-  useEffect(() => {
-    if (!canProbeCodexCapabilities) return;
-    let cancelled = false;
-    void oauthApi
-      .getCodexCapabilities(configRequestScope)
-      .then((capabilities) => {
-        if (!cancelled) {
-          setCodexCapabilities({ scope: configRequestScope, capabilities });
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setCodexCapabilities(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [canProbeCodexCapabilities, configRequestScope]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1834,7 +1801,6 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
             <>
               <VisualConfigEditor
                 values={visualValues}
-                codexPrismCapabilities={codexPrismCapabilities}
                 validationErrors={visualValidationErrors}
                 hasPayloadValidationErrors={visualHasPayloadValidationErrors}
                 disabled={

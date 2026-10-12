@@ -199,7 +199,6 @@ describe('useVisualConfig', () => {
   });
 
   it.each([
-    ['codexPrismEnabled', ['prism', 'enabled']],
     ['codexBasispointsEnabled', ['basispoints', 'enabled']],
     ['codexTicketEnabled', ['turn-state-ticket', 'enabled']],
     ['codexForceWebsocket', ['force-websocket']],
@@ -220,27 +219,6 @@ describe('useVisualConfig', () => {
     act(() => harness.getCurrent().loadVisualValuesFromYaml(saved));
     expect(harness.getCurrent().visualValues[field]).toBe(true);
     expect(harness.getCurrent().visualDirty).toBe(false);
-    harness.unmount();
-  });
-
-  it('honors canonical false over a stale legacy Prism setting', () => {
-    const harness = mountUseVisualConfig();
-    const yaml = [
-      'config-version: 8',
-      'codex:',
-      '  prism: { enabled: true }',
-      'oauth:',
-      '  providers:',
-      '    codex:',
-      '      prism: { enabled: false }',
-      '',
-    ].join('\n');
-    act(() => harness.getCurrent().loadVisualValuesFromYaml(yaml));
-    expect(harness.getCurrent().visualValues.codexPrismEnabled).toBe(false);
-    act(() => harness.getCurrent().setVisualValues({ codexPrismEnabled: true }));
-    const saved = parseYaml(harness.getCurrent().applyVisualChangesToYaml(yaml));
-    expect(saved.oauth.providers.codex.prism.enabled).toBe(true);
-    expect(saved.codex?.prism).toBeUndefined();
     harness.unmount();
   });
 
@@ -282,29 +260,6 @@ describe('useVisualConfig', () => {
     act(() => harness.getCurrent().loadVisualValuesFromYaml(yaml));
     expect(harness.getCurrent().visualValues.codexFastMode).toBe('auto');
     expect(harness.getCurrent().applyVisualChangesToYaml(yaml)).toBe(yaml);
-    harness.unmount();
-  });
-
-  it('round trips the global Prism setting through codex.prism.enabled', () => {
-    const harness = mountUseVisualConfig();
-    const defaultYaml = 'codex:\n  future: keep\n';
-    act(() => harness.getCurrent().loadVisualValuesFromYaml(defaultYaml));
-    expect(harness.getCurrent().visualValues.codexPrismEnabled).toBe(false);
-    expect(harness.getCurrent().visualDirty).toBe(false);
-    expect(harness.getCurrent().applyVisualChangesToYaml(defaultYaml)).toBe(defaultYaml);
-    expect(
-      Object.keys(harness.getCurrent().visualValues).filter((key) => key.startsWith('codexPrism'))
-    ).toEqual(['codexPrismEnabled']);
-    const yaml = 'codex:\n  prism:\n    enabled: false\n  future: keep\n';
-    act(() => harness.getCurrent().loadVisualValuesFromYaml(yaml));
-    expect(harness.getCurrent().visualValues.codexPrismEnabled).toBe(false);
-    act(() => harness.getCurrent().setVisualValues({ codexPrismEnabled: true }));
-    const saved = harness.getCurrent().applyVisualChangesToYaml(yaml);
-    expect(parseYaml(saved)).toEqual({
-      codex: { prism: { enabled: true }, future: 'keep' },
-    });
-    act(() => harness.getCurrent().setVisualValues({ codexPrismEnabled: false }));
-    expect(harness.getCurrent().visualDirty).toBe(false);
     harness.unmount();
   });
 

@@ -1964,7 +1964,6 @@ export interface ProviderUsageMetadata {
 }
 
 export interface ResponseHeaderMetadata {
-  usage_unavailable?: boolean;
   quota?: ResponseHeaderQuotaMetadata;
   errors?: ResponseHeaderErrorMetadata;
   trace?: ResponseHeaderTraceMetadata;
@@ -2034,7 +2033,6 @@ export interface MonitoringAnalyticsRecentFailure {
 }
 
 export interface MonitoringAnalyticsEventRow {
-  usage_unavailable?: boolean;
   request_id?: string;
   event_hash: string;
   timestamp_ms: number;
@@ -2071,13 +2069,13 @@ export interface MonitoringAnalyticsEventRow {
   reasoning_effort?: string;
   service_tier?: string;
   executor_type?: string;
-  input_tokens: number | null;
-  output_tokens: number | null;
-  cached_tokens: number | null;
-  cache_read_tokens: number | null;
-  cache_creation_tokens: number | null;
-  reasoning_tokens: number | null;
-  total_tokens: number | null;
+  input_tokens: number;
+  output_tokens: number;
+  cached_tokens: number;
+  cache_read_tokens: number;
+  cache_creation_tokens: number;
+  reasoning_tokens: number;
+  total_tokens: number;
   latency_ms: number | null;
   ttft_ms?: number | null;
   failed: boolean;

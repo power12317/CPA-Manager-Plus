@@ -1,4 +1,4 @@
-import { act, create, type ReactTestRenderer } from 'react-test-renderer';
+import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { VisualConfigEditor } from './VisualConfigEditor';
 import { DEFAULT_VISUAL_VALUES } from '@/types/visualConfig';
@@ -16,6 +16,61 @@ afterEach(() => {
 });
 
 describe('Codex fast mode setting', () => {
+  it('places event notifications in a separate config section outside ticket settings', () => {
+    act(() => {
+      renderer = create(
+        <VisualConfigEditor
+          values={DEFAULT_VISUAL_VALUES}
+          onChange={() => {}}
+          onPersistApiKeyMutation={async () => []}
+          onRefreshApiKeys={async () => []}
+          onApiKeyOperationStart={() => {}}
+          onApiKeyOperationEnd={() => {}}
+          codexTicketSettings={<span data-tickets />}
+          eventNotificationSettings={<span data-notifications />}
+        />
+      );
+    });
+    const notifications = renderer.root.findByProps({ id: 'eventNotifications' });
+    expect(notifications.findAllByProps({ 'data-notifications': true })).toHaveLength(1);
+    const tickets = renderer.root.findByProps({ id: 'codexTickets' });
+    expect(tickets.findAllByProps({ 'data-notifications': true })).toHaveLength(0);
+  });
+
+  it('places the mode toggle immediately beside Basispoints in the same network settings grid', () => {
+    act(() => {
+      renderer = create(
+        <VisualConfigEditor
+          values={DEFAULT_VISUAL_VALUES}
+          onChange={() => {}}
+          onPersistApiKeyMutation={async () => []}
+          onRefreshApiKeys={async () => []}
+          onApiKeyOperationStart={() => {}}
+          onApiKeyOperationEnd={() => {}}
+          codexModeSettings={<span data-codex-mode>Inline mode control</span>}
+        />
+      );
+    });
+    const modeToggle = renderer.root.findByProps({ 'data-codex-mode': true });
+    const grid = modeToggle.parent!;
+    const previousSetting = grid.children[
+      grid.children.indexOf(modeToggle) - 1
+    ] as ReactTestInstance;
+    expect(
+      previousSetting.findByProps({
+        title: 'config_management.visual.sections.network.codex_basispoints',
+      })
+    ).toBeDefined();
+    const headers = renderer.root.findByProps({
+      title: 'config_management.visual.sections.headers.codex_title',
+    });
+    expect(headers.findAllByProps({ 'data-codex-mode': true })).toHaveLength(0);
+    for (const nav of renderer.root.findAllByType('nav')) {
+      expect(nav.findAllByProps({ 'data-codex-mode': true })).toHaveLength(0);
+      expect(nav.findAllByProps({ href: '/codex-runtime' })).toHaveLength(0);
+    }
+  });
+
   it.each([false, true])('binds the four modes (disabled=%s)', (disabled) => {
     const onChange = vi.fn();
     act(() => {
@@ -72,7 +127,7 @@ describe('Codex device convergence setting', () => {
       const convergence = renderer.root.findByProps({
         'aria-label': 'config_management.visual.sections.headers.device_convergence',
       });
-      const confuse = renderer.root.findByProps({
+      const confuse = renderer.root.findAllByProps({
         'aria-label': 'config_management.visual.sections.headers.identity_confuse',
       });
       const stabilize = renderer.root.findByProps({
@@ -80,7 +135,7 @@ describe('Codex device convergence setting', () => {
       });
       expect(convergence.props.checked).toBe(true);
       expect(convergence.props.disabled).toBe(disabled);
-      expect(confuse.props.checked).toBe(false);
+      expect(confuse).toHaveLength(0);
       expect(stabilize.props.checked).toBe(false);
       if (!disabled) {
         act(() => convergence.props.onChange({ target: { checked: false } }));

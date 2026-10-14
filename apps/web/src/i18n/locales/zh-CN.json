@@ -1,4 +1,12 @@
 {
+  "codex_runtime": {
+    "enabled": "启用 Codex 模式",
+    "enabled_hint": "使用 Codex 处理请求。",
+    "saved": "已保存。",
+    "load_failed": "Codex 模式加载失败。",
+    "action_failed": "操作失败。",
+    "pending_change": "保存后应用 Codex 模式变更。"
+  },
   "manager_updates": {
     "server_version": "Manager Server 版本",
     "new_version": "CPAMP {{version}} 已发布",
@@ -166,7 +174,7 @@
     "usage_service_address": "Manager Server 地址",
     "admin_key_label": "管理员密钥",
     "admin_key_placeholder": "请输入启动日志中的管理员密钥",
-    "admin_key_hint": "用于登录 Manager Server 主控台。CPA 实例地址和管理密钥请在登录后配置。",
+    "admin_key_hint": "该密钥用于登录 Manager Server 面板，不同于 CPA Management Key。",
     "admin_key_required": "请输入管理员密钥",
     "admin_key_setup_hint": "管理员密钥只会在 Manager Server 首次启动日志中输出一次。",
     "migration_detected_hint": "检测到历史数据，服务端会保留数据并自动迁移旧配置。",
@@ -602,7 +610,7 @@
     "advanced_stop_all": "停止所有 Manager Server",
     "advanced_backup_set": "备份上面的完整文件集合",
     "advanced_command_note": "命令仅供运维人员离线执行，浏览器不会执行它。",
-    "advanced_note_docker_compose": "需在包含 docker-compose.manager.yml 或项目 compose 配置的目录下执行。",
+    "advanced_note_docker_compose": "需在包含 docker-compose.yml 或项目 compose 配置的目录下执行。",
     "advanced_note_docker_run": "默认数据卷为 cpa-manager-plus-data，若自定义了数据挂载路径请替换 -v 参数。",
     "advanced_note_binary": "请替换 --db-path 为实际的 usage.sqlite 绝对路径；执行前确保所有后台进程已停止。",
     "advanced_step_backup_title": "第 1 步：备份数据库关键文件集合（推荐）",
@@ -4053,7 +4061,6 @@
       "admin_key_hint": "仅用于访问 Manager Server，不会写入 CPA 配置。",
       "admin_key_required": "需要 Manager Server 管理员密钥。",
       "admin_key_title": "修改 CPAMP 管理员密钥",
-      "admin_key_hint": "输入当前密钥和两次新密钥即可修改登录凭证。允许使用短密钥，例如 123456。",
       "admin_key_current": "当前管理员密钥",
       "admin_key_new": "新管理员密钥",
       "admin_key_confirm": "确认新管理员密钥",
@@ -4232,7 +4239,7 @@
           "claude_title": "Claude Header Defaults",
           "codex_title": "Codex Header Defaults",
           "codex_fast_mode": "快速模式",
-          "codex_fast_mode_desc": "auto：不覆盖；default：删除 service_tier；fast：强制 priority；ultrafast：强制 ultrafast。原生 Codex 与 Basispoints 均生效。",
+          "codex_fast_mode_desc": "auto：跟随请求；default：标准；fast：快速；ultrafast：极速。",
           "user_agent": "User-Agent",
           "package_version": "Package Version",
           "runtime_version": "Runtime Version",
@@ -4242,10 +4249,8 @@
           "stabilize_device": "稳定设备指纹",
           "stabilize_device_desc": "固定 OS/Arch，并按凭据/API Key 稳定软件指纹",
           "beta_features": "Beta Features",
-          "identity_confuse": "启用 Codex 身份混淆",
-          "device_convergence": "codex设备固定",
-          "device_convergence_desc": "默认开启，按账号和凭据系统固定设备号；关闭后原样透传，不补设备号。",
-          "identity_confuse_desc": "写入 codex.identity-confuse，让 CPA 混合 Codex 请求身份 Header 以提升兼容性"
+          "device_convergence": "Codex 设备固定",
+          "device_convergence_desc": "按账号固定设备号。"
         },
         "network": {
           "title": "网络配置",
@@ -4288,9 +4293,9 @@
           "session_affinity": "会话粘性路由",
           "codex_force_websocket": "强制上游 WebSocket",
           "codex_basispoints": "使用 Basispoints 接口",
-          "codex_basispoints_desc": "Codex 请求使用 Basispoints，托管工具走原生接口。存在封号风险，请谨慎开启。",
-          "codex_basispoints_unavailable": "当前后端尚未声明支持 Basispoints，请连接支持此功能的 CPA 版本。",
-          "codex_force_websocket_desc": "Codex 上游优先使用 WebSocket，5 次握手失败后本次请求回退 SSE。",
+          "codex_basispoints_desc": "通过 Basispoints 发送 Codex 请求。",
+          "codex_basispoints_unavailable": "当前 CPA 不支持 Basispoints。",
+          "codex_force_websocket_desc": "握手失败 5 次后回退 SSE。",
           "ws_auth": "WebSocket 认证",
           "ws_auth_desc": "启用 WebSocket 连接认证 (/v1/ws)"
         },
@@ -4433,6 +4438,8 @@
         "boolean_false": "false"
       },
       "validation": {
+        "event_notification_name_required": "请填写 CPA 实例名称后开启通知",
+        "event_notification_webhook_invalid": "请输入有效的 HTTP 或 HTTPS Webhook 地址，不含用户名、密码或片段",
         "positive_integer": "请输入正整数秒数，或留空使用默认值",
         "validation_blocked": "请先修复表单校验错误再保存",
         "port_range": "请输入 1 到 65535 之间的有效端口",
@@ -5097,30 +5104,30 @@
     "empty_src_desc": "该插件菜单没有提供可打开的页面地址。"
   },
   "codex_turn_state": {
-    "ttl_seconds": "门票有效期 TTL（秒）",
-    "ttl_seconds_hint": "默认 3600 秒（1 小时）。留空并保存使用默认值。",
+    "ttl_seconds": "门票有效期（秒）",
+    "ttl_seconds_hint": "默认 3600 秒。",
     "refresh_before_seconds": "提前刷新时间（秒）",
-    "refresh_before_seconds_hint": "默认在到期前 600 秒（10 分钟）刷新。留空并保存使用默认值。",
+    "refresh_before_seconds_hint": "默认提前 600 秒。",
     "probe_interval_seconds": "探测间隔（秒）",
-    "probe_interval_seconds_hint": "后台探测间隔，默认 60 秒（1 分钟）。留空并保存使用 CPA 默认值。",
+    "probe_interval_seconds_hint": "默认 60 秒。",
     "attempt_timeout_seconds": "单次探测超时（秒）",
-    "attempt_timeout_seconds_hint": "单次主动获取的超时时间，默认 25 秒。留空并保存使用默认值。",
-    "target_length_hint": "门票长度和校验规则由 CPA 后端决定，面板不覆盖这些规则。",
-    "harvest_proxy_hint": "可选的探测专用代理。留空使用 CPA 后端的默认连接方式，修改后使用页面统一保存。",
+    "attempt_timeout_seconds_hint": "默认 25 秒。",
+    "target_length_hint": "门票长度由 CPA 确定。",
+    "harvest_proxy_hint": "留空使用默认代理。",
     "title": "Codex 门票",
-    "unsupported_backend": "当前 CPA 不支持原生 Codex 门票设置，请升级支持该接口的版本。",
-    "load_failed": "读取原生 Codex 门票配置失败。",
+    "unsupported_backend": "当前 CPA 不支持 Codex 门票。",
+    "load_failed": "门票配置加载失败。",
     "enabled": "启用 Codex 门票",
     "fail_closed": "缺票时阻止请求",
     "harvest_proxy": "门票采集代理",
     "models": "门票模型",
     "settings": "Codex 门票设置",
-    "settings_description": "门票按凭证和模型生效，与 turn_id 无关。校验、复用和续期遵循 CPA 后端策略。",
-    "global_settings_hint": "由 CPA 后台自动采集和续期，凭证列表及详情展示状态。",
-    "fail_closed_hint": "开启时缺票阻止请求；关闭时缺票继续发送，有效票仍强制替换。",
-    "models_hint": "每行或逗号分隔一个模型；留空使用 CPA 默认模型 gpt-6-astra、gpt-5.6-sol。",
+    "settings_description": "设置门票有效期与采集方式。",
+    "global_settings_hint": "自动采集和续期。",
+    "fail_closed_hint": "关闭后允许无票请求。",
+    "models_hint": "每行或逗号分隔；留空使用默认模型。",
     "proxy_placeholder": "socks5://用户名:密码@代理地址:1080",
-    "draft_hint": "修改已纳入本页未保存草稿，请使用页面统一保存并确认差异；代理输入隐藏显示，清空后保存可移除代理。"
+    "draft_hint": "保存后生效。"
   },
   "system_info": {
     "title": "系统信息",
@@ -5432,5 +5439,20 @@
       "ultra": "Ultra",
       "ultra_lite": "Ultra Lite"
     }
+  },
+  "event_notifications": {
+    "title": "事件通知",
+    "description": "CPA 检测到凭据可能降智时发送通知；Webhook 留空即关闭。",
+    "instance_name": "CPA 实例名称",
+    "instance_name_hint": "通知中会显示该名称，用于识别发生事件的 CPA 实例",
+    "platform": "通知平台",
+    "feishu": "飞书",
+    "wecom": "企业微信",
+    "dingtalk": "钉钉",
+    "webhook": "Webhook 地址",
+    "webhook_hint": "留空关闭事件通知",
+    "secret": "签名密钥",
+    "secret_hint": "选填，填写所选机器人配置的签名密钥",
+    "secret_not_used": "企业微信机器人 Webhook 不使用签名密钥"
   }
 }

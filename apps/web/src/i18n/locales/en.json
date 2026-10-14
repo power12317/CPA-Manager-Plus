@@ -1,4 +1,12 @@
 {
+  "codex_runtime": {
+    "enabled": "Enable Codex mode",
+    "enabled_hint": "Process requests with Codex.",
+    "saved": "Saved.",
+    "load_failed": "Failed to load Codex mode.",
+    "action_failed": "Operation failed.",
+    "pending_change": "Apply the Codex mode change on save."
+  },
   "manager_updates": {
     "server_version": "Manager Server version",
     "new_version": "CPAMP {{version}} is available",
@@ -168,7 +176,7 @@
     "usage_service_address": "Manager Server URL",
     "admin_key_label": "Admin Key",
     "admin_key_placeholder": "Enter the admin key from the startup log",
-    "admin_key_hint": "Used to sign in to the Manager Server console. Configure CPA instances after signing in.",
+    "admin_key_hint": "This key authenticates the Manager Server panel. It is different from the CPA Management Key.",
     "admin_key_required": "Enter the admin key",
     "admin_key_setup_hint": "The admin key was printed once in the Manager Server startup log.",
     "migration_detected_hint": "Historical data was detected. The server will keep it and migrate legacy settings automatically.",
@@ -604,7 +612,7 @@
     "advanced_stop_all": "Stop every Manager Server",
     "advanced_backup_set": "Back up the complete set above",
     "advanced_command_note": "The command is copied for an operator to run offline; the browser never executes it.",
-    "advanced_note_docker_compose": "Run in the directory containing your docker-compose.manager.yml or compose file.",
+    "advanced_note_docker_compose": "Run in the directory containing your docker-compose.yml or compose file.",
     "advanced_note_docker_run": "Uses default volume cpa-manager-plus-data; replace -v with your host data path if customized.",
     "advanced_note_binary": "Replace --db-path with the actual usage.sqlite absolute path; ensure all processes are stopped.",
     "advanced_step_backup_title": "Step 1: Back up database key files (Recommended)",
@@ -4058,7 +4066,6 @@
       "admin_key_hint": "Only used to access Manager Server. It is not saved into CPA configuration.",
       "admin_key_required": "Manager Server admin key is required.",
       "admin_key_title": "Change CPAMP admin key",
-      "admin_key_hint": "Enter the current key and the new key twice. Short keys such as 123456 are allowed.",
       "admin_key_current": "Current admin key",
       "admin_key_new": "New admin key",
       "admin_key_confirm": "Confirm new admin key",
@@ -4237,7 +4244,7 @@
           "claude_title": "Claude Header Defaults",
           "codex_title": "Codex Header Defaults",
           "codex_fast_mode": "Fast mode",
-          "codex_fast_mode_desc": "auto: no override; default: remove service_tier; fast: force priority; ultrafast: force ultrafast. Applies to native Codex and Basispoints.",
+          "codex_fast_mode_desc": "auto: follow request; default: standard; fast: fast; ultrafast: ultra fast.",
           "user_agent": "User-Agent",
           "package_version": "Package Version",
           "runtime_version": "Runtime Version",
@@ -4247,10 +4254,8 @@
           "stabilize_device": "Stabilize Device Profile",
           "stabilize_device_desc": "Pin OS/Arch and stabilize the software fingerprint per credential/API key",
           "beta_features": "Beta Features",
-          "identity_confuse": "Enable Codex Identity Confuse",
-          "device_convergence": "Codex device pinning",
-          "device_convergence_desc": "On by default. Keep a fixed device ID per account and credential system; when off, pass it through without adding one.",
-          "identity_confuse_desc": "Write codex.identity-confuse to let CPA mix Codex request identity headers for compatibility"
+          "device_convergence": "Fixed Codex device",
+          "device_convergence_desc": "Keep a fixed device ID per account."
         },
         "network": {
           "title": "Network Configuration",
@@ -4293,9 +4298,9 @@
           "session_affinity": "Session Affinity Routing",
           "codex_force_websocket": "Force upstream WebSocket",
           "codex_basispoints": "Use Basispoints",
-          "codex_basispoints_desc": "Use Basispoints for Codex; hosted tools use native Codex. Risk of account suspension. Enable with caution.",
-          "codex_basispoints_unavailable": "This backend has not declared Basispoints support. Connect to a CPA version that supports it.",
-          "codex_force_websocket_desc": "Prefer WebSocket for Codex; fall back to SSE for the current request after 5 failed handshakes.",
+          "codex_basispoints_desc": "Send Codex requests through Basispoints.",
+          "codex_basispoints_unavailable": "This CPA does not support Basispoints.",
+          "codex_force_websocket_desc": "Fall back to SSE after 5 failed handshakes.",
           "ws_auth": "WebSocket Authentication",
           "ws_auth_desc": "Enable WebSocket authentication (/v1/ws)"
         },
@@ -4438,6 +4443,8 @@
         "boolean_false": "false"
       },
       "validation": {
+        "event_notification_name_required": "Enter a CPA instance name to enable notifications.",
+        "event_notification_webhook_invalid": "Enter a valid HTTP or HTTPS Webhook URL without user information or a fragment.",
         "positive_integer": "Enter a positive whole number of seconds, or leave blank for the default",
         "validation_blocked": "Fix validation errors before saving",
         "port_range": "Enter a valid port between 1 and 65535",
@@ -5104,30 +5111,30 @@
     "empty_src_desc": "This plugin menu does not provide a page URL that can be opened."
   },
   "codex_turn_state": {
-    "ttl_seconds": "Ticket TTL (seconds)",
-    "ttl_seconds_hint": "Default: 3600 seconds (1 hour). Clear and save to use the default.",
+    "ttl_seconds": "Ticket lifetime (seconds)",
+    "ttl_seconds_hint": "Default: 3600 seconds.",
     "refresh_before_seconds": "Refresh before expiry (seconds)",
-    "refresh_before_seconds_hint": "Default: 600 seconds (10 minutes) before expiry. Clear and save to use the default.",
+    "refresh_before_seconds_hint": "Default: 600 seconds before expiry.",
     "probe_interval_seconds": "Probe interval (seconds)",
-    "probe_interval_seconds_hint": "Background probe interval, 60 seconds (1 minute) by default. Clear and save to use the CPA default.",
+    "probe_interval_seconds_hint": "Default: 60 seconds.",
     "attempt_timeout_seconds": "Attempt timeout (seconds)",
-    "attempt_timeout_seconds_hint": "Timeout for one harvest attempt, 25 seconds by default. Clear and save to use the default.",
-    "target_length_hint": "Ticket length and validation follow the CPA backend. This panel does not override them.",
-    "harvest_proxy_hint": "Optional dedicated proxy for harvesting. Leave empty to use the CPA backend’s default connection. Apply changes with the page’s shared Save action.",
+    "attempt_timeout_seconds_hint": "Default: 25 seconds.",
+    "target_length_hint": "CPA determines ticket length.",
+    "harvest_proxy_hint": "Leave blank to use the default proxy.",
     "title": "Codex tickets",
-    "unsupported_backend": "This CPA does not support native Codex ticket settings. Upgrade to a version providing this API.",
-    "load_failed": "Failed to load native Codex ticket settings.",
+    "unsupported_backend": "This CPA does not support Codex tickets.",
+    "load_failed": "Failed to load ticket settings.",
     "enabled": "Enable Codex tickets",
     "fail_closed": "Block requests without tickets",
     "harvest_proxy": "Harvest proxy",
     "models": "Ticket models",
     "settings": "Codex ticket settings",
-    "settings_description": "Tickets apply to credentials and models, independently of turn_id. Ticket validation, reuse and renewal follow the CPA backend policy.",
-    "global_settings_hint": "CPA automatically harvests and renews tickets. Readiness appears in credentials and account details.",
-    "fail_closed_hint": "When enabled, missing tickets block requests. When disabled, requests continue without tickets; valid tickets still replace outgoing state.",
-    "models_hint": "One model per line or comma. Empty uses CPA defaults: gpt-6-astra and gpt-5.6-sol.",
+    "settings_description": "Set ticket lifetime and harvesting.",
+    "global_settings_hint": "Harvest and renew automatically.",
+    "fail_closed_hint": "When off, allow requests without tickets.",
+    "models_hint": "Separate with commas or new lines. Leave blank to use default models.",
     "proxy_placeholder": "socks5://user:password@proxy.example:1080",
-    "draft_hint": "Changes use this page’s unsaved draft. Save and review the shared diff to apply. The proxy input is hidden; clear and save to remove it."
+    "draft_hint": "Apply on save."
   },
   "system_info": {
     "title": "System Info",
@@ -5439,5 +5446,20 @@
       "ultra": "Ultra",
       "ultra_lite": "Ultra Lite"
     }
+  },
+  "event_notifications": {
+    "title": "Event notifications",
+    "description": "Send a notification when CPA detects a degraded credential. Leave the webhook empty to disable notifications.",
+    "instance_name": "CPA instance name",
+    "instance_name_hint": "Included in the notification so the affected CPA instance is identifiable",
+    "platform": "Notification platform",
+    "feishu": "Feishu",
+    "wecom": "WeCom",
+    "dingtalk": "DingTalk",
+    "webhook": "Webhook URL",
+    "webhook_hint": "Leave empty to disable event notifications",
+    "secret": "Signing secret",
+    "secret_hint": "Optional signing secret configured for the selected robot",
+    "secret_not_used": "WeCom robot webhooks do not use a signing secret"
   }
 }

@@ -43,6 +43,15 @@ describe('oailb experimental Docker publishing', () => {
     expect(build.with.labels).toContain('org.opencontainers.image.revision=${{ github.sha }}');
   });
 
+  it('deploys the branch image by default in Compose and the example environment', () => {
+    const compose = readFileSync(new URL('../docker-compose.yml', import.meta.url), 'utf8');
+    const environment = readFileSync(new URL('../.env.example', import.meta.url), 'utf8');
+    expect(parse(compose).services['cpa-manager-plus'].image).toBe(
+      `\${CPAMP_IMAGE:-${image}:latest}`
+    );
+    expect(environment).toContain(`CPAMP_IMAGE=${image}:latest`);
+  });
+
   it('keeps package writes and build caches scoped to the experimental publisher', () => {
     expect(workflow.permissions).toEqual({ contents: 'read' });
     expect(job.permissions).toEqual({ contents: 'read', packages: 'write' });

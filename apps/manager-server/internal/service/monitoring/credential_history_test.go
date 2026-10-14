@@ -83,10 +83,10 @@ func TestCodexCredentialHistoryAndWindowsRemainSeparateAcrossReadPaths(t *testin
 				t.Fatalf("%s: credentials share a history key: %s", phase, h.AccountKey)
 			}
 			keys[h.AccountKey] = true
-			if !h.Matched || h.TotalRequests != expected.calls || h.SuccessCalls != expected.success || h.FailureCalls != expected.calls-expected.success || h.TotalTokens != expected.tokens || math.Abs(h.TotalCost-expected.cost) > 1e-9 {
+			if !h.Matched || h.TotalRequests != expected.calls || h.SuccessCalls != expected.success || h.FailureCalls != expected.calls-expected.success || h.TotalTokens != expected.tokens || h.TotalCost == nil || math.Abs(*h.TotalCost-expected.cost) > 1e-9 {
 				t.Fatalf("%s: history %s = %+v", phase, targets[i].RowKey, h)
 			}
-			if !w.Matched || w.TotalRequests != h.TotalRequests || w.TotalTokens != h.TotalTokens || w.TotalCost != h.TotalCost || w.SuccessCalls != h.SuccessCalls || w.FailureCalls != h.FailureCalls {
+			if !w.Matched || w.TotalRequests != h.TotalRequests || w.TotalTokens != h.TotalTokens || w.TotalCost != *h.TotalCost || w.SuccessCalls != h.SuccessCalls || w.FailureCalls != h.FailureCalls {
 				t.Fatalf("%s: window %s = %+v; history=%+v", phase, targets[i].RowKey, w, h)
 			}
 			wantRate := float64(expected.success) / float64(expected.calls)

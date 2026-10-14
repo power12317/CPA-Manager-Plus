@@ -31,6 +31,38 @@ const jobBlock = (workflow, jobName) => {
 };
 
 describe('GitHub Actions workflow integrity', () => {
+  it('reserves the production image for main even on manual workflow dispatch', () => {
+    const workflow = readWorkflow('docker-publish.yml');
+    expect(workflow).toContain('branches: [main]');
+    expect(workflow).toContain(
+      "if: github.repository == 'power12317/CPA-Manager-Plus' && github.ref == 'refs/heads/main'"
+    );
+    expect(workflow).not.toContain('codex-runtime');
+    expect(workflow).toContain(
+      "type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}"
+    );
+  });
+
+  it('publishes latest and the original SHA tag and keeps one standalone Compose file', () => {
+    const workflow = readWorkflow('docker-publish.yml');
+    expect(workflow).not.toContain('type=raw,value=main');
+    expect(workflow).toContain('type=raw,value=latest');
+    expect(workflow).toContain('type=sha,format=long');
+    expect(workflow).toContain('SOURCE_COMMIT=${{ github.sha }}');
+    expect(workflow).toContain('platforms: linux/amd64,linux/arm64');
+    expect(existsSync(path.join(workflowDir, 'docker-codex-runtime.yml'))).toBe(false);
+    expect(existsSync(path.join(workflowDir, 'docker-basispoints.yml'))).toBe(false);
+    const composeFiles = readdirSync(repoRoot).filter((file) => /^(?:docker-)?compose.*\.ya?ml$/.test(file));
+    expect(composeFiles).toEqual(['docker-compose.yml']);
+    const compose = readFileSync(path.join(repoRoot, 'docker-compose.yml'), 'utf8');
+    expect(compose).toContain(
+      'image: ${CPAMP_IMAGE:-ghcr.io/power12317/cpa-manager-plus-oailb-borrow:latest}'
+    );
+    expect(compose).toContain('pull_policy: always');
+    expect(compose).not.toMatch(/^  (?:cli-proxy-api|codex-master):/m);
+    expect(compose).not.toMatch(/^\s+(?:include|extends|build):/m);
+  });
+
   it('pins every external action to a full commit SHA', () => {
     const workflowFiles = readdirSync(workflowDir).filter((file) => /\.ya?ml$/.test(file));
     const actions = workflowFiles.flatMap((file) => externalActions(readWorkflow(file)));

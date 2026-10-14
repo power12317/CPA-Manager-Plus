@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -21,7 +22,9 @@ export function InstanceBar() {
   const root = managerRootBase(base);
   const api = useMemo(() => clusterApi(root, key), [root, key]);
   const [query, setQuery] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDetailsElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const currentId = instanceIdFromBase(base);
   const [items, setItems] = useState<CPAInstance[]>([]);
   const [error, setError] = useState(false);
@@ -30,6 +33,42 @@ export function InstanceBar() {
     null
   );
   const failedSources = coverageState?.base === base ? coverageState.failures : [];
+  const showPickerPanel =
+    pickerOpen && mode === 'manager_embedded' && !globalManagementPage && items.length > 5;
+  useLayoutEffect(() => {
+    const picker = pickerRef.current;
+    const panel = panelRef.current;
+    if (!showPickerPanel || !picker || !panel) return;
+
+    const updatePosition = () => {
+      const rect = picker.getBoundingClientRect();
+      const margin = 12;
+      const gap = 6;
+      const width = Math.min(360, window.innerWidth - margin * 2);
+      const below = window.innerHeight - rect.bottom - gap - margin;
+      const above = rect.top - gap - margin;
+      const opensUp = below < panel.scrollHeight && above > below;
+      panel.style.width = `${width}px`;
+      panel.style.left = `${Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin))}px`;
+      panel.style.top = opensUp ? 'auto' : `${rect.bottom + gap}px`;
+      panel.style.bottom = opensUp ? `${window.innerHeight - rect.top + gap}px` : 'auto';
+      panel.style.maxHeight = `${Math.max(0, opensUp ? above : below)}px`;
+    };
+    const closeOutside = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!picker.contains(target) && !panel.contains(target)) picker.open = false;
+    };
+
+    updatePosition();
+    window.addEventListener('scroll', updatePosition, { capture: true, passive: true });
+    window.addEventListener('resize', updatePosition);
+    document.addEventListener('pointerdown', closeOutside);
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+      document.removeEventListener('pointerdown', closeOutside);
+    };
+  }, [showPickerPanel]);
   useEffect(() => {
     window.addEventListener('popstate', synchronizeInstanceHistory);
     return () => window.removeEventListener('popstate', synchronizeInstanceHistory);
@@ -78,6 +117,7 @@ export function InstanceBar() {
         <details
           ref={pickerRef}
           className={styles.picker}
+          onToggle={(event) => setPickerOpen(event.currentTarget.open)}
           onKeyDown={(event) => {
             if (event.key === 'Escape' && pickerRef.current) {
               pickerRef.current.open = false;
@@ -89,51 +129,55 @@ export function InstanceBar() {
             {t('cluster.scope')}:{' '}
             {items.find((item) => item.id === currentId)?.name || t('cluster.all')}
           </summary>
-          <div className={styles.pickerPanel}>
-            <input
-              type="search"
-              aria-label={t('cluster.searchInstances')}
-              placeholder={t('cluster.searchInstances')}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-            <div className={styles.pickerOptions}>
-              {(aggregateRoutes.has(pathname)
-                ? [
-                    { id: '', name: t('cluster.all'), enabled: true, ready: true, baseUrl: '' },
-                    ...items,
-                  ]
-                : items
-              )
-                .filter((item) =>
-                  `${item.name} ${item.baseUrl}`
-                    .toLocaleLowerCase()
-                    .includes(query.toLocaleLowerCase())
-                )
-                .map((item) => (
-                  <button
-                    type="button"
-                    key={item.id}
-                    aria-pressed={currentId === item.id}
-                    disabled={!item.enabled || !item.ready}
-                    onClick={() => {
-                      if (pickerRef.current) pickerRef.current.open = false;
-                      setQuery('');
-                      navigateInstance(item.id, `${pathname}${search}`);
-                    }}
-                  >
-                    <strong>{item.name}</strong>
-                    <small>{item.baseUrl}</small>
-                  </button>
-                ))}
-              {query &&
-                !items.some((item) =>
-                  `${item.name} ${item.baseUrl}`
-                    .toLocaleLowerCase()
-                    .includes(query.toLocaleLowerCase())
-                ) && <p>{t('cluster.noMatches')}</p>}
-            </div>
-          </div>
+          {showPickerPanel &&
+            createPortal(
+              <div ref={panelRef} className={styles.pickerPanel}>
+                <input
+                  type="search"
+                  aria-label={t('cluster.searchInstances')}
+                  placeholder={t('cluster.searchInstances')}
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+                <div className={styles.pickerOptions}>
+                  {(aggregateRoutes.has(pathname)
+                    ? [
+                        { id: '', name: t('cluster.all'), enabled: true, ready: true, baseUrl: '' },
+                        ...items,
+                      ]
+                    : items
+                  )
+                    .filter((item) =>
+                      `${item.name} ${item.baseUrl}`
+                        .toLocaleLowerCase()
+                        .includes(query.toLocaleLowerCase())
+                    )
+                    .map((item) => (
+                      <button
+                        type="button"
+                        key={item.id}
+                        aria-pressed={currentId === item.id}
+                        disabled={!item.enabled || !item.ready}
+                        onClick={() => {
+                          if (pickerRef.current) pickerRef.current.open = false;
+                          setQuery('');
+                          navigateInstance(item.id, `${pathname}${search}`);
+                        }}
+                      >
+                        <strong>{item.name}</strong>
+                        <small>{item.baseUrl}</small>
+                      </button>
+                    ))}
+                  {query &&
+                    !items.some((item) =>
+                      `${item.name} ${item.baseUrl}`
+                        .toLocaleLowerCase()
+                        .includes(query.toLocaleLowerCase())
+                    ) && <p>{t('cluster.noMatches')}</p>}
+                </div>
+              </div>,
+              document.body
+            )}
         </details>
       ) : (
         <label>

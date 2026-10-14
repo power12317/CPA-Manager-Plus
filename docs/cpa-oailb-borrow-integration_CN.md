@@ -2,7 +2,7 @@
 
 本功能在 CPA `codex/oailb-borrow` 测试分支开发，不默认合入 main。CPAMP 的适配由其项目开发负责，使用独立测试分支。
 
-2026-10-15 恢复说明：本分支从先前保留的 `2648d225` 快照恢复，包含借用配置、双 Cookie 规则、节点监控和最终日志格式适配。本次恢复原实验版本，不自动合入其后 `main` 的变更。镜像继续发布至独立的 `cpa-manager-plus-oailb-borrow` 包；正式镜像工作流即使手动执行，也仅允许 `main`。
+2026-10-15 主线同步：在恢复 `2648d225` 实验快照后，本分支合入 fork 的 `main` 提交 `c8706eb6`。保留借用配置、双 Cookie 规则和节点监控，同时同步 CPA v8 配置布局、Codex 网络模式、实例事件通知、实例搜索、图标与归档/价格统计修复。借用设置与主线配置共用保存互斥逻辑，保留未保存的其他设置。镜像仍独立发布至 `cpa-manager-plus-oailb-borrow` 包；正式镜像工作流即使手动执行，也仅允许 `main`。
 
 ## 最终规则
 
@@ -163,7 +163,7 @@ CPA 现有 usage/request 记录增加可选字段 `oailb_node`，例如 `"unifie
 - 此工作流所有标签都属于独立的 `cpa-manager-plus-oailb-borrow` 镜像，不发布到正式镜像 `ghcr.io/power12317/cpa-manager-plus`。正式镜像的 `latest` 仍由 `main` 的原工作流管理。
 - 手动执行也仅允许本 fork 的 `codex/oailb-borrow` 分支。
 
-已有 Docker Compose 部署测试版时，将服务的 `image` 改为独立实验镜像，保留现有端口、数据卷与配置：
+本分支的 `docker-compose.yml` 和 `.env.example` 默认使用独立实验镜像。已有部署升级测试版时，确认服务的 `image` 或 `.env` 中 `CPAMP_IMAGE` 使用以下值，保留现有端口、数据卷与配置：
 
 ```yaml
 image: ghcr.io/power12317/cpa-manager-plus-oailb-borrow:latest

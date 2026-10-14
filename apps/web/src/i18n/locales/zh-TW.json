@@ -1,4 +1,12 @@
 {
+  "codex_runtime": {
+    "enabled": "啟用 Codex 模式",
+    "enabled_hint": "使用 Codex 處理請求。",
+    "saved": "已儲存。",
+    "load_failed": "Codex 模式載入失敗。",
+    "action_failed": "操作失敗。",
+    "pending_change": "儲存後套用 Codex 模式變更。"
+  },
   "manager_updates": {
     "server_version": "Manager Server 版本",
     "new_version": "CPAMP {{version}} 已發佈",
@@ -599,7 +607,7 @@
     "advanced_stop_all": "停止所有 Manager Server",
     "advanced_backup_set": "備份上面的完整檔案集合",
     "advanced_command_note": "指令僅供維運人員離線執行，瀏覽器不會執行它。",
-    "advanced_note_docker_compose": "需在包含 docker-compose.manager.yml 或專案 compose 配置的目錄下執行。",
+    "advanced_note_docker_compose": "需在包含 docker-compose.yml 或專案 compose 配置的目錄下執行。",
     "advanced_note_docker_run": "預設資料磁碟區為 cpa-manager-plus-data，若自訂了資料掛載路徑請替換 -v 參數。",
     "advanced_note_binary": "請替換 --db-path 為實際的 usage.sqlite 絕對路徑；執行前確保所有後台處理程序已停止。",
     "advanced_step_backup_title": "第 1 步：備份資料庫關鍵檔案集合（推薦）",
@@ -4214,7 +4222,7 @@
           "claude_title": "Claude Header Defaults",
           "codex_title": "Codex Header Defaults",
           "codex_fast_mode": "快速模式",
-          "codex_fast_mode_desc": "auto：不覆寫；default：移除 service_tier；fast：強制 priority；ultrafast：強制 ultrafast。原生 Codex 與 Basispoints 皆適用。",
+          "codex_fast_mode_desc": "auto：跟隨請求；default：標準；fast：快速；ultrafast：極速。",
           "user_agent": "User-Agent",
           "package_version": "Package Version",
           "runtime_version": "Runtime Version",
@@ -4224,10 +4232,8 @@
           "stabilize_device": "穩定設備指紋",
           "stabilize_device_desc": "固定 OS/Arch，並按憑證/API Key 穩定軟體指紋",
           "beta_features": "Beta Features",
-          "identity_confuse": "啟用 Codex 身份混淆",
-          "device_convergence": "codex設備固定",
-          "device_convergence_desc": "預設開啟，依帳號及憑證系統固定裝置識別碼；關閉後原樣傳遞，不補識別碼。",
-          "identity_confuse_desc": "寫入 codex.identity-confuse，讓 CPA 混合 Codex 請求身份 Header 以提升相容性"
+          "device_convergence": "Codex 裝置固定",
+          "device_convergence_desc": "依帳號固定裝置識別碼。"
         },
         "network": {
           "title": "網路設定",
@@ -4270,9 +4276,9 @@
           "session_affinity": "會話黏性路由",
           "codex_force_websocket": "強制上游 WebSocket",
           "codex_basispoints": "使用 Basispoints 介面",
-          "codex_basispoints_desc": "Codex 請求使用 Basispoints，託管工具走原生介面。有帳號遭封鎖的風險，請謹慎開啟。",
-          "codex_basispoints_unavailable": "目前後端尚未宣告支援 Basispoints，請連線至支援此功能的 CPA 版本。",
-          "codex_force_websocket_desc": "Codex 上游優先使用 WebSocket，5 次握手失敗後本次請求改用 SSE。",
+          "codex_basispoints_desc": "透過 Basispoints 傳送 Codex 請求。",
+          "codex_basispoints_unavailable": "目前 CPA 不支援 Basispoints。",
+          "codex_force_websocket_desc": "交握失敗 5 次後改用 SSE。",
           "ws_auth": "WebSocket 驗證",
           "ws_auth_desc": "啟用 WebSocket 連線驗證（/v1/ws）"
         },
@@ -4415,6 +4421,8 @@
         "boolean_false": "false"
       },
       "validation": {
+        "event_notification_name_required": "請填寫 CPA 實例名稱後開啟通知",
+        "event_notification_webhook_invalid": "請輸入有效的 HTTP 或 HTTPS Webhook 位址，不含使用者名稱、密碼或片段",
         "positive_integer": "請輸入正整數秒數，或留空使用預設值",
         "validation_blocked": "請先修復表單驗證錯誤再儲存",
         "port_range": "請輸入 1 到 65535 之間的有效連接埠",
@@ -5079,30 +5087,30 @@
     "empty_src_desc": "該插件選單沒有提供可開啟的頁面地址。"
   },
   "codex_turn_state": {
-    "ttl_seconds": "門票有效期 TTL（秒）",
-    "ttl_seconds_hint": "預設 3600 秒（1 小時）。留空並儲存使用預設值。",
+    "ttl_seconds": "門票有效期（秒）",
+    "ttl_seconds_hint": "預設 3600 秒。",
     "refresh_before_seconds": "提前更新時間（秒）",
-    "refresh_before_seconds_hint": "預設在到期前 600 秒（10 分鐘）更新。留空並儲存使用預設值。",
+    "refresh_before_seconds_hint": "預設提前 600 秒。",
     "probe_interval_seconds": "探測間隔（秒）",
-    "probe_interval_seconds_hint": "背景探測間隔，預設 60 秒（1 分鐘）。留空並儲存使用 CPA 預設值。",
+    "probe_interval_seconds_hint": "預設 60 秒。",
     "attempt_timeout_seconds": "單次探測逾時（秒）",
-    "attempt_timeout_seconds_hint": "單次主動取得的逾時時間，預設 25 秒。留空並儲存使用預設值。",
-    "target_length_hint": "門票長度和驗證規則由 CPA 後端決定，面板不覆寫這些規則。",
-    "harvest_proxy_hint": "可選的探測專用代理。留空使用 CPA 後端的預設連線方式，修改後使用頁面統一儲存。",
+    "attempt_timeout_seconds_hint": "預設 25 秒。",
+    "target_length_hint": "門票長度由 CPA 決定。",
+    "harvest_proxy_hint": "留空使用預設代理。",
     "title": "Codex 門票",
-    "unsupported_backend": "目前 CPA 不支援原生 Codex 門票設定，請升級支援此介面的版本。",
-    "load_failed": "讀取原生 Codex 門票設定失敗。",
+    "unsupported_backend": "目前 CPA 不支援 Codex 門票。",
+    "load_failed": "門票設定載入失敗。",
     "enabled": "啟用 Codex 門票",
     "fail_closed": "缺票時阻止請求",
     "harvest_proxy": "門票採集代理",
     "models": "門票模型",
     "settings": "Codex 門票設定",
-    "settings_description": "門票按憑證和模型生效，與 turn_id 無關。驗證、重用和續期遵循 CPA 後端策略。",
-    "global_settings_hint": "CPA 背景自動採集和續期，憑證列表及詳情顯示狀態。",
-    "fail_closed_hint": "開啟時缺票阻止請求；關閉時缺票繼續傳送，有效票仍強制替換。",
-    "models_hint": "每行或逗號分隔一個模型；留空使用 CPA 預設模型 gpt-6-astra、gpt-5.6-sol。",
+    "settings_description": "設定門票有效期與採集方式。",
+    "global_settings_hint": "自動採集和續期。",
+    "fail_closed_hint": "關閉後允許無票請求。",
+    "models_hint": "以換行或逗號分隔；留空使用預設模型。",
     "proxy_placeholder": "socks5://使用者名稱:密碼@代理位址:1080",
-    "draft_hint": "修改已納入本頁未儲存草稿，請使用頁面統一儲存並確認差異；代理輸入隱藏顯示，清空後儲存可移除代理。"
+    "draft_hint": "儲存後生效。"
   },
   "system_info": {
     "title": "系統資訊",
@@ -5414,5 +5422,20 @@
       "ultra": "Ultra",
       "ultra_lite": "Ultra Lite"
     }
+  },
+  "event_notifications": {
+    "title": "事件通知",
+    "description": "CPA 偵測到憑據可能降智時傳送通知；Webhook 留空即關閉。",
+    "instance_name": "CPA 執行個體名稱",
+    "instance_name_hint": "通知中會顯示此名稱，用於識別發生事件的 CPA 執行個體",
+    "platform": "通知平台",
+    "feishu": "飛書",
+    "wecom": "企業微信",
+    "dingtalk": "釘釘",
+    "webhook": "Webhook 位址",
+    "webhook_hint": "留空即可關閉事件通知",
+    "secret": "簽章密鑰",
+    "secret_hint": "選填，填入所選機器人設定的簽章密鑰",
+    "secret_not_used": "企業微信機器人 Webhook 不使用簽章密鑰"
   }
 }

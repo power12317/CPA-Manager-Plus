@@ -1,8 +1,8 @@
-# Published repository image. Use after the "Publish Docker image" workflow succeeds:
-# docker compose -f docker-compose.image.yml up -d --pull always
+# Deploy the isolated image published from codex/oailb-borrow.
+# docker compose up -d --pull always
 services:
   cpa-manager-plus:
-    image: ${CPAMP_IMAGE:-ghcr.io/power12317/cpa-manager-plus:latest}
+    image: ${CPAMP_IMAGE:-ghcr.io/power12317/cpa-manager-plus-oailb-borrow:latest}
     pull_policy: always
     restart: unless-stopped
     ports:

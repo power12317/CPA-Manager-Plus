@@ -41,9 +41,9 @@ The alias `reset-admin-password` is also available.
 ## Docker Compose
 
 ```bash
-docker compose -f docker-compose.manager.yml stop cpa-manager-plus
-docker compose -f docker-compose.manager.yml run --rm cpa-manager-plus reset-admin-key
-docker compose -f docker-compose.manager.yml up -d cpa-manager-plus
+docker compose -f docker-compose.yml stop cpa-manager-plus
+docker compose -f docker-compose.yml run --rm cpa-manager-plus reset-admin-key
+docker compose -f docker-compose.yml up -d cpa-manager-plus
 ```
 
 The command prints the newly generated key once:

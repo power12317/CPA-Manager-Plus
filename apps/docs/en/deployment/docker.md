@@ -1,7 +1,7 @@
 # Docker Deployment
 
-> To deploy this repository, run `docker compose up -d --build` from the repository,
-> or use `docker compose -f docker-compose.image.yml up -d --pull always` after its image is published.
+> This fork uses only the root `docker-compose.yml`. Its main branch publishes `main` and `latest` image tags.
+> After publication succeeds, run `docker compose up -d --pull always`.
 > The upstream images and installer described below do not include this fork's multi-instance changes.
 
 Docker is the simplest path for a new deployment. The CPAMP image contains Manager Server and the embedded `management.html` panel. CPA / CLI Proxy API is still a separate service, and can run in the same Compose stack.

@@ -29,9 +29,9 @@
 在 compose 文件所在目录执行：
 
 ```bash
-docker compose -f docker-compose.manager.yml stop cpa-manager-plus
-docker compose -f docker-compose.manager.yml run --rm cpa-manager-plus reset-admin-key
-docker compose -f docker-compose.manager.yml up -d cpa-manager-plus
+docker compose -f docker-compose.yml stop cpa-manager-plus
+docker compose -f docker-compose.yml run --rm cpa-manager-plus reset-admin-key
+docker compose -f docker-compose.yml up -d cpa-manager-plus
 ```
 
 命令会输出一次新生成的密钥：

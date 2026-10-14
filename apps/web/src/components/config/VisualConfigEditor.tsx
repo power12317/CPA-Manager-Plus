@@ -21,6 +21,7 @@ import {
   IconDiamond,
   IconKey,
   IconSatellite,
+  IconSend,
   IconSettings,
   IconShield,
   IconTimer,
@@ -58,6 +59,7 @@ type VisualSectionId =
   | 'system'
   | 'network'
   | 'codexTickets'
+  | 'eventNotifications'
   | 'quota'
   | 'streaming'
   | 'payload';
@@ -71,8 +73,10 @@ type VisualSection = {
 };
 
 interface VisualConfigEditorProps {
+  codexModeSettings?: ReactNode;
   codexTicketSettings?: ReactNode;
   codexOailbBorrowSettings?: ReactNode;
+  eventNotificationSettings?: ReactNode;
   values: VisualConfigValues;
   validationErrors?: VisualConfigValidationErrors;
   hasPayloadValidationErrors?: boolean;
@@ -189,8 +193,10 @@ function FieldShell({
 }
 
 export function VisualConfigEditor({
+  codexModeSettings,
   codexTicketSettings,
   codexOailbBorrowSettings,
+  eventNotificationSettings,
   values,
   validationErrors,
   hasPayloadValidationErrors = false,
@@ -356,6 +362,20 @@ export function VisualConfigEditor({
             },
           ]
         : []),
+      ...(eventNotificationSettings
+        ? [
+            {
+              id: 'eventNotifications' as const,
+              title: t('event_notifications.title'),
+              description: t('event_notifications.description'),
+              icon: IconSend,
+              errorCount: countErrors([
+                'eventNotificationInstanceName',
+                'eventNotificationWebhook',
+              ]),
+            },
+          ]
+        : []),
       {
         id: 'quota',
         title: t('config_management.visual.sections.quota.title'),
@@ -382,7 +402,7 @@ export function VisualConfigEditor({
         errorCount: hasPayloadValidationErrors ? 1 : 0,
       },
     ],
-    [countErrors, hasPayloadValidationErrors, t, codexTicketSettings]
+    [countErrors, eventNotificationSettings, hasPayloadValidationErrors, t, codexTicketSettings]
   );
 
   useEffect(() => {
@@ -1264,6 +1284,7 @@ export function VisualConfigEditor({
                   disabled={disabled}
                   onChange={(codexBasispointsEnabled) => onChange({ codexBasispointsEnabled })}
                 />
+                {codexModeSettings}
               </SectionGrid>
 
               <SectionSubsection
@@ -1359,15 +1380,6 @@ export function VisualConfigEditor({
                         />
                       </FieldShell>
                       <ToggleRow
-                        title={t('config_management.visual.sections.headers.identity_confuse')}
-                        description={t(
-                          'config_management.visual.sections.headers.identity_confuse_desc'
-                        )}
-                        checked={values.codexIdentityConfuse}
-                        disabled={disabled}
-                        onChange={(codexIdentityConfuse) => onChange({ codexIdentityConfuse })}
-                      />
-                      <ToggleRow
                         title={t('config_management.visual.sections.headers.device_convergence')}
                         description={t(
                           'config_management.visual.sections.headers.device_convergence_desc'
@@ -1392,6 +1404,16 @@ export function VisualConfigEditor({
               }}
             >
               {codexTicketSettings}
+            </div>
+          ) : null}
+          {eventNotificationSettings ? (
+            <div
+              id="eventNotifications"
+              ref={(node) => {
+                sectionRefs.current.eventNotifications = node;
+              }}
+            >
+              {eventNotificationSettings}
             </div>
           ) : null}
           <ConfigSection

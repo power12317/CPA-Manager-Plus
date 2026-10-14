@@ -229,6 +229,7 @@ describe('CPA panel and Manager runtime boundaries', () => {
       renderer = create(<MainLayout />);
     });
     const links = renderer.root.findAllByType('a');
+    expect(links.some((link) => link.props.href === '/codex-runtime')).toBe(false);
     expect(links.find((link) => link.props.href === '/config')?.props.title).toBe(
       'nav.instance_config'
     );
@@ -244,6 +245,7 @@ describe('CPA panel and Manager runtime boundaries', () => {
       renderer = create(<MainLayout />);
     });
     const paths = renderer.root.findAllByType('a').map((link) => link.props.href);
+    expect(paths).not.toContain('/codex-runtime');
     expect(paths).toContain('/instances');
     expect(paths).toContain('/manager-config');
     expect(renderer.root.findAllByProps({ 'data-scope-picker': true })).toHaveLength(1);

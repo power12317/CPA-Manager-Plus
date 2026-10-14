@@ -2,6 +2,8 @@
 
 本功能在 CPA `codex/oailb-borrow` 测试分支开发，不默认合入 main。CPAMP 的适配由其项目开发负责，使用独立测试分支。
 
+2026-10-15 恢复说明：本分支从先前保留的 `2648d225` 快照恢复，包含借用配置、双 Cookie 规则、节点监控和最终日志格式适配。本次恢复原实验版本，不自动合入其后 `main` 的变更。镜像继续发布至独立的 `cpa-manager-plus-oailb-borrow` 包；正式镜像工作流即使手动执行，也仅允许 `main`。
+
 ## 最终规则
 
 - 在当前实例的 Codex Header Defaults 内选择来源实例，再选择该实例的一份启用的 Codex OAuth 凭据，默认不借用。

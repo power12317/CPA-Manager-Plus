@@ -14,9 +14,8 @@ concurrency:
 
 jobs:
   publish:
-    # Publish only the maintained fork image. The upstream repository and
-    # unrelated forks must never overwrite power12317's GHCR package.
-    if: github.repository == 'power12317/CPA-Manager-Plus'
+    # Keep the production package reserved for main, including manual runs.
+    if: github.repository == 'power12317/CPA-Manager-Plus' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read

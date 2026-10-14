@@ -29,6 +29,9 @@ describe('oailb experimental Docker publishing', () => {
     ]);
     expect(JSON.stringify(workflow)).not.toMatch(/ghcr\.io\/power12317\/cpa-manager-plus[:@]/);
     expect(readWorkflow('docker-publish.yml').on.push.branches).toEqual(['main']);
+    expect(readWorkflow('docker-publish.yml').jobs.publish.if).toBe(
+      "github.repository == 'power12317/CPA-Manager-Plus' && github.ref == 'refs/heads/main'"
+    );
   });
 
   it('builds both architectures from the branch source and records the exact commit', () => {

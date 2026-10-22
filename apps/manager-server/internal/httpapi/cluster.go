@@ -217,7 +217,18 @@ func (r *instanceRuntime) Start(parent context.Context) {
 		wal.Start(ctx)
 	}
 	settings := app.AccountProcessingPolicyService.RuntimeSettings(ctx)
-	quota := worker.NewRateLimitAutoDisableWorkerWithMutationCoordinator(app.Store, app.AuthFileMutationCoordinator, collector.RuntimeConfig{})
+	// Recovery can be requested before the collector's asynchronous startup.
+	// Initialize it from this child's own bounded connection metadata, never
+	// the root configuration, including when collection is disabled.
+	quotaConfig := collector.RuntimeConfig{}
+	if setup, ok, err := app.ManagerConfigService.ResolveSetup(ctx); err != nil {
+		log.Printf("[instance] resolve cooldown recovery connection: %v", err)
+	} else if ok {
+		quotaConfig.CPAUpstreamURL = setup.CPAUpstreamURL
+		quotaConfig.ManagementKey = setup.ManagementKey
+	}
+	quota := worker.NewRateLimitAutoDisableWorkerWithMutationCoordinator(app.Store, app.AuthFileMutationCoordinator, quotaConfig)
+	app.QuotaCooldownRecoveryService = quota
 	actions := worker.NewAccountActionCandidateWorkerWithMutationCoordinator(app.Store, app.AuthFileMutationCoordinator, settings.AccountActionsAutoDisable)
 	automation := worker.NewAutomationRuntime(app.AccountProcessingPolicyService, app.Collector, quota, actions)
 	app.AutomationRuntimeService = automation

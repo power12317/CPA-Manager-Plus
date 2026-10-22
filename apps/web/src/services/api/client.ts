@@ -29,9 +29,10 @@ export type ScopedApiRequestConfig = AxiosRequestConfig & {
 };
 
 export const createScopedApiRequestConfig = (
-  scope: ApiClientRequestScope
+  scope: ApiClientRequestScope,
+  version: 'v0' | 'v8' = 'v0'
 ): ScopedApiRequestConfig => ({
-  baseURL: computeApiUrl(scope.apiBase),
+  baseURL: computeApiUrl(scope.apiBase).replace(/\/v0\/management$/, `/${version}/management`),
   headers: scope.managementKey
     ? {
         Authorization: `Bearer ${scope.managementKey}`,
@@ -150,8 +151,8 @@ class ApiClient {
     const currentAuthorization = this.managementKey ? `Bearer ${this.managementKey}` : '';
 
     return (
-      requestBase === this.apiBase.replace(/\/+$/, '') &&
-      (requestAuthorization ?? '') === currentAuthorization
+      requestBase.replace(/\/v8\/management$/, '/v0/management') ===
+        this.apiBase.replace(/\/+$/, '') && (requestAuthorization ?? '') === currentAuthorization
     );
   }
 

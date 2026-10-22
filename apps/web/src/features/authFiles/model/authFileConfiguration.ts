@@ -40,6 +40,7 @@ export type AuthFileConfigurationDraft = {
   disableCooling: CoolingPolicy;
   requestRetry: string;
   websockets: boolean;
+  useSiwc?: boolean;
   xaiRoutingMode: XaiRoutingMode;
   baseUrl: string;
   cloakMode: string;
@@ -377,6 +378,7 @@ export const buildAuthFileConfigurationDraft = (
       record.request_retry ?? record['request-retry'] ?? record.requestRetry
     ),
     websockets: readAuthFileWebsockets(record),
+    ...(providerKey === 'codex' ? { useSiwc: record.use_siwc === true } : {}),
     xaiRoutingMode: usingApi ? 'official-api' : 'grok-build',
     baseUrl:
       providerKey === 'xai' && usingApi
@@ -533,6 +535,14 @@ export const buildAuthFileConfigurationPatch = (
 
   if (capabilities.websockets && draft.websockets !== originalDraft.websockets) {
     patch.websockets = draft.websockets;
+  }
+
+  if (
+    normalizeProviderKey(provider) === 'codex' &&
+    draft.useSiwc !== originalDraft.useSiwc &&
+    typeof draft.useSiwc === 'boolean'
+  ) {
+    patch.use_siwc = draft.useSiwc;
   }
 
   if (capabilities.xaiRouting) {

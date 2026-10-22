@@ -175,7 +175,7 @@ func (s *Service) ProxyPluginResourceWithCallerAuth(w http.ResponseWriter, r *ht
 
 func (s *Service) proxyWithSavedManagementKey(w http.ResponseWriter, r *http.Request, writeError func(http.ResponseWriter, int, error)) {
 	if !isManagementPath(r.URL.Path) {
-		writeError(w, http.StatusNotFound, errors.New("proxy path must be under /v0/management/"))
+		writeError(w, http.StatusNotFound, errors.New("proxy path must be under /v0/management/ or /v8/management/"))
 		return
 	}
 	s.proxyToSavedSetup(w, r, writeError, true, false)
@@ -582,7 +582,11 @@ func (s *Service) prepareAuthFileFieldsMutation(
 			requestedSelector,
 		)
 	}
-	if err := rewriteAuthFileFieldsMutationRequest(r, target.Selector); err != nil {
+	selector := target.Selector
+	if strings.TrimRight(r.URL.Path, "/") == "/v8/management/oauth/siwc/bind" {
+		selector = target.File.Name
+	}
+	if err := rewriteAuthFileFieldsMutationRequest(r, selector); err != nil {
 		return authFileOwnershipMutation{}, err
 	}
 	return mutation, nil
@@ -669,6 +673,14 @@ func inspectAuthFileOwnershipMutation(r *http.Request) (authFileOwnershipMutatio
 		return authFileOwnershipMutation{}, nil
 	}
 	path := strings.TrimRight(r.URL.Path, "/")
+	// v8 credential writes retain the same local mutation locks and verified
+	// physical identity as their v0 counterparts; forwarding keeps the v8 URL.
+	if path == "/v8/management/oauth/siwc/bind" && r.Method == http.MethodPost {
+		return readAuthFileFieldsMutation(r)
+	}
+	if path == "/v8/management/credentials" || strings.HasPrefix(path, "/v8/management/credentials/") {
+		path = "/v0/management/auth-files" + strings.TrimPrefix(path, "/v8/management/credentials")
+	}
 	if path != "/v0/management/auth-files" &&
 		path != "/v0/management/auth-files/status" &&
 		path != "/v0/management/auth-files/fields" {
@@ -1418,7 +1430,8 @@ func isManagementPath(path string) bool {
 }
 
 func isStrictManagementPath(path string) bool {
-	return path == "/v0/management" || strings.HasPrefix(path, "/v0/management/")
+	return path == "/v0/management" || strings.HasPrefix(path, "/v0/management/") ||
+		path == "/v8/management" || strings.HasPrefix(path, "/v8/management/")
 }
 
 func IsCPAPluginManagementPath(path string) bool {

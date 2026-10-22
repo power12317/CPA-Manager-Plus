@@ -34,17 +34,18 @@ export const useModelsStore = create<ModelsState>((set, get) => ({
   cache: null,
 
   fetchModels: async (apiBase, apiKey, forceRefresh = false) => {
+    const generation = ++requestGeneration;
     const { cache, isCacheValid } = get();
     const apiKeyScope = apiKey?.trim() || '';
 
     // 检查缓存
     if (!forceRefresh && isCacheValid(apiBase, apiKeyScope) && cache) {
-      set({ models: cache.data, error: null });
+      set({ models: cache.data, error: null, loading: false });
       return cache.data;
     }
 
-    const generation = ++requestGeneration;
-    set({ loading: true, error: null });
+    const sameScope = cache?.apiBase === apiBase && cache.apiKey === apiKeyScope;
+    set({ loading: true, error: null, ...(sameScope ? {} : { models: [], cache: null }) });
 
     try {
       const list = await modelsApi.fetchModels(apiBase, apiKeyScope || undefined);
@@ -69,7 +70,6 @@ export const useModelsStore = create<ModelsState>((set, get) => ({
       set({
         error: message,
         loading: false,
-        models: [],
       });
       throw error;
     }

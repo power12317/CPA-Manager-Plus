@@ -7,6 +7,8 @@ import {
   type AuthFilesApiRequestScope,
 } from '@/services/api';
 import type { AuthFileItem } from '@/types';
+import { apiClient } from '@/services/api/client';
+import { resolveSiwcCredential, siwcApi } from '@/services/api/siwc';
 import { useNotificationStore } from '@/stores';
 import {
   AUTH_FILE_CONFIGURATION_INVALID_JSON,
@@ -151,21 +153,25 @@ export function useAuthFileConfigurationEditor(
     const fileName = targetFile.name;
     const selectionKey = getAuthFileSelectionKey(targetFile);
     const scopeKey = getConfigurationScopeKey(requestConnectionKey, targetFile);
-    setScopedState({
-      scopeKey,
-      value: {
-        authFile: targetFile,
-        fileName,
-        loading: true,
-        saving: false,
-        error: '',
-        record: null,
-        recordIndex: null,
-        providerKey: '',
-        originalDraft: null,
-        draft: null,
-      },
-    });
+    setScopedState((previous) =>
+      previous?.scopeKey === scopeKey && previous.value.record
+        ? { ...previous, value: { ...previous.value, loading: true, error: '' } }
+        : {
+            scopeKey,
+            value: {
+              authFile: targetFile,
+              fileName,
+              loading: true,
+              saving: false,
+              error: '',
+              record: null,
+              recordIndex: null,
+              providerKey: '',
+              originalDraft: null,
+              draft: null,
+            },
+          }
+    );
 
     try {
       const rawText = requestScope
@@ -242,6 +248,8 @@ export function useAuthFileConfigurationEditor(
     !hasErrors &&
     !disableControls &&
     !sharedSourceReadOnly &&
+    !state?.loading &&
+    !state?.error &&
     state?.saving !== true;
   const rawDataText = state?.record ? buildRedactedAuthFileConfigurationText(state.record) : '';
 
@@ -252,7 +260,14 @@ export function useAuthFileConfigurationEditor(
     ) => {
       setScopedState((previous) => {
         if (previous?.scopeKey !== currentScopeKey) return previous;
-        if (sharedSourceReadOnly || !previous.value.draft || previous.value.saving) return previous;
+        if (
+          sharedSourceReadOnly ||
+          !previous.value.draft ||
+          previous.value.saving ||
+          previous.value.error ||
+          previous.value.loading
+        )
+          return previous;
         return {
           ...previous,
           value: {
@@ -287,7 +302,8 @@ export function useAuthFileConfigurationEditor(
     const requestIdSnapshot = requestIdRef.current;
     const providerKeySnapshot = state.providerKey;
     const recordSnapshot = state.record;
-    const patch = patchResult.patch;
+    const { use_siwc: useSiwc, ...patch } = patchResult.patch;
+    const capturedScope = requestScope ?? apiClient.getRequestScope();
     const isCurrentTarget = () => {
       const currentFile = fileRef.current;
       return Boolean(
@@ -331,47 +347,59 @@ export function useAuthFileConfigurationEditor(
       const sourceIdentities = currentFiles
         .filter((entry) => readAuthFileStatusPhysicalName(entry) === targetPhysicalName)
         .map(getAuthFilePatchTarget);
-      if (patch['excluded-models'] !== undefined && hasLegacyExcludedModelsAlias(recordSnapshot)) {
-        // CPA currently reads `excluded_models` before `excluded-models` and
-        // treats PATCH null values as retained metadata keys. Rewrite the
-        // verified source JSON so the legacy key is actually removed; this
-        // prevents a stale legacy list from shadowing the canonical one at
-        // runtime. The helper performs identity and content-hash checks.
-        if (requestScope) {
-          await authFilesApi.patchFieldsForAuthIndexes(
-            resolution.target.name,
-            [patchTarget],
-            sourceIdentities,
-            patch,
-            requestScope
-          );
+      if (Object.keys(patch).length > 0) {
+        if (
+          patch['excluded-models'] !== undefined &&
+          hasLegacyExcludedModelsAlias(recordSnapshot)
+        ) {
+          // CPA currently reads `excluded_models` before `excluded-models` and
+          // treats PATCH null values as retained metadata keys. Rewrite the
+          // verified source JSON so the legacy key is actually removed; this
+          // prevents a stale legacy list from shadowing the canonical one at
+          // runtime. The helper performs identity and content-hash checks.
+          if (requestScope) {
+            await authFilesApi.patchFieldsForAuthIndexes(
+              resolution.target.name,
+              [patchTarget],
+              sourceIdentities,
+              patch,
+              requestScope
+            );
+          } else {
+            await authFilesApi.patchFieldsForAuthIndexes(
+              resolution.target.name,
+              [patchTarget],
+              sourceIdentities,
+              patch
+            );
+          }
         } else {
-          await authFilesApi.patchFieldsForAuthIndexes(
-            resolution.target.name,
-            [patchTarget],
-            sourceIdentities,
-            patch
-          );
+          if (requestScope) {
+            await authFilesApi.patchFieldsWithPluginSourceFallback(
+              patchTarget,
+              patch,
+              sourceIdentities,
+              requestScope
+            );
+          } else {
+            await authFilesApi.patchFieldsWithPluginSourceFallback(
+              patchTarget,
+              patch,
+              sourceIdentities
+            );
+          }
         }
-      } else {
-        if (requestScope) {
-          await authFilesApi.patchFieldsWithPluginSourceFallback(
-            patchTarget,
-            patch,
-            sourceIdentities,
-            requestScope
-          );
-        } else {
-          await authFilesApi.patchFieldsWithPluginSourceFallback(
-            patchTarget,
-            patch,
-            sourceIdentities
-          );
-        }
+        if (!isCurrentTarget()) return;
       }
-      if (!isCurrentTarget()) return;
+      if (useSiwc !== undefined) {
+        const verified = await resolveSiwcCredential(capturedScope, resolution.target);
+        if (!isCurrentTarget()) return;
+        if (useSiwc && verified.file.siwc_bound !== true) throw new Error(t('siwc.bind_first'));
+        await siwcApi.patch(verified.scope, verified.file, { use_siwc: useSiwc });
+        if (!isCurrentTarget()) return;
+      }
 
-      let nextRecord = applyAuthFileFieldsPatchToRecord(recordSnapshot, patch);
+      let nextRecord = applyAuthFileFieldsPatchToRecord(recordSnapshot, patchResult.patch);
       let nextProviderKey = providerKeySnapshot;
       let nextRecordIndex = state.recordIndex;
       let sourceRefreshWarning = '';
@@ -389,8 +417,10 @@ export function useAuthFileConfigurationEditor(
         nextRecordIndex = refreshed.recordIndex;
       } catch (refreshError: unknown) {
         if (!isCurrentTarget()) return;
-        sourceRefreshWarning =
-          refreshError instanceof Error ? refreshError.message : t('common.unknown_error');
+        sourceRefreshWarning = resolveLoadError(refreshError);
+      }
+      if (useSiwc !== undefined && !sourceRefreshWarning && nextRecord.use_siwc !== useSiwc) {
+        throw new Error(t('siwc.readback_failed'));
       }
       const normalizedDraft = buildAuthFileConfigurationDraft(nextRecord, nextProviderKey);
       setScopedState((previous) => {
@@ -406,6 +436,7 @@ export function useAuthFileConfigurationEditor(
             ...previous.value,
             authFile: resolution.target ?? previous.value.authFile,
             saving: false,
+            error: sourceRefreshWarning,
             record: nextRecord,
             recordIndex: nextRecordIndex,
             providerKey: nextProviderKey,
@@ -454,6 +485,7 @@ export function useAuthFileConfigurationEditor(
     patchResult.patch,
     reconcileSource,
     requestScope,
+    resolveLoadError,
     showNotification,
     state,
     t,

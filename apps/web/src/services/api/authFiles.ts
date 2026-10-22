@@ -48,6 +48,7 @@ type AuthFileModelApiItem = {
   owned_by?: string;
 };
 export type AuthFileFieldsPatch = {
+  use_siwc?: boolean;
   expired?: string;
   last_refresh?: string;
   prefix?: string;
@@ -388,7 +389,7 @@ const encodeAuthFileIdentityTargets = (identityTargets: AuthFileStatusTarget[]):
   return normalized.length > 0 ? encodeURIComponent(JSON.stringify(normalized)) : '';
 };
 
-const buildAuthFileIdentityHeaders = (
+export const buildAuthFileIdentityHeaders = (
   headerName: string,
   identityTargets: AuthFileStatusTarget[]
 ): Record<string, string> => {
@@ -832,6 +833,10 @@ export const applyAuthFileFieldsPatchToRecord = (
   if (fields.websockets !== undefined) {
     delete next.websocket;
     next.websockets = fields.websockets;
+  }
+
+  if (fields.use_siwc !== undefined) {
+    next.use_siwc = fields.use_siwc;
   }
 
   if (fields.using_api !== undefined) {

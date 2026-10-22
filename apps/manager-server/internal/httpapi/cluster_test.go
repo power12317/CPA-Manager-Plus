@@ -173,6 +173,15 @@ func TestClusterScopedProxyCredentialsEncryptionAndRestart(t *testing.T) {
 		t.Fatal("child archive directory inherited root storage")
 	}
 	childRuntime.startup.Wait()
+	childRuntime.mu.RLock()
+	childRecovery := childRuntime.server.appCtx.QuotaCooldownRecoveryService
+	childRuntime.mu.RUnlock()
+	if childRecovery == nil || childRecovery == server.appCtx.QuotaCooldownRecoveryService {
+		t.Fatal("child cooldown recovery is missing or inherited from root")
+	}
+	if recovered, err := childRecovery.RecoverOwnedCooldown(ctx, "same.json", "1", "codex"); err != nil || recovered {
+		t.Fatalf("empty child cooldown recovery = %v, %v", recovered, err)
+	}
 	if childRuntime.retention != nil {
 		t.Fatal("automatic archive deletion must be disabled by default")
 	}
@@ -215,6 +224,11 @@ func TestClusterScopedProxyCredentialsEncryptionAndRestart(t *testing.T) {
 	for _, endpoint := range []string{"usage/maintenance", "usage/archives", "usage/archives/preview", "usage/archives/same-id/delete", "usage/import-sessions", "usage/import-sessions/same-id/complete"} {
 		for _, method := range []string{"GET", "POST", "DELETE", "HEAD"} {
 			testutil.RequireStatus(t, request(method, "/api/aggregate/v0/management/"+endpoint, "", "admin-secret"), http.StatusConflict)
+		}
+	}
+	for _, endpoint := range []string{"credentials", "credentials/fields", "oauth/siwc/bind", "oauth/status", "oauth/session"} {
+		for _, method := range []string{"GET", "POST", "PATCH", "DELETE"} {
+			testutil.RequireStatus(t, request(method, "/api/aggregate/v8/management/"+endpoint, "", "admin-secret"), http.StatusConflict)
 		}
 	}
 	archive, err := childRuntime.server.appCtx.UsageService.CreateArchive(ctx, now+2000)
@@ -337,6 +351,17 @@ func TestClusterScopedProxyCredentialsEncryptionAndRestart(t *testing.T) {
 	}
 	if _, err := service2.Save(ctx, id, clustersvc.Input{Name: "B restored", BaseURL: b.URL, Enabled: true}); err != nil {
 		t.Fatal(err)
+	}
+	restartedChild, err := service2.Runtime(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restartedRuntime := restartedChild.(*instanceRuntime)
+	restartedRuntime.mu.RLock()
+	restartedRecovery := restartedRuntime.server.appCtx.QuotaCooldownRecoveryService
+	restartedRuntime.mu.RUnlock()
+	if restartedRecovery == nil || restartedRecovery == childRecovery || restartedRecovery == restarted.appCtx.QuotaCooldownRecoveryService {
+		t.Fatal("restarted child did not bind its own fresh cooldown recovery worker")
 	}
 	restored := testutil.Request(t, restarted.Handler(), "GET", "/tools/cpamp"+path+"/v0/management/config", "", "rotated-admin")
 	testutil.RequireStatus(t, restored, 200)

@@ -1,0 +1,17 @@
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+
+  p {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}

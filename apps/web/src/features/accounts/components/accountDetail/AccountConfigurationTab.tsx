@@ -5,6 +5,8 @@ import { Input } from '@/components/ui/Input';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { Select } from '@/components/ui/Select';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
+import { SiwcCredentialToggle } from '@/features/oauth/siwc/SiwcCredentialToggle';
+import type { ApiClientRequestScope } from '@/services/api/client';
 import { CoolingPolicySelect } from '@/components/providers/CoolingPolicySelect';
 import { IconCode, IconCopy, IconRefreshCw } from '@/components/ui/icons';
 import type { AccountRow } from '@/features/accounts/model/accountRows';
@@ -23,6 +25,7 @@ type AccountConfigurationTabProps = {
   row: AccountRow;
   disableControls: boolean;
   editor: UseAuthFileConfigurationEditorResult;
+  requestScope?: ApiClientRequestScope;
   onCopyText: (text: string) => void | Promise<void>;
 };
 
@@ -30,6 +33,7 @@ export function AccountConfigurationTab({
   row,
   disableControls,
   editor,
+  requestScope,
   onCopyText,
 }: AccountConfigurationTabProps) {
   const { t } = useTranslation();
@@ -46,7 +50,12 @@ export function AccountConfigurationTab({
   } = editor;
   const capabilities = getAuthFileConfigurationCapabilities(state?.providerKey || row.provider);
   const providerLabel = getProviderLabel(state?.providerKey || row.provider, t);
-  const disabled = disableControls || sharedSourceReadOnly || state?.saving === true;
+  const disabled =
+    disableControls ||
+    sharedSourceReadOnly ||
+    Boolean(state?.error) ||
+    state?.saving === true ||
+    state?.loading === true;
   const reloadAndRestoreFocus = () => {
     void editor.reload().then(() => {
       if (typeof window === 'undefined') return;
@@ -90,7 +99,7 @@ export function AccountConfigurationTab({
     );
   }
 
-  if (!state || state.loading) {
+  if (!state || (state.loading && !state.record)) {
     return (
       <div className={styles.configurationLoading} role="status" aria-live="polite">
         <span>{t('accounts.config_loading')}</span>
@@ -98,7 +107,7 @@ export function AccountConfigurationTab({
     );
   }
 
-  if (state.error || !draft || !state.record) {
+  if (!draft || !state.record) {
     return (
       <div className={styles.drawerDetailStack}>
         <section className={styles.drawerSection}>
@@ -127,7 +136,23 @@ export function AccountConfigurationTab({
       data-provider={state.providerKey}
       role="region"
       aria-label={t('accounts.detail_tab_config')}
+      aria-busy={state.loading}
     >
+      {state.error ? (
+        <div className={styles.configurationLoadError} role="alert">
+          <span>{state.error}</span>
+          <Button
+            variant="secondary"
+            size="sm"
+            id={reloadButtonId}
+            data-account-config-reload="retry"
+            onClick={reloadAndRestoreFocus}
+          >
+            <IconRefreshCw size={14} />
+            {t('common.retry')}
+          </Button>
+        </div>
+      ) : null}
       <div className={styles.configurationToolbar}>
         {dirty ? (
           <span className={styles.configurationDirtyBadge} role="status">
@@ -276,6 +301,16 @@ export function AccountConfigurationTab({
                 ariaLabel={t('auth_files.websockets_label')}
               />
             </div>
+          ) : null}
+
+          {state.providerKey === 'codex' ? (
+            <SiwcCredentialToggle
+              file={state.authFile}
+              requestScope={requestScope}
+              checked={draft.useSiwc === true}
+              disabled={disabled}
+              onChange={(value) => editor.updateField('useSiwc', value)}
+            />
           ) : null}
 
           {capabilities.claudeCloak ? (

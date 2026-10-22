@@ -12,6 +12,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { SiwcOAuthEntry } from './siwc/SiwcBindDialog';
 import {
   publishAccountCredentialMutationRevision,
   useAuthStore,
@@ -1202,6 +1203,9 @@ export function OAuthPage() {
               >
                 <div className={styles.cardContent}>
                   <div className={styles.cardHint}>{provider.hint}</div>
+                  {provider.id === 'codex' ? (
+                    <SiwcOAuthEntry key={connectionFingerprint} requestScope={requestScope} disabled={connectionStatus !== 'connected'} />
+                  ) : null}
                   {state.url && (
                     <div className={styles.authUrlBox}>
                       <div className={styles.authUrlLabel}>{provider.urlLabel}</div>

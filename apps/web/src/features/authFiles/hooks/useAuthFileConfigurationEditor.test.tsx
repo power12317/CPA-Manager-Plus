@@ -27,9 +27,16 @@ const { mocks } = vi.hoisted(() => ({
     showNotification: vi.fn(),
     reconcileSource: vi.fn(async (_name?: string): Promise<void> => undefined),
     onSaved: vi.fn(),
+    resolveSiwcCredential: vi.fn(),
+    patchSiwc: vi.fn(),
     t: (key: string, options?: { name?: string }) =>
       options?.name ? `${key}:${options.name}` : key,
   },
+}));
+
+vi.mock('@/services/api/siwc', () => ({
+  resolveSiwcCredential: mocks.resolveSiwcCredential,
+  siwcApi: { patch: mocks.patchSiwc },
 }));
 
 vi.mock('react-i18next', () => ({
@@ -86,6 +93,48 @@ describe('useAuthFileConfigurationEditor', () => {
   let renderer: ReactTestRenderer | null = null;
   let latest: UseAuthFileConfigurationEditorResult | null = null;
 
+  it('keeps a same-credential draft and source visible while revalidating and after failure', async () => {
+    await act(async () => {
+      renderer = create(<Harness />);
+    });
+    await flush();
+    const previous = latest!.draft;
+    const next = createDeferred<string>();
+    mocks.downloadText.mockReturnValueOnce(next.promise);
+    let pending!: Promise<void>;
+    act(() => {
+      pending = latest!.reload();
+    });
+    expect(latest!.state?.loading).toBe(true);
+    expect(latest!.draft).toEqual(previous);
+    expect(latest!.rawDataText).toContain('old');
+    await act(async () => {
+      next.reject(new Error('offline'));
+      await pending;
+    });
+    expect(latest!.state?.error).toBe('offline');
+    expect(latest!.draft).toEqual(previous);
+    expect(latest!.rawDataText).toContain('old');
+    act(() => latest!.updateField('note', 'blocked draft'));
+    expect(latest!.draft).toEqual(previous);
+    expect(latest!.dirty).toBe(false);
+    expect(latest!.canSave).toBe(false);
+    await act(async () => {
+      await latest!.reload();
+    });
+    act(() => latest!.updateField('note', 'recovered edit'));
+    expect(latest!.dirty).toBe(true);
+    expect(latest!.canSave).toBe(true);
+    await act(async () => {
+      await latest!.save();
+    });
+    expect(mocks.patchFieldsWithPluginSourceFallback).toHaveBeenCalledWith(
+      expect.anything(),
+      { note: 'recovered edit' },
+      expect.anything()
+    );
+  });
+
   function Harness({
     enabled = true,
     activeFile = file,
@@ -124,6 +173,8 @@ describe('useAuthFileConfigurationEditor', () => {
     mocks.reconcileSource.mockReset();
     mocks.reconcileSource.mockResolvedValue(undefined);
     mocks.onSaved.mockReset();
+    mocks.resolveSiwcCredential.mockReset();
+    mocks.patchSiwc.mockReset().mockResolvedValue({ status: 'ok' });
     mocks.downloadText.mockResolvedValue(
       JSON.stringify({
         type: 'xai',
@@ -142,6 +193,83 @@ describe('useAuthFileConfigurationEditor', () => {
 
   afterEach(() => {
     act(() => renderer?.unmount());
+  });
+
+  it('keeps SIWC as a draft until Save and patches only the verified credential flag', async () => {
+    const codex = {
+      name: 'codex.json',
+      id: 'codex.json',
+      type: 'codex',
+      auth_index: '1',
+      siwc_bind_supported: true,
+      siwc_bound: true,
+    };
+    const record = {
+      type: 'codex',
+      auth_index: '1',
+      use_siwc: true,
+      siwc: { access_token: 'preserve-binding' },
+    };
+    setDownloadedRecord(record);
+    mocks.lookup.mockResolvedValue([codex]);
+    mocks.resolveSiwcCredential.mockResolvedValue({
+      scope: { apiBase: 'https://cpa', managementKey: 'key' },
+      file: codex,
+    });
+    await act(async () => {
+      renderer = create(<Harness activeFile={codex} />);
+    });
+    await flush();
+    act(() => latest!.updateField('useSiwc', false));
+    expect(latest!.dirty).toBe(true);
+    expect(mocks.patchSiwc).not.toHaveBeenCalled();
+    act(() => latest!.reset());
+    expect(latest!.dirty).toBe(false);
+    act(() => latest!.updateField('useSiwc', false));
+    setDownloadedRecord({ ...record, use_siwc: false });
+    await act(async () => {
+      await latest!.save();
+    });
+    expect(mocks.patchSiwc).toHaveBeenCalledExactlyOnceWith(
+      { apiBase: 'https://cpa', managementKey: 'key' },
+      codex,
+      { use_siwc: false }
+    );
+    expect(mocks.patchFieldsWithPluginSourceFallback).not.toHaveBeenCalled();
+    expect(mocks.patchFieldsForAuthIndexes).not.toHaveBeenCalled();
+    expect(latest!.state?.record?.siwc).toEqual(record.siwc);
+    expect(latest!.dirty).toBe(false);
+  });
+
+  it('retains an unsaved SIWC draft when CPA rejects the flag', async () => {
+    const codex = {
+      name: 'codex.json',
+      type: 'codex',
+      auth_index: '1',
+      siwc_bind_supported: true,
+      siwc_bound: true,
+    };
+    setDownloadedRecord({ type: 'codex', auth_index: '1', use_siwc: false });
+    mocks.lookup.mockResolvedValue([codex]);
+    mocks.resolveSiwcCredential.mockResolvedValue({
+      scope: { apiBase: 'https://cpa', managementKey: 'key' },
+      file: codex,
+    });
+    mocks.patchSiwc.mockRejectedValue(new Error('rejected'));
+    await act(async () => {
+      renderer = create(<Harness activeFile={codex} />);
+    });
+    await flush();
+    act(() => latest!.updateField('useSiwc', true));
+    await act(async () => {
+      await latest!.save();
+    });
+    expect(latest!.dirty).toBe(true);
+    expect(latest!.draft?.useSiwc).toBe(true);
+    expect(mocks.showNotification).not.toHaveBeenCalledWith(
+      'accounts.config_saved_success',
+      'success'
+    );
   });
 
   it('loads, saves a minimal identity-verified patch, and keeps the editor open', async () => {
@@ -622,7 +750,7 @@ describe('useAuthFileConfigurationEditor', () => {
     expect(latest?.dirty).toBe(false);
   });
 
-  it('retains successful save with fallback draft and download warning when raw download fails', async () => {
+  it('keeps a successful save visible but read-only until the failed source reload recovers', async () => {
     await act(async () => {
       renderer = create(<Harness />);
       await Promise.resolve();
@@ -638,6 +766,14 @@ describe('useAuthFileConfigurationEditor', () => {
 
     expect(latest?.dirty).toBe(false);
     expect(latest?.draft?.note).toBe('updated-note');
+    expect(latest?.state?.error).toBe('raw download network error');
+    expect(latest?.canSave).toBe(false);
+    act(() => latest?.updateField('note', 'blocked-unverified-edit'));
+    expect(latest?.draft?.note).toBe('updated-note');
+    await act(async () => {
+      await latest?.save();
+    });
+    expect(mocks.patchFieldsWithPluginSourceFallback).toHaveBeenCalledTimes(1);
     expect(mocks.showNotification).toHaveBeenCalledWith('accounts.config_saved_success', 'success');
     expect(mocks.showNotification).toHaveBeenCalledWith(
       expect.stringContaining('notification.download_failed'),
@@ -645,6 +781,21 @@ describe('useAuthFileConfigurationEditor', () => {
     );
     expect(mocks.reconcileSource).toHaveBeenCalledWith('xai.json');
     expect(mocks.onSaved).toHaveBeenCalledWith('xai.json');
+
+    setDownloadedRecord({
+      type: 'xai',
+      auth_index: 'auth-1',
+      account_id: 'account-1',
+      note: 'updated-note',
+    });
+    await act(async () => {
+      await latest?.reload();
+    });
+
+    expect(latest?.state?.error).toBe('');
+    act(() => latest?.updateField('note', 'recovered-edit'));
+    expect(latest?.dirty).toBe(true);
+    expect(latest?.canSave).toBe(true);
     expect(mocks.list).not.toHaveBeenCalled();
   });
 
@@ -678,6 +829,10 @@ describe('useAuthFileConfigurationEditor', () => {
       expect.stringContaining('notification.update_failed'),
       'error'
     );
+    expect(latest?.state?.error).toBe('');
+    act(() => latest?.updateField('note', 'second-edit-after-reconcile-warning'));
+    expect(latest?.dirty).toBe(true);
+    expect(latest?.canSave).toBe(true);
     expect(mocks.list).not.toHaveBeenCalled();
   });
 
@@ -698,6 +853,8 @@ describe('useAuthFileConfigurationEditor', () => {
 
     expect(latest?.dirty).toBe(false);
     expect(latest?.draft?.note).toBe('updated-note');
+    expect(latest?.state?.error).toBe('raw download failed');
+    expect(latest?.canSave).toBe(false);
     expect(mocks.showNotification).toHaveBeenCalledWith('accounts.config_saved_success', 'success');
     expect(mocks.showNotification).toHaveBeenCalledWith(
       expect.stringContaining('notification.download_failed'),

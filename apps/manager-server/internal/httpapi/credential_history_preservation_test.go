@@ -21,6 +21,7 @@ import (
 
 func verifyMacBaselinePreservedWithoutRebuild(t *testing.T, count int, withDevin ...bool) {
 	t.Helper()
+	canonical := len(withDevin) > 1 && withDevin[1]
 	ctx := context.Background()
 	cfg := testutil.NewConfig(t)
 	st := testutil.NewStore(t, cfg)
@@ -166,6 +167,27 @@ func verifyMacBaselinePreservedWithoutRebuild(t *testing.T, count int, withDevin
 			exec(`insert into usage_events(event_hash,timestamp_ms,timestamp,model,provider,executor_type,auth_provider_snapshot,auth_file_snapshot,auth_index,system,input_tokens,output_tokens,cached_tokens,cache_read_tokens,cache_input_mode,normalized_uncached_input_tokens,normalized_total_input_tokens,normalized_cache_read_tokens,normalized_cache_creation_tokens,total_tokens,raw_json,created_at_ms)
 			values (?,?,'2027-01-15T00:00:01Z','devin-model','devin','DevinExecutor','devin','devin.json','devin-auth',?,100,5,80,80,'separate_from_input',100,180,80,0,105,'{"tokens":{"input_tokens":100,"output_tokens":5,"cached_tokens":80,"cache_read_tokens":80,"total_tokens":105}}',1)`, canonicalCompatEventHash(fmt.Sprintf("devin-%d", i)), from+int64(count)+3+int64(i), system)
 		}
+		correctionProvider, correctionCount := "devin", 2
+		if canonical {
+			exec(`delete from usage_events where provider='devin'`)
+			exec(`update settings set value='2' where key='usage_cache_accounting_semantics_revision'`)
+			correctionProvider, correctionCount = "unknown-provider", count
+			const canonicalRaw = `{"tokens":{"total_tokens":105},"accounting_version":2,"token_breakdown":{"schema_version":2,"quality":"complete","total_tokens":105,"input":{"total_tokens":100,"uncached_tokens":20,"cache_read_tokens":80,"cache_write_tokens":0},"output":{"total_tokens":5,"non_reasoning_tokens":5,"reasoning_tokens":0},"unclassified_tokens":0}}`
+			exec(`with recursive ids(n) as (select 1 union all select n+1 from ids where n < ?)
+				insert into usage_events(event_hash,timestamp_ms,timestamp,model,provider,executor_type,auth_provider_snapshot,auth_file_snapshot,auth_index,system,input_tokens,output_tokens,cached_tokens,cache_read_tokens,cache_input_mode,normalized_uncached_input_tokens,normalized_total_input_tokens,normalized_cache_read_tokens,normalized_cache_creation_tokens,total_tokens,raw_json,created_at_ms)
+				select printf('canonical-%064x',n),?+n,'2027-01-15T00:00:01Z','custom-model','unknown-provider','executorAdapter','unknown-provider','canonical.json','canonical-auth','mac',100,5,80,80,'separate_from_input',100,180,80,0,105,?,1 from ids`, count, from+int64(count)+5, canonicalRaw)
+			// Every input and identity column is immutable; only the six approved
+			// derived accounting columns may change, even across interrupted batches.
+			exec(`create trigger protect_canonical_input before update on usage_events when old.provider='unknown-provider' and (
+				new.id<>old.id or new.event_hash<>old.event_hash or new.timestamp_ms<>old.timestamp_ms or new.timestamp<>old.timestamp
+				or new.provider<>old.provider or new.executor_type<>old.executor_type or new.model<>old.model
+				or new.auth_provider_snapshot<>old.auth_provider_snapshot or new.auth_file_snapshot<>old.auth_file_snapshot
+				or new.auth_index<>old.auth_index or new.system<>old.system or new.raw_json<>old.raw_json
+				or new.input_tokens<>old.input_tokens or new.output_tokens<>old.output_tokens or new.reasoning_tokens<>old.reasoning_tokens
+				or new.cached_tokens<>old.cached_tokens or new.cache_tokens<>old.cache_tokens
+				or new.cache_read_tokens<>old.cache_read_tokens or new.cache_creation_tokens<>old.cache_creation_tokens
+			) begin select raise(abort,'canonical source changed'); end`)
+		}
 		if _, err := st.CatchUpAccountHistoryRollups(ctx, 100, time.Now().UnixMilli()); err != nil {
 			t.Fatal(err)
 		}
@@ -192,7 +214,7 @@ func verifyMacBaselinePreservedWithoutRebuild(t *testing.T, count int, withDevin
 		}
 		probe()
 		restarted := false
-		for batch := 0; batch < count/256+100; batch++ {
+		for batch := 0; batch < count/256*4+200; batch++ {
 			result, err := st.RunUsageCacheAccountingBatch(ctx, 256)
 			if err != nil {
 				t.Fatal(err)
@@ -249,19 +271,30 @@ func verifyMacBaselinePreservedWithoutRebuild(t *testing.T, count int, withDevin
 			t.Fatalf("completed rebuild retained preservation markers: %d %v", remaining, err)
 		}
 		var corrected int
-		if err := db.QueryRow(`select count(*) from usage_events where provider='devin' and cache_input_mode='read_included_creation_separate' and normalized_total_input_tokens=100 and normalized_uncached_input_tokens=20 and total_tokens=105`).Scan(&corrected); err != nil || corrected != 2 {
-			t.Fatalf("Devin correction failed: %d %v", corrected, err)
+		mode := "read_included_creation_separate"
+		if canonical {
+			mode = "included_in_input"
 		}
-		devin, err := monitoring.New(st).AccountHistory(ctx, monitoring.AccountHistoryRequest{Accounts: []monitoring.AccountHistoryTarget{
-			{RowKey: "a", System: "mac", AuthFileSnapshot: "devin.json", AuthIndex: "devin-auth", AuthProviderSnapshot: "devin"},
-			{RowKey: "b", System: "windows", AuthFileSnapshot: "devin.json", AuthIndex: "devin-auth", AuthProviderSnapshot: "devin"},
-		}})
-		if err != nil || len(devin.Items) != 2 {
-			t.Fatalf("Devin history: %+v %v", devin, err)
+		if err := db.QueryRow(`select count(*) from usage_events where provider=? and cache_input_mode=? and normalized_total_input_tokens=100 and normalized_uncached_input_tokens=20 and total_tokens=105`, correctionProvider, mode).Scan(&corrected); err != nil || corrected != correctionCount {
+			t.Fatalf("accounting correction failed: %d %v", corrected, err)
 		}
-		for _, item := range devin.Items {
-			if item.TotalRequests != 2 || item.TotalTokens != 210 {
-				t.Fatalf("Devin was platform-split: %+v", item)
+		if canonical {
+			var totalRows int
+			if err := db.QueryRow(`select count(*) from usage_events`).Scan(&totalRows); err != nil || totalRows != count*2+2 {
+				t.Fatalf("event count changed: %d %v", totalRows, err)
+			}
+		} else {
+			devin, err := monitoring.New(st).AccountHistory(ctx, monitoring.AccountHistoryRequest{Accounts: []monitoring.AccountHistoryTarget{
+				{RowKey: "a", System: "mac", AuthFileSnapshot: "devin.json", AuthIndex: "devin-auth", AuthProviderSnapshot: "devin"},
+				{RowKey: "b", System: "windows", AuthFileSnapshot: "devin.json", AuthIndex: "devin-auth", AuthProviderSnapshot: "devin"},
+			}})
+			if err != nil || len(devin.Items) != 2 {
+				t.Fatalf("Devin history: %+v %v", devin, err)
+			}
+			for _, item := range devin.Items {
+				if item.TotalRequests != 2 || item.TotalTokens != 210 {
+					t.Fatalf("Devin was platform-split: %+v", item)
+				}
 			}
 		}
 		live.Close()
@@ -296,4 +329,8 @@ func TestMacBaselinePreservesCheckpointsAndWindowsStartsEmpty(t *testing.T) {
 
 func TestDevinAccountingPreservesCodexBaselineAcrossRestart(t *testing.T) {
 	verifyMacBaselinePreservedWithoutRebuild(t, 1000, true)
+}
+
+func TestCanonicalAccountingPreservesCodexBaselineAcrossRestart(t *testing.T) {
+	verifyMacBaselinePreservedWithoutRebuild(t, 1000, true, true)
 }

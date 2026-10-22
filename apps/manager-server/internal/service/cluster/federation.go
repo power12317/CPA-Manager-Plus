@@ -28,6 +28,11 @@ const machinePrefix = "@cpamp/"
 var ErrInstanceRequired = errors.New("select one instance for usage maintenance")
 
 func RequiresInstance(path string) bool {
+	// v8 OAuth sessions and credential mutations are scoped to one CPA. Do not
+	// broadcast discovery, status, or writes even when an aggregate hint exists.
+	if path == "/v8/management" || strings.HasPrefix(path, "/v8/management/") {
+		return true
+	}
 	for _, prefix := range []string{"/v0/management/usage/maintenance", "/v0/management/usage/archives", "/v0/management/usage/import-sessions"} {
 		if path == prefix || strings.HasPrefix(path, prefix+"/") {
 			return true

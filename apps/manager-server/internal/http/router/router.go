@@ -55,6 +55,7 @@ func New(appCtx *app.Context) http.Handler {
 	mux.HandleFunc("/v0/management/admin-key", middleware.WithCORS(appCtx.Config, managerConfigHandler.ChangeAdminKey))
 	mux.HandleFunc("/usage-service/account-processing-policy", middleware.WithCORS(appCtx.Config, automationHandler.Handle))
 	mux.HandleFunc("/usage-service/quota-cooldowns", middleware.WithCORS(appCtx.Config, quotaCooldownHandler.Handle))
+	mux.HandleFunc("/usage-service/quota-cooldowns/", middleware.WithCORS(appCtx.Config, quotaCooldownHandler.Handle))
 	mux.HandleFunc("/setup", middleware.WithCORS(appCtx.Config, setupHandler.Setup))
 	mux.HandleFunc("/management.html", panelHandler.ManagementHTML)
 	mux.HandleFunc("/favicon.ico", panelHandler.Favicon)
@@ -122,7 +123,7 @@ func rootHandler(
 			middleware.WithCORS(appCtx.Config, managerConfigHandler.ValidateCPAConnection)(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/v0/management/") {
+		if strings.HasPrefix(r.URL.Path, "/v0/management/") || strings.HasPrefix(r.URL.Path, "/v8/management/") {
 			middleware.WithCORS(appCtx.Config, proxyHandler.Management)(w, r)
 			return
 		}

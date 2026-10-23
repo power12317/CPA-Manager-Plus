@@ -24,9 +24,9 @@
     "failed": "綁定失敗，請關閉後重試。",
     "expired": "授權工作階段已過期，請關閉後重新綁定。",
     "use": "使用 SIWC",
-    "use_hint": "儲存後套用。關閉只停用 SIWC，保留現有綁定。",
+    "use_hint": "關閉時保留現有綁定。",
     "allow_codex_client": "Codex 用戶端使用 SIWC",
-    "allow_codex_client_hint": "開啟時原生 Codex 用戶端遵循「使用 SIWC」；關閉時一律使用一般 OAuth。其他用戶端不受影響，儲存後生效。",
+    "allow_codex_client_hint": "開啟時遵循「使用 SIWC」；關閉時使用一般 OAuth。",
     "settings_readback_failed": "無法讀回確認 SIWC 設定，修改仍保留為未儲存。請重新讀取或重試儲存。",
     "bind_first": "請先在 OAuth 登入頁綁定 SIWC，再啟用此項。"
   },

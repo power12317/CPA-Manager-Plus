@@ -302,7 +302,11 @@ export function useAuthFileConfigurationEditor(
     const requestIdSnapshot = requestIdRef.current;
     const providerKeySnapshot = state.providerKey;
     const recordSnapshot = state.record;
-    const { use_siwc: useSiwc, ...patch } = patchResult.patch;
+    const {
+      use_siwc: useSiwc,
+      allow_codex_client_siwc: allowCodexClientSiwc,
+      ...patch
+    } = patchResult.patch;
     const capturedScope = requestScope ?? apiClient.getRequestScope();
     const isCurrentTarget = () => {
       const currentFile = fileRef.current;
@@ -391,12 +395,17 @@ export function useAuthFileConfigurationEditor(
         }
         if (!isCurrentTarget()) return;
       }
-      if (useSiwc !== undefined) {
+      let siwcReadbackTarget: Awaited<ReturnType<typeof resolveSiwcCredential>> | undefined;
+      if (useSiwc !== undefined || allowCodexClientSiwc !== undefined) {
         const verified = await resolveSiwcCredential(capturedScope, resolution.target);
         if (!isCurrentTarget()) return;
         if (useSiwc && verified.file.siwc_bound !== true) throw new Error(t('siwc.bind_first'));
-        await siwcApi.patch(verified.scope, verified.file, { use_siwc: useSiwc });
+        await siwcApi.patch(verified.scope, verified.file, {
+          use_siwc: useSiwc,
+          allow_codex_client_siwc: allowCodexClientSiwc,
+        });
         if (!isCurrentTarget()) return;
+        siwcReadbackTarget = verified;
       }
 
       let nextRecord = applyAuthFileFieldsPatchToRecord(recordSnapshot, patchResult.patch);
@@ -404,13 +413,15 @@ export function useAuthFileConfigurationEditor(
       let nextRecordIndex = state.recordIndex;
       let sourceRefreshWarning = '';
       try {
-        const refreshedRawText = requestScope
-          ? await authFilesApi.downloadText(fileName, requestScope)
-          : await authFilesApi.downloadText(fileName);
+        const refreshedRawText = siwcReadbackTarget
+          ? await authFilesApi.downloadText(siwcReadbackTarget.file.name, siwcReadbackTarget.scope)
+          : requestScope
+            ? await authFilesApi.downloadText(fileName, requestScope)
+            : await authFilesApi.downloadText(fileName);
         if (!isCurrentTarget()) return;
         const refreshed = parseAuthFileConfigurationSource(
           refreshedRawText,
-          resolution.target ?? targetSnapshot
+          siwcReadbackTarget?.file ?? resolution.target ?? targetSnapshot
         );
         nextRecord = refreshed.record;
         nextProviderKey = refreshed.providerKey;
@@ -419,8 +430,13 @@ export function useAuthFileConfigurationEditor(
         if (!isCurrentTarget()) return;
         sourceRefreshWarning = resolveLoadError(refreshError);
       }
-      if (useSiwc !== undefined && !sourceRefreshWarning && nextRecord.use_siwc !== useSiwc) {
-        throw new Error(t('siwc.readback_failed'));
+      if (
+        siwcReadbackTarget &&
+        (sourceRefreshWarning ||
+          nextRecord.use_siwc !== useSiwc ||
+          (nextRecord.allow_codex_client_siwc !== false) !== allowCodexClientSiwc)
+      ) {
+        throw new Error(t('siwc.settings_readback_failed'));
       }
       const normalizedDraft = buildAuthFileConfigurationDraft(nextRecord, nextProviderKey);
       setScopedState((previous) => {

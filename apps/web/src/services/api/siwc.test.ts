@@ -30,7 +30,7 @@ describe('temporary SIWC official v8 adapter', () => {
     await siwcApi.callback(scope, callback, signal);
     await siwcApi.status(scope, 's', signal);
     await siwcApi.cancel(scope, 's');
-    await siwcApi.patch(scope, file, { use_siwc: false });
+    await siwcApi.patch(scope, file, { use_siwc: false, allow_codex_client_siwc: false });
     for (const spy of [get, post, patch, remove])
       for (const call of spy.mock.calls) {
         expect(call[call.length - 1]).toMatchObject({
@@ -46,7 +46,7 @@ describe('temporary SIWC official v8 adapter', () => {
     );
     expect(patch).toHaveBeenCalledWith(
       '/credentials/fields',
-      { name: 'same.json', use_siwc: false },
+      { name: 'same.json', use_siwc: false, allow_codex_client_siwc: false },
       expect.anything()
     );
     expect(JSON.stringify(post.mock.calls)).not.toContain('codex-runtime');

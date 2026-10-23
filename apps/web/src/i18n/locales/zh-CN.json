@@ -25,6 +25,9 @@
     "expired": "授权会话已过期，请关闭后重新绑定。",
     "use": "使用 SIWC",
     "use_hint": "保存后应用。关闭只停用 SIWC，保留已有绑定。",
+    "allow_codex_client": "Codex 客户端使用 SIWC",
+    "allow_codex_client_hint": "开启时原生 Codex 客户端遵循“使用 SIWC”；关闭时始终使用普通 OAuth。其他客户端不受影响，保存后生效。",
+    "settings_readback_failed": "未能读回确认 SIWC 设置，修改仍保留为未保存。请重新读取或重试保存。",
     "bind_first": "请先在 OAuth 登录页绑定 SIWC，再启用此项。"
   },
   "codex_runtime": {

@@ -2,10 +2,12 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -94,14 +96,27 @@ func TestSIWCScopedV8ProxyAndCredentialIdentity(t *testing.T) {
 				{"POST", "/oauth/callback", `{"provider":"codex","redirect_url":"http://127.0.0.1:1455/auth/callback?code=a%2Bb&state=s&client_id=issued"}`, ""},
 				{"GET", "/oauth/status?state=s", "", ""},
 				{"DELETE", "/oauth/session?state=s", "", ""},
-				{"PATCH", "/credentials/fields", `{"name":"same.json","use_siwc":false}`, "1"},
+				{"PATCH", "/credentials/fields", `{"name":"same.json","use_siwc":true,"allow_codex_client_siwc":false}`, "1"},
+				{"PATCH", "/credentials/fields", `{"name":"same.json","use_siwc":false,"allow_codex_client_siwc":true}`, "1"},
 			} {
 				testutil.RequireStatus(t, request(tc.method, tc.path, tc.body, tc.identity, testutil.AdminKey), http.StatusOK)
 				mu.Lock()
 				got := forwarded[len(forwarded)-1]
 				mu.Unlock()
-				if got != tc.method+" /v8/management"+tc.path+" "+tc.body {
+				prefix := tc.method + " /v8/management" + tc.path + " "
+				if !strings.HasPrefix(got, prefix) {
 					t.Fatalf("official v8 payload changed: %s", got)
+				}
+				body := strings.TrimPrefix(got, prefix)
+				if tc.body == "" {
+					if body != "" {
+						t.Fatalf("unexpected request body: %s", body)
+					}
+				} else {
+					var actual, expected any
+					if json.Unmarshal([]byte(body), &actual) != nil || json.Unmarshal([]byte(tc.body), &expected) != nil || !reflect.DeepEqual(actual, expected) {
+						t.Fatalf("official v8 payload changed: %s", got)
+					}
 				}
 			}
 			mu.Lock()
@@ -109,7 +124,7 @@ func TestSIWCScopedV8ProxyAndCredentialIdentity(t *testing.T) {
 			mu.Unlock()
 			for _, tc := range []struct{ method, path, body string }{
 				{"POST", "/oauth/siwc/bind", `{"name":"same.json"}`},
-				{"PATCH", "/credentials/fields", `{"name":"same.json","use_siwc":true}`},
+				{"PATCH", "/credentials/fields", `{"name":"same.json","use_siwc":true,"allow_codex_client_siwc":false}`},
 			} {
 				response := request(tc.method, tc.path, tc.body, "replaced-auth-index", testutil.AdminKey)
 				if response.Code != http.StatusConflict && response.Code != http.StatusNotFound {

@@ -2,6 +2,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthFileItem } from '@/types';
+import type { ApiClientRequestScope } from '@/services/api/client';
 import {
   useAuthFileConfigurationEditor,
   type UseAuthFileConfigurationEditorResult,
@@ -140,11 +141,13 @@ describe('useAuthFileConfigurationEditor', () => {
     activeFile = file,
     connectionKey = 'connection-a',
     sourceMemberCount = 1,
+    requestScope,
   }: {
     enabled?: boolean;
     activeFile?: AuthFileItem;
     connectionKey?: string;
     sourceMemberCount?: number;
+    requestScope?: ApiClientRequestScope;
   }) {
     const editor = useAuthFileConfigurationEditor({
       file: activeFile,
@@ -152,6 +155,7 @@ describe('useAuthFileConfigurationEditor', () => {
       disableControls: false,
       sourceMemberCount,
       connectionKey,
+      requestScope,
       reconcileSource: mocks.reconcileSource,
       onSaved: mocks.onSaved,
     });
@@ -233,7 +237,7 @@ describe('useAuthFileConfigurationEditor', () => {
     expect(mocks.patchSiwc).toHaveBeenCalledExactlyOnceWith(
       { apiBase: 'https://cpa', managementKey: 'key' },
       codex,
-      { use_siwc: false }
+      { use_siwc: false, allow_codex_client_siwc: true }
     );
     expect(mocks.patchFieldsWithPluginSourceFallback).not.toHaveBeenCalled();
     expect(mocks.patchFieldsForAuthIndexes).not.toHaveBeenCalled();
@@ -244,6 +248,7 @@ describe('useAuthFileConfigurationEditor', () => {
   it('retains an unsaved SIWC draft when CPA rejects the flag', async () => {
     const codex = {
       name: 'codex.json',
+      id: 'codex.json',
       type: 'codex',
       auth_index: '1',
       siwc_bind_supported: true,
@@ -270,6 +275,169 @@ describe('useAuthFileConfigurationEditor', () => {
       'accounts.config_saved_success',
       'success'
     );
+  });
+
+  it.each(['https://cpa.example', 'https://manager.example/api/instances/default'])(
+    'reads Codex client permission from full JSON and saves/reset drafts at %s',
+    async (apiBase) => {
+      const scope = { apiBase, managementKey: 'local-key' };
+      const codex = {
+        name: 'codex.json',
+        id: 'codex.json',
+        type: 'codex',
+        auth_index: '1',
+        siwc_bound: true,
+      };
+      const record = {
+        type: 'codex',
+        auth_index: '1',
+        use_siwc: true,
+        allow_codex_client_siwc: false,
+      };
+      setDownloadedRecord(record);
+      mocks.lookup.mockResolvedValue([codex]);
+      mocks.resolveSiwcCredential.mockResolvedValue({ scope, file: codex });
+      await act(async () => {
+        renderer = create(<Harness activeFile={codex} requestScope={scope} />);
+      });
+      await flush();
+      expect(latest!.draft?.allowCodexClientSiwc).toBe(false);
+      act(() => latest!.updateField('allowCodexClientSiwc', true));
+      expect(latest!.dirty).toBe(true);
+      expect(mocks.patchSiwc).not.toHaveBeenCalled();
+      act(() => latest!.reset());
+      expect(latest!.draft?.allowCodexClientSiwc).toBe(false);
+      expect(latest!.dirty).toBe(false);
+      act(() => latest!.updateField('allowCodexClientSiwc', true));
+      // null is equivalent to true; the list summary deliberately omits this field.
+      setDownloadedRecord({ ...record, allow_codex_client_siwc: null });
+      await act(async () => {
+        await latest!.save();
+      });
+      expect(mocks.patchSiwc).toHaveBeenCalledExactlyOnceWith(scope, codex, {
+        use_siwc: true,
+        allow_codex_client_siwc: true,
+      });
+      expect(mocks.downloadText).toHaveBeenLastCalledWith('codex.json', scope);
+      expect(mocks.patchFieldsWithPluginSourceFallback).not.toHaveBeenCalled();
+      expect(latest!.draft?.allowCodexClientSiwc).toBe(true);
+      expect(latest!.dirty).toBe(false);
+    }
+  );
+
+  it('allows saving the client preference while SIWC is off and unbound', async () => {
+    const codex = {
+      name: 'codex.json',
+      id: 'codex.json',
+      type: 'codex',
+      auth_index: '1',
+      siwc_bound: false,
+    };
+    const scope = { apiBase: 'https://cpa', managementKey: 'local-key' };
+    const record = { type: 'codex', auth_index: '1', use_siwc: false };
+    setDownloadedRecord(record);
+    mocks.lookup.mockResolvedValue([codex]);
+    mocks.resolveSiwcCredential.mockResolvedValue({ scope, file: codex });
+    await act(async () => {
+      renderer = create(<Harness activeFile={codex} />);
+    });
+    await flush();
+    expect(latest!.draft?.allowCodexClientSiwc).toBe(true);
+    act(() => latest!.updateField('allowCodexClientSiwc', false));
+    setDownloadedRecord({ ...record, allow_codex_client_siwc: false });
+    await act(async () => {
+      await latest!.save();
+    });
+    expect(mocks.patchSiwc).toHaveBeenCalledExactlyOnceWith(scope, codex, {
+      use_siwc: false,
+      allow_codex_client_siwc: false,
+    });
+    expect(latest!.dirty).toBe(false);
+  });
+
+  it.each(['missing permission', 'wrong use_siwc', 'read failed'])(
+    'keeps both flags unsaved without success when readback has %s',
+    async (failure) => {
+      const codex = {
+        name: 'codex.json',
+        id: 'codex.json',
+        type: 'codex',
+        auth_index: '1',
+        siwc_bound: true,
+      };
+      const record = { type: 'codex', auth_index: '1', use_siwc: true };
+      setDownloadedRecord(record);
+      mocks.lookup.mockResolvedValue([codex]);
+      mocks.resolveSiwcCredential.mockResolvedValue({
+        scope: { apiBase: 'https://cpa', managementKey: 'local-key' },
+        file: codex,
+      });
+      await act(async () => {
+        renderer = create(<Harness activeFile={codex} />);
+      });
+      await flush();
+      act(() => latest!.updateField('allowCodexClientSiwc', false));
+      if (failure === 'read failed') mocks.downloadText.mockRejectedValue(new Error('offline'));
+      if (failure === 'wrong use_siwc')
+        setDownloadedRecord({ ...record, use_siwc: false, allow_codex_client_siwc: false });
+      await act(async () => {
+        await latest!.save();
+      });
+      expect(latest!.draft?.allowCodexClientSiwc).toBe(false);
+      expect(latest!.dirty).toBe(true);
+      expect(mocks.showNotification).toHaveBeenCalledWith(
+        expect.stringContaining('siwc.settings_readback_failed'),
+        'error'
+      );
+      expect(mocks.showNotification).not.toHaveBeenCalledWith(
+        'accounts.config_saved_success',
+        'success'
+      );
+      expect(mocks.onSaved).not.toHaveBeenCalled();
+    }
+  );
+
+  it('does not submit a Codex client preference after switching CPA during verification', async () => {
+    const codex = {
+      name: 'codex.json',
+      id: 'codex.json',
+      type: 'codex',
+      auth_index: '1',
+      siwc_bound: true,
+    };
+    const scope = { apiBase: 'https://cpa-a', managementKey: 'local-key' };
+    const deferred = createDeferred<{ scope: ApiClientRequestScope; file: AuthFileItem }>();
+    setDownloadedRecord({ type: 'codex', auth_index: '1', use_siwc: true });
+    mocks.lookup.mockResolvedValue([codex]);
+    mocks.resolveSiwcCredential.mockReturnValue(deferred.promise);
+    await act(async () => {
+      renderer = create(<Harness activeFile={codex} requestScope={scope} />);
+    });
+    await flush();
+    act(() => latest!.updateField('allowCodexClientSiwc', false));
+    let pending!: Promise<void>;
+    await act(async () => {
+      pending = latest!.save();
+      await Promise.resolve();
+    });
+    expect(mocks.resolveSiwcCredential).toHaveBeenCalled();
+    await act(async () => {
+      renderer!.update(
+        <Harness
+          activeFile={codex}
+          connectionKey="connection-b"
+          requestScope={{ apiBase: 'https://cpa-b', managementKey: 'other-key' }}
+        />
+      );
+    });
+    await flush();
+    await act(async () => {
+      deferred.resolve({ scope, file: codex });
+      await pending;
+    });
+    expect(mocks.patchSiwc).not.toHaveBeenCalled();
+    expect(latest!.draft?.allowCodexClientSiwc).toBe(true);
+    expect(latest!.dirty).toBe(false);
   });
 
   it('loads, saves a minimal identity-verified patch, and keeps the editor open', async () => {

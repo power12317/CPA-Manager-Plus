@@ -308,8 +308,12 @@ export function AccountConfigurationTab({
               file={state.authFile}
               requestScope={requestScope}
               checked={draft.useSiwc === true}
+              allowCodexClientSiwc={draft.allowCodexClientSiwc !== false}
               disabled={disabled}
               onChange={(value) => editor.updateField('useSiwc', value)}
+              onAllowCodexClientSiwcChange={(value) =>
+                editor.updateField('allowCodexClientSiwc', value)
+              }
             />
           ) : null}
 

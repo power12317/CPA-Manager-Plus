@@ -17,6 +17,10 @@ jobs:
     # The production image name is reserved for main, including manual runs.
     if: github.repository == 'power12317/CPA-Manager-Plus' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    env:
+      # Match the official release included in this source tree; keep provenance separate.
+      RELEASE_TAG: v1.14.9
+      RELEASE_VERSION: 1.14.9
     permissions:
       contents: read
       packages: write
@@ -45,6 +49,7 @@ jobs:
           labels: |
             org.opencontainers.image.title=CPA Manager Plus
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ env.RELEASE_VERSION }}
       - name: Build and publish Manager and panel
         id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -56,7 +61,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            VERSION=sha-${{ github.sha }}
+            VERSION=${{ env.RELEASE_TAG }}
             SOURCE_COMMIT=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

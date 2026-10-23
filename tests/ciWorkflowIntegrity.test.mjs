@@ -63,6 +63,29 @@ describe('GitHub Actions workflow integrity', () => {
     expect(compose).not.toMatch(/^\s+(?:include|extends|build):/m);
   });
 
+  it('embeds the official stable version independently from the fork source commit', () => {
+    const workflow = parse(readWorkflow('docker-publish.yml'));
+    const publish = workflow.jobs.publish;
+    const stableVersions = readdirSync(path.join(repoRoot, 'docs', 'release-notes'))
+      .map((file) => /^v(\d+)\.(\d+)\.(\d+)-en\.md$/.exec(file))
+      .filter(Boolean)
+      .map((match) => match.slice(1).map(Number))
+      .sort((a, b) => b[0] - a[0] || b[1] - a[1] || b[2] - a[2]);
+    const latestVersion = stableVersions[0].join('.');
+    expect(publish.env.RELEASE_TAG).toBe(`v${latestVersion}`);
+    expect(publish.env.RELEASE_VERSION).toBe(latestVersion);
+
+    const build = publish.steps.find((step) => step.id === 'build');
+    expect(build.with['build-args'].trim().split('\n')).toEqual([
+      'VERSION=${{ env.RELEASE_TAG }}',
+      'SOURCE_COMMIT=${{ github.sha }}',
+    ]);
+    const metadata = publish.steps.find((step) => step.id === 'meta');
+    expect(metadata.with.labels).toContain(
+      'org.opencontainers.image.version=${{ env.RELEASE_VERSION }}'
+    );
+  });
+
   it('pins every external action to a full commit SHA', () => {
     const workflowFiles = readdirSync(workflowDir).filter((file) => /\.ya?ml$/.test(file));
     const actions = workflowFiles.flatMap((file) => externalActions(readWorkflow(file)));

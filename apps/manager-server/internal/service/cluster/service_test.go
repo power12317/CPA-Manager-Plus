@@ -37,7 +37,7 @@ func (r *memoryRegistry) SaveInstances(_ context.Context, items []model.Instance
 type fakeRuntime struct {
 	mu         sync.Mutex
 	connection model.ManagerCPAConnectionConfig
-	fail       bool
+	fail       atomic.Bool
 	starts     int
 	stops      int
 	active     *atomic.Int32
@@ -64,7 +64,7 @@ func (r *fakeRuntime) Stop(context.Context) error {
 	return nil
 }
 func (r *fakeRuntime) Close() error                { return nil }
-func (r *fakeRuntime) Online(context.Context) bool { return !r.fail }
+func (r *fakeRuntime) Online(context.Context) bool { return !r.fail.Load() }
 func (r *fakeRuntime) Credentials(ctx context.Context) ([]map[string]any, error) {
 	if r.active != nil {
 		n := r.active.Add(1)
@@ -80,7 +80,7 @@ func (r *fakeRuntime) Credentials(ctx context.Context) ([]map[string]any, error)
 			return nil, ctx.Err()
 		}
 	}
-	if r.fail {
+	if r.fail.Load() {
 		return nil, errors.New("upstream error containing secret")
 	}
 	return []map[string]any{{"name": "same.json", "id": "same-id"}}, nil
@@ -124,7 +124,7 @@ func TestTenInstancesAggregateWithoutIdentityLossAndPersist(t *testing.T) {
 		ids = append(ids, id)
 	}
 	rt, _ := runtimes.Load(ids[0])
-	rt.(*fakeRuntime).fail = true
+	rt.(*fakeRuntime).fail.Store(true)
 	result, err := s.Credentials(ctx)
 	if err != nil {
 		t.Fatal(err)

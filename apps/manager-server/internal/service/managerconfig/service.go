@@ -3,7 +3,10 @@ package managerconfig
 import (
 	"context"
 	"errors"
+	"log"
+	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/config"
@@ -23,9 +26,10 @@ const (
 )
 
 type Response struct {
-	Config   PublicManagerConfig `json:"config"`
-	Source   string              `json:"source"`
-	CPAUsage *cpa.UsageConfig    `json:"cpaUsage,omitempty"`
+	Config                     PublicManagerConfig `json:"config"`
+	Source                     string              `json:"source"`
+	CPAUsage                   *cpa.UsageConfig    `json:"cpaUsage,omitempty"`
+	RequestMonitoringAvailable *bool               `json:"requestMonitoringAvailable,omitempty"`
 }
 
 type PublicManagerConfig struct {
@@ -42,9 +46,59 @@ type PublicManagerCPAConnectionConfig struct {
 }
 
 type Service struct {
-	cfg       config.Config
-	store     *store.Store
-	collector *collectorservice.Service
+	cfg             config.Config
+	store           *store.Store
+	collector       *collectorservice.Service
+	updateMu        sync.Mutex
+	control         *collectorservice.Control
+	monitoringScope RequestMonitoringScope
+}
+
+// RequestMonitoringScope provides registered CPA connections without changing
+// the root's own connection or any instance's collector configuration.
+type RequestMonitoringScope interface {
+	HasMonitoringConnection(context.Context) (bool, error)
+}
+
+func (s *Service) UseGlobalCollectorControl(control *collectorservice.Control, scope RequestMonitoringScope) {
+	s.control, s.monitoringScope = control, scope
+}
+
+func (s *Service) monitoringAvailability(ctx context.Context, cfg store.ManagerConfig) (*bool, error) {
+	if s.monitoringScope == nil {
+		return nil, nil
+	}
+	available := cfg.CPAConnection.CPABaseURL != "" && cfg.CPAConnection.ManagementKey != ""
+	if !available {
+		var err error
+		available, err = s.monitoringScope.HasMonitoringConnection(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &available, nil
+}
+
+// ApplyCollectorConfig also serves setup writes, which persist through the
+// existing setup service rather than Update. The root flag is the sole authority.
+func (s *Service) ApplyCollectorConfig(ctx context.Context, cfg store.ManagerConfig) error {
+	enabled := ManagerCollectorEnabled(cfg)
+	if s.control != nil && !enabled {
+		if err := s.control.SetEnabled(ctx, false); err != nil {
+			return err
+		}
+	}
+	if enabled && cfg.CPAConnection.CPABaseURL != "" && cfg.CPAConnection.ManagementKey != "" {
+		if err := s.collector.Start(context.Background(), cfg); err != nil {
+			return err
+		}
+	} else if err := s.collector.Stop(ctx); err != nil {
+		return err
+	}
+	if s.control != nil && enabled {
+		return s.control.SetEnabled(ctx, true)
+	}
+	return nil
 }
 
 func New(cfg config.Config, store *store.Store, collector *collectorservice.Service) *Service {
@@ -60,6 +114,10 @@ func (s *Service) Get(ctx context.Context) (Response, error) {
 	if err != nil {
 		return Response{}, err
 	}
+	available, err := s.monitoringAvailability(ctx, cfg)
+	if err != nil {
+		return Response{}, err
+	}
 	var cpaUsage *cpa.UsageConfig
 	if cfg.CPAConnection.CPABaseURL != "" && cfg.CPAConnection.ManagementKey != "" {
 		if usageCfg, err := cpa.FetchUsageConfig(
@@ -71,9 +129,10 @@ func (s *Service) Get(ctx context.Context) (Response, error) {
 		}
 	}
 	return Response{
-		Config:   PublicConfig(cfg),
-		Source:   string(source),
-		CPAUsage: cpaUsage,
+		Config:                     PublicConfig(cfg),
+		Source:                     string(source),
+		CPAUsage:                   cpaUsage,
+		RequestMonitoringAvailable: available,
 	}, nil
 }
 
@@ -110,6 +169,8 @@ func (s *Service) ValidateCPAConnection(ctx context.Context) (CPAConnectionValid
 }
 
 func (s *Service) Update(ctx context.Context, submitted store.ManagerConfig) (Response, error) {
+	s.updateMu.Lock()
+	defer s.updateMu.Unlock()
 	current, source, _, err := s.ResolveManagerConfigWithSource(ctx)
 	if err != nil {
 		return Response{}, err
@@ -118,63 +179,97 @@ func (s *Service) Update(ctx context.Context, submitted store.ManagerConfig) (Re
 		return Response{}, err
 	}
 	next := s.MergeSubmittedManagerConfig(current, submitted)
-	if source == SourceEnv && ManagerConfigConnectionDiffers(current, next) {
+	withSubmittedEnabled := current
+	withSubmittedEnabled.Collector.Enabled = next.Collector.Enabled
+	monitoringControlOnly := s.control != nil && reflect.DeepEqual(withSubmittedEnabled, next)
+	environmentCurrent := current
+	if s.control != nil {
+		environmentCurrent.Collector.Enabled = next.Collector.Enabled
+	}
+	if source == SourceEnv && ManagerConfigConnectionDiffers(environmentCurrent, next) {
 		return Response{}, errors.New("connection setup is managed by environment variables")
 	}
 	if next.CPAConnection.CPABaseURL != "" || next.CPAConnection.ManagementKey != "" {
 		if next.CPAConnection.CPABaseURL == "" || next.CPAConnection.ManagementKey == "" {
 			return Response{}, errors.New("cpaBaseUrl and managementKey are required")
 		}
-		if err := cpa.ValidateManagementAPI(
-			ctx,
-			next.CPAConnection.CPABaseURL,
-			next.CPAConnection.ManagementKey,
-		); err != nil {
-			return Response{}, err
-		}
-		if ManagerCollectorEnabled(next) {
-			if err := cpa.ValidateCollectorConfig(
+		// Existing instance connections were verified when configured. Global
+		// control must not make an offline CPA block the other collectors.
+		bindingChanged := current.CPAConnection != next.CPAConnection
+		globalStop := s.control != nil && !ManagerCollectorEnabled(next) && !bindingChanged
+		if !monitoringControlOnly && !globalStop {
+			if err := cpa.ValidateManagementAPI(
 				ctx,
 				next.CPAConnection.CPABaseURL,
 				next.CPAConnection.ManagementKey,
-				next.Collector.PollIntervalMS,
 			); err != nil {
 				return Response{}, err
 			}
-			if err := cpa.SetUsageStatisticsEnabled(
-				ctx,
-				next.CPAConnection.CPABaseURL,
-				next.CPAConnection.ManagementKey,
-				true,
-			); err != nil {
-				return Response{}, err
+			if ManagerCollectorEnabled(next) {
+				if err := cpa.ValidateCollectorConfig(
+					ctx,
+					next.CPAConnection.CPABaseURL,
+					next.CPAConnection.ManagementKey,
+					next.Collector.PollIntervalMS,
+				); err != nil {
+					return Response{}, err
+				}
+				if err := cpa.SetUsageStatisticsEnabled(
+					ctx,
+					next.CPAConnection.CPABaseURL,
+					next.CPAConnection.ManagementKey,
+					true,
+				); err != nil {
+					return Response{}, err
+				}
 			}
 		}
-	} else if ManagerCollectorEnabled(next) {
+	} else if ManagerCollectorEnabled(next) && s.monitoringScope == nil {
 		return Response{}, errors.New("cpaBaseUrl and managementKey are required when request monitoring is enabled")
+	}
+	available, err := s.monitoringAvailability(ctx, next)
+	if err != nil {
+		return Response{}, err
+	}
+	if ManagerCollectorEnabled(next) && s.monitoringScope != nil {
+		if available == nil || !*available {
+			return Response{}, errors.New("a configured CPA instance is required when request monitoring is enabled")
+		}
 	}
 	if next.CPAConnection.CPABaseURL == "" || next.CPAConnection.ManagementKey == "" {
 		if err := s.store.SaveManagerConfig(ctx, next); err != nil {
 			return Response{}, err
 		}
-		_ = s.collector.Stop(context.Background())
+		if err := s.ApplyCollectorConfig(ctx, next); err != nil {
+			return Response{}, err
+		}
 		return Response{
-			Config: PublicConfig(next),
-			Source: string(SourceDB),
+			Config:                     PublicConfig(next),
+			Source:                     string(SourceDB),
+			RequestMonitoringAvailable: available,
 		}, nil
 	}
 	setup := SetupFromManagerConfig(next)
 	if err := s.store.SaveManagerConfigAndSetup(ctx, next, setup); err != nil {
 		return Response{}, err
 	}
-	if ManagerCollectorEnabled(next) {
-		_ = s.collector.Start(context.Background(), next)
-	} else {
-		_ = s.collector.Stop(context.Background())
+	if err := s.ApplyCollectorConfig(ctx, next); err != nil {
+		return Response{}, err
+	}
+	if monitoringControlOnly && !ManagerCollectorEnabled(current) && ManagerCollectorEnabled(next) {
+		// Restore root CPA publication without making an offline root delay the
+		// saved global flag or any other instance. The CPA client bounds this
+		// single attempt with its existing timeout; actual edits stay strict.
+		go func() {
+			if err := cpa.SetUsageStatisticsEnabled(context.Background(), next.CPAConnection.CPABaseURL, next.CPAConnection.ManagementKey, true); err != nil {
+				log.Printf("[collector] enable root CPA usage statistics: %v", err)
+			}
+		}()
 	}
 	return Response{
-		Config: PublicConfig(next),
-		Source: string(SourceDB),
+		Config:                     PublicConfig(next),
+		Source:                     string(SourceDB),
+		RequestMonitoringAvailable: available,
 	}, nil
 }
 

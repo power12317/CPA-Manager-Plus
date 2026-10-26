@@ -307,6 +307,7 @@ export interface ManagerConfigResponse {
   config: ManagerConfig;
   source?: 'env' | 'db' | '';
   cpaUsage?: CPAUsageConfig;
+  requestMonitoringAvailable?: boolean;
 }
 
 export interface CodexInspectionRun {

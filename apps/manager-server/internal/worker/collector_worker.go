@@ -25,6 +25,14 @@ func NewCollectorWorker(cfg config.Config, store *store.Store, collectorService 
 }
 
 func (w *CollectorWorker) Start(ctx context.Context) {
+	managerCfg, configured, err := w.store.LoadManagerConfig(ctx)
+	if err != nil {
+		log.Printf("load manager config: %v", err)
+		return
+	}
+	if configured && !collectorservice.ManagerCollectorEnabled(managerCfg) {
+		return
+	}
 	if w.cfg.CPAUpstreamURL != "" && w.cfg.ManagementKey != "" {
 		_ = w.collectorService.StartRuntime(ctx, collectorpkg.RuntimeConfig{
 			CPAUpstreamURL: w.cfg.CPAUpstreamURL,
@@ -39,14 +47,11 @@ func (w *CollectorWorker) Start(ctx context.Context) {
 		return
 	}
 
-	if managerCfg, ok, err := w.store.LoadManagerConfig(ctx); err == nil && ok &&
+	if configured &&
 		managerCfg.CPAConnection.CPABaseURL != "" && managerCfg.CPAConnection.ManagementKey != "" {
 		if collectorservice.ManagerCollectorEnabled(managerCfg) {
 			_ = w.collectorService.StartRuntime(ctx, collectorservice.RuntimeConfigFromManagerConfigWithFallback(managerCfg, w.cfg))
 		}
-		return
-	} else if err != nil {
-		log.Printf("load manager config: %v", err)
 		return
 	}
 

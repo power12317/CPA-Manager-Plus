@@ -11,6 +11,7 @@ import (
 
 type Service struct {
 	manager *collectorpkg.Manager
+	control *Control
 }
 
 func New(manager *collectorpkg.Manager) *Service {
@@ -18,17 +19,40 @@ func New(manager *collectorpkg.Manager) *Service {
 }
 
 func (s *Service) Start(ctx context.Context, cfg store.ManagerConfig) error {
-	s.manager.Start(ctx, RuntimeConfigFromManagerConfig(cfg))
-	return nil
+	return s.StartRuntime(ctx, RuntimeConfigFromManagerConfig(cfg))
 }
 
 func (s *Service) StartRuntime(ctx context.Context, cfg collectorpkg.RuntimeConfig) error {
+	if s.control != nil {
+		s.control.mu.Lock()
+		defer s.control.mu.Unlock()
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		s.control.pending[s] = pendingRuntime{ctx: ctx, cfg: cfg}
+		if !s.control.enabled {
+			return nil
+		}
+	}
 	s.manager.Start(ctx, cfg)
 	return nil
 }
 
 func (s *Service) Stop(ctx context.Context) error {
-	_ = ctx
+	if s.control != nil {
+		s.control.mu.Lock()
+		defer s.control.mu.Unlock()
+		delete(s.control.pending, s)
+	}
+	return s.stopAndWait(ctx)
+}
+
+func (s *Service) stopAndWait(ctx context.Context) error {
+	if err := s.manager.StopAndWait(ctx); err != nil {
+		return err
+	}
+	// A transport may publish its final startup status concurrently with the
+	// cancellation. Set stopped again after its goroutine has fully exited.
 	s.manager.Stop()
 	return nil
 }

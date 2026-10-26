@@ -209,7 +209,7 @@ func (m *Manager) runSubscribe(ctx context.Context, cfg RuntimeConfig, mode stri
 		if ctx.Err() != nil {
 			return true
 		}
-		client, err := resp.Dial(cfg.CPAUpstreamURL, cfg.TLSSkipVerify)
+		client, err := resp.DialContext(ctx, cfg.CPAUpstreamURL, cfg.TLSSkipVerify)
 		if err != nil {
 			if mode == "auto" && !subscribed {
 				return fallback()
@@ -345,7 +345,7 @@ func (m *Manager) runRESP(ctx context.Context, cfg RuntimeConfig) {
 		if ctx.Err() != nil {
 			return
 		}
-		client, err := resp.Dial(cfg.CPAUpstreamURL, cfg.TLSSkipVerify)
+		client, err := resp.DialContext(ctx, cfg.CPAUpstreamURL, cfg.TLSSkipVerify)
 		if err != nil {
 			m.markError("connect", err)
 			sleep(ctx, backoff)

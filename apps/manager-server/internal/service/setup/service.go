@@ -207,10 +207,8 @@ func (s *Service) Setup(ctx context.Context, req Request, _ string) (Result, err
 	if err := s.markBootstrapReady(ctx); err != nil {
 		return Result{}, err
 	}
-	if requestMonitoringEnabled {
-		_ = s.collector.Start(context.Background(), managerCfg)
-	} else {
-		_ = s.collector.Stop(context.Background())
+	if err := s.managerConfigService.ApplyCollectorConfig(ctx, managerCfg); err != nil {
+		return Result{}, err
 	}
 	return Result{OK: true, Upstream: setup.CPAUpstreamURL}, nil
 }

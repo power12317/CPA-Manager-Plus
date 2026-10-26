@@ -92,6 +92,25 @@ func TestCollectorWorkerStartsFromEnvironmentConfig(t *testing.T) {
 	}
 }
 
+func TestCollectorWorkerEnvironmentHonorsSavedMonitoringDisabled(t *testing.T) {
+	cfg := workerTestConfig(t)
+	cfg.CPAUpstreamURL, cfg.ManagementKey = "http://127.0.0.1:1", "test"
+	db, err := store.Open(cfg.DBPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	disabled := false
+	if err := db.SaveManagerConfig(context.Background(), store.ManagerConfig{Collector: store.ManagerCollectorConfig{Enabled: &disabled}}); err != nil {
+		t.Fatal(err)
+	}
+	service := collectorservice.New(collectorpkg.NewManager(cfg, db))
+	NewCollectorWorker(cfg, db, service).Start(context.Background())
+	if service.Status().Collector != "stopped" {
+		t.Fatal("environment bypassed saved false")
+	}
+}
+
 func TestCollectorServiceRestartAndStop(t *testing.T) {
 	cfg := workerTestConfig(t)
 	db, err := store.Open(cfg.DBPath)

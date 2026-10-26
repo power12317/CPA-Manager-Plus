@@ -147,16 +147,29 @@ vi.mock('@/services/api/codexRuntime', () => ({
 vi.mock('./components/ManagerConfigPanel', () => ({
   ManagerConfigPanel: ({
     managerSaving,
+    canConfigureRequestMonitoring,
+    managerRequestMonitoringEnabled,
+    onRequestMonitoringChange,
     onCollectorModeChange,
     onCPABaseInputChange,
     onCPAManagementKeyInputChange,
   }: {
     managerSaving: boolean;
+    canConfigureRequestMonitoring: boolean;
+    managerRequestMonitoringEnabled: boolean;
+    onRequestMonitoringChange: (value: boolean) => void;
     onCollectorModeChange: (value: string) => void;
     onCPABaseInputChange: (value: string) => void;
     onCPAManagementKeyInputChange: (value: string) => void;
   }) => (
     <div data-test="manager-panel">
+      <input
+        type="checkbox"
+        data-test="monitoring-switch"
+        checked={managerRequestMonitoringEnabled}
+        disabled={!canConfigureRequestMonitoring || managerSaving}
+        onChange={() => onRequestMonitoringChange(!managerRequestMonitoringEnabled)}
+      />
       <button
         type="button"
         data-test="manager-dirty"
@@ -707,6 +720,71 @@ describe('Event notification configuration persistence', () => {
     );
     expect(input('webhook').props.value).toBe('https://example.com/robot');
     expect(renderer!.root.findByProps({ 'data-test': 'confirm-yaml' })).toBeDefined();
+  });
+});
+
+describe('Global Manager monitoring configuration', () => {
+  it.each([true, false])(
+    'shows saved enabled=%s and permits control with registered instances and no root CPA',
+    async (enabled) => {
+      configureManagerMode();
+      const response: ManagerConfigResponse = {
+        ...MANAGER_CONFIG_RESPONSE,
+        config: {
+          ...MANAGER_CONFIG_RESPONSE.config,
+          cpaConnection: { cpaBaseUrl: '', managementKeyConfigured: false },
+          collector: { ...MANAGER_CONFIG_RESPONSE.config.collector, enabled },
+        },
+        requestMonitoringAvailable: true,
+      };
+      mocks.getManagerConfig.mockResolvedValue(response);
+      mocks.saveManagerConfig.mockImplementation(async (_base, config) => ({
+        ...response,
+        config,
+      }));
+      await act(async () => {
+        renderer = create(<ConfigPage managerOnly />);
+      });
+      await flush();
+      let toggle = renderer!.root.findByProps({ 'data-test': 'monitoring-switch' });
+      expect(toggle.props.checked).toBe(enabled);
+      expect(toggle.props.disabled).toBe(false);
+      await act(async () => {
+        toggle.props.onChange();
+      });
+      expect(mocks.saveManagerConfig).not.toHaveBeenCalled();
+      await clickSave();
+      expect(mocks.saveManagerConfig).toHaveBeenCalledWith(
+        'http://panel.local',
+        expect.objectContaining({
+          cpaConnection: expect.objectContaining({ cpaBaseUrl: '' }),
+          collector: expect.objectContaining({ enabled: !enabled }),
+        }),
+        'management-key'
+      );
+      toggle = renderer!.root.findByProps({ 'data-test': 'monitoring-switch' });
+      expect(toggle.props.checked).toBe(!enabled);
+    }
+  );
+
+  it('does not mistake an unavailable control for a saved false value', async () => {
+    configureManagerMode();
+    mocks.getManagerConfig.mockResolvedValue({
+      ...MANAGER_CONFIG_RESPONSE,
+      requestMonitoringAvailable: false,
+      config: {
+        ...MANAGER_CONFIG_RESPONSE.config,
+        cpaConnection: { cpaBaseUrl: '', managementKeyConfigured: false },
+      },
+    });
+    await act(async () => {
+      renderer = create(<ConfigPage managerOnly />);
+    });
+    await flush();
+    const toggle = renderer!.root.findByProps({ 'data-test': 'monitoring-switch' });
+    expect(toggle.props.disabled).toBe(true);
+    expect(toggle.props.checked).toBe(true);
+    expect(mocks.saveManagerConfig).not.toHaveBeenCalled();
   });
 });
 

@@ -2,6 +2,7 @@ package resp
 
 import (
 	"bufio"
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -18,11 +19,18 @@ type Client struct {
 	reader     *bufio.Reader
 	timeout    time.Duration
 	subscribed bool
+	stopCancel func() bool
 }
 
 var ErrUnsupportedSubscribe = errors.New("RESP server does not support SUBSCRIBE")
 
 func Dial(rawURL string, skipTLSVerify bool) (*Client, error) {
+	return DialContext(context.Background(), rawURL, skipTLSVerify)
+}
+
+// DialContext ties connection setup and subsequent AUTH/SUBSCRIBE reads to the
+// consumer lifetime, retaining the existing dial and command timeouts.
+func DialContext(ctx context.Context, rawURL string, skipTLSVerify bool) (*Client, error) {
 	upstream, err := parseURL(rawURL)
 	if err != nil {
 		return nil, err
@@ -40,22 +48,28 @@ func Dial(rawURL string, skipTLSVerify bool) (*Client, error) {
 	var conn net.Conn
 	if upstream.Scheme == "https" {
 		serverName := upstream.Hostname()
-		conn, err = tls.DialWithDialer(dialer, "tcp", host, &tls.Config{
+		tlsDialer := &tls.Dialer{NetDialer: dialer, Config: &tls.Config{
 			ServerName:         serverName,
 			InsecureSkipVerify: skipTLSVerify,
-		})
+		}}
+		conn, err = tlsDialer.DialContext(ctx, "tcp", host)
 	} else {
-		conn, err = dialer.Dial("tcp", host)
+		conn, err = dialer.DialContext(ctx, "tcp", host)
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &Client{conn: conn, reader: bufio.NewReader(conn), timeout: 30 * time.Second}, nil
+	client := &Client{conn: conn, reader: bufio.NewReader(conn), timeout: 30 * time.Second}
+	client.stopCancel = context.AfterFunc(ctx, func() { _ = conn.Close() })
+	return client, nil
 }
 
 func (c *Client) Close() error {
 	if c == nil || c.conn == nil {
 		return nil
+	}
+	if c.stopCancel != nil {
+		c.stopCancel()
 	}
 	return c.conn.Close()
 }

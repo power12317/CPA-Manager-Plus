@@ -405,6 +405,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
   const [previewTab, setPreviewTab] = useState<ConfigEditorTab>('visual');
   const [managerConfig, setManagerConfig] = useState<ManagerConfig | null>(null);
   const [managerConfigSource, setManagerConfigSource] = useState('');
+  const [managerRequestMonitoringAvailable, setManagerRequestMonitoringAvailable] = useState(false);
   const [managerCPAUsage, setManagerCPAUsage] = useState<CPAUsageConfig | null>(null);
   const [managerLoading, setManagerLoading] = useState(false);
   const [managerSaving, setManagerSaving] = useState(false);
@@ -818,6 +819,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
     setManagerConfig(nextConfig);
     setManagerConfigSource(response.source || '');
     setManagerCPAUsage(response.cpaUsage ?? null);
+    setManagerRequestMonitoringAvailable(response.requestMonitoringAvailable === true);
     setManagerRequestMonitoringEnabled(collector.enabled !== false);
     setManagerCPABaseInput(nextConfig.cpaConnection?.cpaBaseUrl || '');
     setManagerCollectorMode(collector.collectorMode || MANAGER_COLLECTOR_DEFAULT.collectorMode);
@@ -843,6 +845,7 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
       setManagerConfig(null);
       setManagerCPAUsage(null);
       setManagerConfigSource('');
+      setManagerRequestMonitoringAvailable(false);
       setManagerCPABaseInput('');
       return;
     }
@@ -1686,8 +1689,9 @@ export function ConfigPage({ managerOnly = false }: { managerOnly?: boolean } = 
     panelHostedByUsageService === true &&
     Boolean(
       managerServiceTarget &&
-      managerCPABaseInput.trim() &&
-      (managerCPAManagementKeyInput.trim() || managerConfig?.cpaConnection?.managementKeyConfigured)
+      (managerRequestMonitoringAvailable ||
+        (managerCPABaseInput.trim() &&
+          (managerCPAManagementKeyInput.trim() || managerConfig?.cpaConnection?.managementKeyConfigured)))
     );
   const managerRuntimeModeLabel =
     panelHostedByUsageService === true

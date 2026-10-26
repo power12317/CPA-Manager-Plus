@@ -20,6 +20,7 @@ import (
 	sqliterepo "github.com/seakee/cpa-manager-plus/apps/manager-server/internal/repository/sqlite"
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/security"
 	clustersvc "github.com/seakee/cpa-manager-plus/apps/manager-server/internal/service/cluster"
+	collectorsvc "github.com/seakee/cpa-manager-plus/apps/manager-server/internal/service/collector"
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/service/cpa"
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/service/dashboard"
 	"github.com/seakee/cpa-manager-plus/apps/manager-server/internal/service/managerconfig"
@@ -31,7 +32,14 @@ import (
 // EnableCluster adds the control plane without altering the legacy instance.
 // Call Start on the returned service only once the HTTP listener is serving.
 func (s *Server) EnableCluster(protector *security.Protector) *clustersvc.Service {
-	legacy := &instanceRuntime{server: s, handler: s.handler, legacy: true}
+	rootConfig, _, _, err := s.appCtx.ManagerConfigService.ResolveManagerConfigWithSource(context.Background())
+	enabled := err == nil && managerconfig.ManagerCollectorEnabled(rootConfig)
+	if err != nil {
+		log.Printf("[collector] load global monitoring setting: %v", err)
+	}
+	control := collectorsvc.NewControl(enabled)
+	s.appCtx.CollectorService.UseControl(control)
+	legacy := &instanceRuntime{server: s, handler: s.handler, legacy: true, control: control}
 	factory := func(ctx context.Context, id string) (clustersvc.Runtime, error) {
 		cfg := s.appCtx.Config
 		cfg.DataDir = filepath.Join(filepath.Dir(cfg.DBPath), "instances", id)
@@ -61,12 +69,14 @@ func (s *Server) EnableCluster(protector *security.Protector) *clustersvc.Servic
 		}
 		manager := collector.NewManager(cfg, db)
 		child := New(cfg, db, manager)
+		child.appCtx.CollectorService.UseControl(control)
 		// Authenticate every request against the central credential, including
 		// after an administrator rotates it. Never accept a CPA key here.
 		child.appCtx.AdminAuthService = s.appCtx.AdminAuthService
-		return &instanceRuntime{server: child, handler: child.handler, closeLock: lock.Close}, nil
+		return &instanceRuntime{server: child, handler: child.handler, closeLock: lock.Close, control: control}, nil
 	}
 	service := clustersvc.New(s.appCtx.Store.Settings, factory, legacy)
+	s.appCtx.ManagerConfigService.UseGlobalCollectorControl(control, service)
 	s.handler = &clustercontroller.Handler{Service: service, Auth: s.appCtx.AdminAuthService, Next: s.handler}
 	return service
 }
@@ -84,6 +94,7 @@ type instanceRuntime struct {
 	wal        *sqliterepo.WALMaintenance
 	retention  *worker.UsageArchiveRetentionWorker
 	migration  *worker.UsageCacheAccountingMigrationWorker
+	control    *collectorsvc.Control
 }
 
 func (r *instanceRuntime) Connection(ctx context.Context) (model.ManagerCPAConnectionConfig, error) {
@@ -202,6 +213,7 @@ func (r *instanceRuntime) Start(parent context.Context) {
 		previous := r.server.appCtx
 		manager := collector.NewManager(previous.Config, previous.Store)
 		r.server = New(previous.Config, previous.Store, manager)
+		r.server.appCtx.CollectorService.UseControl(r.control)
 		r.server.appCtx.AdminAuthService = previous.AdminAuthService
 		r.handler = r.server.handler
 	}

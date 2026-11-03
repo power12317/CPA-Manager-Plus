@@ -39,7 +39,7 @@ func TestClusterScopedProxyCredentialsEncryptionAndRestart(t *testing.T) {
 			requestsMu.Unlock()
 			w.Header().Set("Content-Type", "application/json")
 			switch r.URL.Path {
-			case "/v0/management/config":
+			case "/v0/management/config", "/v8/management/config/api-keys", "/v8/management/config/api-keys/claude":
 				fmt.Fprintf(w, `{"node":%q,"usage-statistics-enabled":true}`, name)
 			case "/v0/management/auth-files":
 				fmt.Fprint(w, `{"files":[{"name":"same.json","id":"same","type":"devin","auth_index":"1","access_token":"must-not-appear"}]}`)
@@ -140,6 +140,22 @@ func TestClusterScopedProxyCredentialsEncryptionAndRestart(t *testing.T) {
 			t.Fatalf("wrong instance: %s", response.Body.String())
 		}
 	}
+	// The upstream v8 read-only proxy must retain the fork's single-instance
+	// routing and authentication, including when deployed under a base path.
+	for _, check := range []struct{ path, node string }{
+		{"/api/instances/default/v8/management/config/api-keys", "A"},
+		{path + "/v8/management/config/api-keys", "B"},
+		{path + "/v8/management/config/api-keys/claude", "B"},
+	} {
+		rr := request("GET", check.path, "", "admin-secret")
+		testutil.RequireStatus(t, rr, http.StatusOK)
+		if !strings.Contains(rr.Body.String(), `"node":"`+check.node+`"`) {
+			t.Fatalf("v8 API-key proxy reached wrong instance: %s", rr.Body.String())
+		}
+	}
+	testutil.RequireStatus(t, request("GET", path+"/v8/management/config/api-keys", "", "key-B"), http.StatusUnauthorized)
+	testutil.RequireStatus(t, request("PUT", path+"/v8/management/config/api-keys", `{}`, "admin-secret"), http.StatusMethodNotAllowed)
+	testutil.RequireStatus(t, request("GET", "/api/aggregate/v8/management/config/api-keys", "", "admin-secret"), http.StatusConflict)
 	credentials := request("GET", "/api/cluster/credentials", "", "admin-secret")
 	testutil.RequireStatus(t, credentials, 200)
 	var aggregate clustersvc.Aggregate[[]map[string]any]

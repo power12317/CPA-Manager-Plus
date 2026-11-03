@@ -19,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Match the official release included in this source tree; keep provenance separate.
-      RELEASE_TAG: v1.14.9
-      RELEASE_VERSION: 1.14.9
+      RELEASE_TAG: v1.14.10
+      RELEASE_VERSION: 1.14.10
     permissions:
       contents: read
       packages: write

@@ -123,6 +123,10 @@ func rootHandler(
 			middleware.WithCORS(appCtx.Config, managerConfigHandler.ValidateCPAConnection)(w, r)
 			return
 		}
+		if proxysvc.IsCPAV8APIKeysConfigPath(r.URL.Path) {
+			middleware.WithCORS(appCtx.Config, proxyHandler.V8APIKeysConfig)(w, r)
+			return
+		}
 		if strings.HasPrefix(r.URL.Path, "/v0/management/") || strings.HasPrefix(r.URL.Path, "/v8/management/") {
 			middleware.WithCORS(appCtx.Config, proxyHandler.Management)(w, r)
 			return

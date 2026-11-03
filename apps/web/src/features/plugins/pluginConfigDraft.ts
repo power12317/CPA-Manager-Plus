@@ -40,7 +40,15 @@ export const createPluginConfigDraft = (
       ? String(config.priority)
       : '0',
   values: Object.fromEntries(
-    fields.map((field) => [field.name, draftValue(field, config[field.name])])
+    fields.map((field) => [
+      field.name,
+      draftValue(
+        field,
+        Object.prototype.hasOwnProperty.call(config, field.name)
+          ? config[field.name]
+          : field.defaultValue
+      ),
+    ])
   ),
   touched: new Set<string>(),
   errors: {},

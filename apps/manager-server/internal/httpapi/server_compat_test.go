@@ -1459,6 +1459,85 @@ func TestServerCompatProxyRoutes(t *testing.T) {
 	}
 }
 
+func TestServerCompatV8APIKeysConfigProxy(t *testing.T) {
+	cpa := testutil.NewCPAMock(t)
+	setup := &store.Setup{CPAUpstreamURL: cpa.URL(), ManagementKey: "management-key", Queue: "usage", PopSide: "right"}
+	handler, _ := newCompatHandler(t, testutil.NewConfig(t), setup)
+
+	for _, tc := range []struct {
+		target string
+		path   string
+		query  string
+	}{
+		{target: "/v8/management/config/api-keys?format=json", path: "/v8/management/config/api-keys", query: "format=json"},
+		{target: "/v8/management/config/api-keys/claude", path: "/v8/management/config/api-keys/claude"},
+	} {
+		rr := testutil.Request(t, handler, http.MethodGet, tc.target, "", testutil.AdminKey)
+		testutil.RequireStatus(t, rr, http.StatusOK)
+		got, ok := cpa.LastRequest(tc.path)
+		if !ok {
+			t.Fatalf("CPA mock did not receive %s", tc.path)
+		}
+		if got.Method != http.MethodGet || got.Authorization != "Bearer management-key" || got.Query != tc.query {
+			t.Fatalf("%s proxy request = %#v", tc.target, got)
+		}
+	}
+
+	for _, tc := range []struct {
+		name   string
+		method string
+		target string
+		key    string
+		want   int
+	}{
+		{name: "missing admin key", method: http.MethodGet, target: "/v8/management/config/api-keys", want: http.StatusUnauthorized},
+		{name: "wrong admin key", method: http.MethodGet, target: "/v8/management/config/api-keys", key: "wrong-key", want: http.StatusUnauthorized},
+		{name: "CPA management key", method: http.MethodGet, target: "/v8/management/config/api-keys", key: "management-key", want: http.StatusUnauthorized},
+		{name: "put", method: http.MethodPut, target: "/v8/management/config/api-keys", key: testutil.AdminKey, want: http.StatusMethodNotAllowed},
+		{name: "patch", method: http.MethodPatch, target: "/v8/management/config/api-keys/claude", key: testutil.AdminKey, want: http.StatusMethodNotAllowed},
+		{name: "delete", method: http.MethodDelete, target: "/v8/management/config/api-keys", key: testutil.AdminKey, want: http.StatusMethodNotAllowed},
+		{name: "head", method: http.MethodHead, target: "/v8/management/config/api-keys", key: testutil.AdminKey, want: http.StatusMethodNotAllowed},
+		{name: "dot segments", method: http.MethodGet, target: "/v8/management/config/api-keys/../../credentials/download", key: testutil.AdminKey},
+		{name: "encoded dot segments", method: http.MethodGet, target: "/v8/management/config/api-keys/%2e%2e/%2e%2e/credentials/download", key: testutil.AdminKey},
+		{name: "encoded slash dot segments", method: http.MethodGet, target: "/v8/management/config/api-keys%2F..%2F..%2Fcredentials/download", key: testutil.AdminKey},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			before := len(cpa.Requests())
+			rr := testutil.Request(t, handler, tc.method, tc.target, "", tc.key)
+			if tc.want != 0 {
+				testutil.RequireStatus(t, rr, tc.want)
+			} else if rr.Code == http.StatusOK {
+				t.Fatalf("%s %s status = 200, body = %s", tc.method, tc.target, rr.Body.String())
+			}
+			if requests := cpa.Requests(); len(requests) != before {
+				t.Fatalf("%s %s reached CPA: %#v", tc.method, tc.target, requests[before:])
+			}
+		})
+	}
+}
+
+func TestServerCompatForkV8ManagementRoutesRemainAvailable(t *testing.T) {
+	cpa := testutil.NewCPAMock(t)
+	setup := &store.Setup{CPAUpstreamURL: cpa.URL(), ManagementKey: "management-key", Queue: "usage", PopSide: "right"}
+	handler, _ := newCompatHandler(t, testutil.NewConfig(t), setup)
+	// Upstream's API-key subtree is read-only, while the fork already supports
+	// other v8 management paths for scoped OAuth and credential operations.
+	for _, target := range []string{
+		"/v8/management/config",
+		"/v8/management/config.yaml",
+		"/v8/management/config/api-keys-x",
+		"/v8/management/credentials/download?name=a.json",
+	} {
+		rr := testutil.Request(t, handler, http.MethodGet, target, "", testutil.AdminKey)
+		testutil.RequireStatus(t, rr, http.StatusOK)
+		path, query, _ := strings.Cut(target, "?")
+		got, ok := cpa.LastRequest(path)
+		if !ok || got.Method != http.MethodGet || got.Authorization != "Bearer management-key" || got.Query != query {
+			t.Fatalf("fork v8 management request was changed: %s %#v", target, got)
+		}
+	}
+}
+
 func TestServerCompatPluginProxyRoutes(t *testing.T) {
 	type observedRequest struct {
 		method            string

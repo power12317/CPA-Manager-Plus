@@ -242,7 +242,7 @@ func TestClusterScopedProxyCredentialsEncryptionAndRestart(t *testing.T) {
 			testutil.RequireStatus(t, request(method, "/api/aggregate/v0/management/"+endpoint, "", "admin-secret"), http.StatusConflict)
 		}
 	}
-	for _, endpoint := range []string{"credentials", "credentials/fields", "oauth/siwc/bind", "oauth/status", "oauth/session"} {
+	for _, endpoint := range []string{"credentials", "credentials/fields", "oauth/siwc/bind", "oauth/basispoints/bind", "oauth/basispoints/status", "oauth/callback", "oauth/status", "oauth/session"} {
 		for _, method := range []string{"GET", "POST", "PATCH", "DELETE"} {
 			testutil.RequireStatus(t, request(method, "/api/aggregate/v8/management/"+endpoint, "", "admin-secret"), http.StatusConflict)
 		}

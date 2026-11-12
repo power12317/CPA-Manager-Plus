@@ -9,6 +9,7 @@ import {
 import type { AuthFileItem } from '@/types';
 import { apiClient } from '@/services/api/client';
 import { resolveSiwcCredential, siwcApi } from '@/services/api/siwc';
+import { resolveBasispointsCredential, basispointsApi } from '@/services/api/basispoints';
 import { useNotificationStore } from '@/stores';
 import {
   AUTH_FILE_CONFIGURATION_INVALID_JSON,
@@ -305,6 +306,7 @@ export function useAuthFileConfigurationEditor(
     const {
       use_siwc: useSiwc,
       allow_codex_client_siwc: allowCodexClientSiwc,
+      use_basispoints: useBasispoints,
       ...patch
     } = patchResult.patch;
     const capturedScope = requestScope ?? apiClient.getRequestScope();
@@ -408,20 +410,38 @@ export function useAuthFileConfigurationEditor(
         siwcReadbackTarget = verified;
       }
 
+      let basispointsReadbackTarget:
+        | Awaited<ReturnType<typeof resolveBasispointsCredential>>
+        | undefined;
+      if (useBasispoints !== undefined) {
+        const verified = await resolveBasispointsCredential(capturedScope, resolution.target);
+        if (!isCurrentTarget()) return;
+        if (useBasispoints) {
+          const status = await basispointsApi.bindingStatus(verified.scope, verified.file);
+          if (!isCurrentTarget()) return;
+          if (!status.bind_supported || !status.bound || status.status !== 'valid')
+            throw new Error(t('basispoints.bind_first'));
+        }
+        await basispointsApi.patch(verified.scope, verified.file, useBasispoints);
+        if (!isCurrentTarget()) return;
+        basispointsReadbackTarget = verified;
+      }
+
       let nextRecord = applyAuthFileFieldsPatchToRecord(recordSnapshot, patchResult.patch);
       let nextProviderKey = providerKeySnapshot;
       let nextRecordIndex = state.recordIndex;
       let sourceRefreshWarning = '';
       try {
-        const refreshedRawText = siwcReadbackTarget
-          ? await authFilesApi.downloadText(siwcReadbackTarget.file.name, siwcReadbackTarget.scope)
+        const boundTarget = basispointsReadbackTarget ?? siwcReadbackTarget;
+        const refreshedRawText = boundTarget
+          ? await authFilesApi.downloadText(boundTarget.file.name, boundTarget.scope)
           : requestScope
             ? await authFilesApi.downloadText(fileName, requestScope)
             : await authFilesApi.downloadText(fileName);
         if (!isCurrentTarget()) return;
         const refreshed = parseAuthFileConfigurationSource(
           refreshedRawText,
-          siwcReadbackTarget?.file ?? resolution.target ?? targetSnapshot
+          boundTarget?.file ?? resolution.target ?? targetSnapshot
         );
         nextRecord = refreshed.record;
         nextProviderKey = refreshed.providerKey;
@@ -437,6 +457,12 @@ export function useAuthFileConfigurationEditor(
           (nextRecord.allow_codex_client_siwc !== false) !== allowCodexClientSiwc)
       ) {
         throw new Error(t('siwc.settings_readback_failed'));
+      }
+      if (
+        basispointsReadbackTarget &&
+        (sourceRefreshWarning || nextRecord.use_basispoints !== useBasispoints)
+      ) {
+        throw new Error(t('basispoints.settings_readback_failed'));
       }
       const normalizedDraft = buildAuthFileConfigurationDraft(nextRecord, nextProviderKey);
       setScopedState((previous) => {

@@ -93,6 +93,10 @@ func TestSIWCScopedV8ProxyAndCredentialIdentity(t *testing.T) {
 			testutil.RequireStatus(t, request("GET", "/credentials", "", "", testutil.AdminKey), http.StatusOK)
 			for _, tc := range []struct{ method, path, body, identity string }{
 				{"POST", "/oauth/siwc/bind", `{"name":"same.json"}`, "1"},
+				{"POST", "/oauth/basispoints/bind", `{"name":"same.json"}`, "1"},
+				{"GET", "/oauth/basispoints/status?name=same.json", "", ""},
+				{"POST", "/oauth/callback", `{"provider":"basispoints","state":"office-state","redirect_url":"https://bps.openai.com/basispoints/extension/360590d7-f8f9-4d88-bf75-0edfe0a4b9f3/auth/callback?code=synthetic&state=office-state"}`, ""},
+				{"PATCH", "/credentials/fields", `{"name":"same.json","use_basispoints":true}`, "1"},
 				{"POST", "/oauth/callback", `{"provider":"codex","redirect_url":"http://127.0.0.1:1455/auth/callback?code=a%2Bb&state=s&client_id=issued"}`, ""},
 				{"GET", "/oauth/status?state=s", "", ""},
 				{"DELETE", "/oauth/session?state=s", "", ""},
@@ -124,6 +128,8 @@ func TestSIWCScopedV8ProxyAndCredentialIdentity(t *testing.T) {
 			mu.Unlock()
 			for _, tc := range []struct{ method, path, body string }{
 				{"POST", "/oauth/siwc/bind", `{"name":"same.json"}`},
+				{"POST", "/oauth/basispoints/bind", `{"name":"same.json"}`},
+				{"PATCH", "/credentials/fields", `{"name":"same.json","use_basispoints":true}`},
 				{"PATCH", "/credentials/fields", `{"name":"same.json","use_siwc":true,"allow_codex_client_siwc":false}`},
 			} {
 				response := request(tc.method, tc.path, tc.body, "replaced-auth-index", testutil.AdminKey)

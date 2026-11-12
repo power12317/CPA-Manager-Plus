@@ -32,6 +32,11 @@ export type AuthFileType =
   | 'unknown';
 
 export interface AuthFileItem {
+  basispoints_bind_supported?: boolean;
+  basispoints_bound?: boolean;
+  basispoints_status?: 'off' | 'valid' | 'invalid';
+  basispoints_expires_at?: string | number;
+  use_basispoints?: boolean;
   id?: string;
   name: string;
   type?: AuthFileType | string;

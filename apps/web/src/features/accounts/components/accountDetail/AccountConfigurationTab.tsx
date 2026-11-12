@@ -1,4 +1,4 @@
-import { useId, useMemo } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -6,6 +6,10 @@ import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { Select } from '@/components/ui/Select';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { SiwcCredentialToggle } from '@/features/oauth/siwc/SiwcCredentialToggle';
+import { SiwcOAuthEntry } from '@/features/oauth/siwc/SiwcBindDialog';
+import { BasispointsOAuthEntry } from '@/features/oauth/basispoints/BasispointsBindDialog';
+import { BasispointsCredentialToggle } from '@/features/oauth/basispoints/BasispointsCredentialToggle';
+import { apiClient } from '@/services/api/client';
 import type { ApiClientRequestScope } from '@/services/api/client';
 import { CoolingPolicySelect } from '@/components/providers/CoolingPolicySelect';
 import { IconCode, IconCopy, IconRefreshCw } from '@/components/ui/icons';
@@ -43,6 +47,7 @@ export function AccountConfigurationTab({
     useAuthStore((authState) => authState.serverVersion)
   );
   const reloadButtonId = useId();
+  const [officeRevision, setOfficeRevision] = useState(0);
   const {
     state,
     draft,
@@ -309,17 +314,43 @@ export function AccountConfigurationTab({
           ) : null}
 
           {state.providerKey === 'codex' ? (
-            <SiwcCredentialToggle
-              file={state.authFile}
-              requestScope={requestScope}
-              checked={draft.useSiwc === true}
-              allowCodexClientSiwc={draft.allowCodexClientSiwc !== false}
-              disabled={disabled}
-              onChange={(value) => editor.updateField('useSiwc', value)}
-              onAllowCodexClientSiwcChange={(value) =>
-                editor.updateField('allowCodexClientSiwc', value)
-              }
-            />
+            <>
+              <SiwcCredentialToggle
+                file={state.authFile}
+                requestScope={requestScope}
+                checked={draft.useSiwc === true}
+                allowCodexClientSiwc={draft.allowCodexClientSiwc !== false}
+                disabled={disabled}
+                onChange={(value) => editor.updateField('useSiwc', value)}
+                onAllowCodexClientSiwcChange={(value) =>
+                  editor.updateField('allowCodexClientSiwc', value)
+                }
+              />
+              <BasispointsCredentialToggle
+                key={officeRevision}
+                file={state.authFile}
+                requestScope={requestScope}
+                checked={draft.useBasispoints === true}
+                disabled={disabled}
+                onChange={(value) => editor.updateField('useBasispoints', value)}
+              />
+              <div>
+                <SiwcOAuthEntry
+                  requestScope={requestScope ?? apiClient.getRequestScope()}
+                  disabled={disabled || editor.dirty}
+                />
+                <BasispointsOAuthEntry
+                  key={officeRevision}
+                  requestScope={requestScope ?? apiClient.getRequestScope()}
+                  file={state.authFile}
+                  disabled={disabled || editor.dirty}
+                  onBound={() => {
+                    setOfficeRevision((value) => value + 1);
+                    void editor.reload();
+                  }}
+                />
+              </div>
+            </>
           ) : null}
 
           {capabilities.claudeCloak ? (

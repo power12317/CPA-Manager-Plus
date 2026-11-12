@@ -30,6 +30,9 @@ const { mocks } = vi.hoisted(() => ({
     onSaved: vi.fn(),
     resolveSiwcCredential: vi.fn(),
     patchSiwc: vi.fn(),
+    resolveBasispointsCredential: vi.fn(),
+    patchBasispoints: vi.fn(),
+    basispointsBindingStatus: vi.fn(),
     t: (key: string, options?: { name?: string }) =>
       options?.name ? `${key}:${options.name}` : key,
   },
@@ -38,6 +41,11 @@ const { mocks } = vi.hoisted(() => ({
 vi.mock('@/services/api/siwc', () => ({
   resolveSiwcCredential: mocks.resolveSiwcCredential,
   siwcApi: { patch: mocks.patchSiwc },
+}));
+
+vi.mock('@/services/api/basispoints', () => ({
+  resolveBasispointsCredential: mocks.resolveBasispointsCredential,
+  basispointsApi: { patch: mocks.patchBasispoints, bindingStatus: mocks.basispointsBindingStatus },
 }));
 
 vi.mock('react-i18next', () => ({
@@ -179,6 +187,11 @@ describe('useAuthFileConfigurationEditor', () => {
     mocks.onSaved.mockReset();
     mocks.resolveSiwcCredential.mockReset();
     mocks.patchSiwc.mockReset().mockResolvedValue({ status: 'ok' });
+    mocks.resolveBasispointsCredential.mockReset();
+    mocks.patchBasispoints.mockReset().mockResolvedValue({ status: 'ok' });
+    mocks.basispointsBindingStatus
+      .mockReset()
+      .mockResolvedValue({ status: 'valid', bound: true, bind_supported: true });
     mocks.downloadText.mockResolvedValue(
       JSON.stringify({
         type: 'xai',
@@ -198,6 +211,96 @@ describe('useAuthFileConfigurationEditor', () => {
   afterEach(() => {
     act(() => renderer?.unmount());
   });
+
+  it.each(['https://cpa', 'https://manager/api/instances/default'])(
+    'saves only the verified Office preference after confirmation at %s',
+    async (apiBase) => {
+      const scope = { apiBase, managementKey: 'synthetic' };
+      const codex = {
+        name: 'codex.json',
+        id: 'codex.json',
+        type: 'codex',
+        auth_index: '1',
+        basispoints_bind_supported: true,
+        basispoints_bound: true,
+      };
+      const record = {
+        type: 'codex',
+        auth_index: '1',
+        use_basispoints: false,
+        use_siwc: true,
+        basispoints: { access_token: 'office-only' },
+        access_token: 'codex-only',
+      };
+      setDownloadedRecord(record);
+      mocks.lookup.mockResolvedValue([codex]);
+      mocks.resolveBasispointsCredential.mockResolvedValue({ scope, file: codex });
+      await act(async () => {
+        renderer = create(<Harness activeFile={codex} requestScope={scope} />);
+      });
+      await flush();
+      act(() => latest!.updateField('useBasispoints', true));
+      expect(latest!.dirty).toBe(true);
+      expect(mocks.patchBasispoints).not.toHaveBeenCalled();
+      act(() => latest!.reset());
+      expect(latest!.dirty).toBe(false);
+      act(() => latest!.updateField('useBasispoints', true));
+      setDownloadedRecord({ ...record, use_basispoints: true });
+      await act(async () => {
+        await latest!.save();
+      });
+      expect(mocks.patchBasispoints).toHaveBeenCalledExactlyOnceWith(scope, codex, true);
+      expect(mocks.patchSiwc).not.toHaveBeenCalled();
+      expect(mocks.patchFieldsWithPluginSourceFallback).not.toHaveBeenCalled();
+      expect(latest!.dirty).toBe(false);
+      expect(latest!.state?.record?.basispoints).toEqual(record.basispoints);
+      expect(latest!.state?.record?.use_siwc).toBe(true);
+    }
+  );
+
+  it.each(['invalid grant', 'rejected patch', 'wrong readback', 'read failed'])(
+    'retains the Office draft without reporting success on %s',
+    async (failure) => {
+      const scope = { apiBase: 'https://cpa', managementKey: 'synthetic' };
+      const codex = {
+        name: 'codex.json',
+        id: 'codex.json',
+        type: 'codex',
+        auth_index: '1',
+        basispoints_bind_supported: true,
+      };
+      const record = { type: 'codex', auth_index: '1', use_basispoints: false };
+      setDownloadedRecord(record);
+      mocks.lookup.mockResolvedValue([codex]);
+      mocks.resolveBasispointsCredential.mockResolvedValue({ scope, file: codex });
+      await act(async () => {
+        renderer = create(<Harness activeFile={codex} requestScope={scope} />);
+      });
+      await flush();
+      act(() => latest!.updateField('useBasispoints', true));
+      if (failure === 'invalid grant')
+        mocks.basispointsBindingStatus.mockResolvedValue({
+          status: 'invalid',
+          bound: true,
+          bind_supported: true,
+        });
+      if (failure === 'rejected patch')
+        mocks.patchBasispoints.mockRejectedValue(new Error('synthetic rejection'));
+      if (failure === 'read failed')
+        mocks.downloadText.mockRejectedValue(new Error('synthetic offline'));
+      await act(async () => {
+        await latest!.save();
+      });
+      expect(latest!.dirty).toBe(true);
+      expect(latest!.draft?.useBasispoints).toBe(true);
+      expect(mocks.showNotification).not.toHaveBeenCalledWith(
+        'accounts.config_saved_success',
+        'success'
+      );
+      if (failure === 'invalid grant') expect(mocks.patchBasispoints).not.toHaveBeenCalled();
+      expect(mocks.patchSiwc).not.toHaveBeenCalled();
+    }
+  );
 
   it('keeps SIWC as a draft until Save and patches only the verified credential flag', async () => {
     const codex = {

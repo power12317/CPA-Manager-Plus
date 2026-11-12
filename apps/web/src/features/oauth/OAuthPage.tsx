@@ -13,6 +13,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { SiwcOAuthEntry } from './siwc/SiwcBindDialog';
+import { BasispointsOAuthEntry } from './basispoints/BasispointsBindDialog';
 import {
   publishAccountCredentialMutationRevision,
   useAuthStore,
@@ -1204,7 +1205,18 @@ export function OAuthPage() {
                 <div className={styles.cardContent}>
                   <div className={styles.cardHint}>{provider.hint}</div>
                   {provider.id === 'codex' ? (
-                    <SiwcOAuthEntry key={connectionFingerprint} requestScope={requestScope} disabled={connectionStatus !== 'connected'} />
+                    <>
+                      <SiwcOAuthEntry
+                        key={connectionFingerprint}
+                        requestScope={requestScope}
+                        disabled={connectionStatus !== 'connected'}
+                      />
+                      <BasispointsOAuthEntry
+                        key={`basispoints-${connectionFingerprint}`}
+                        requestScope={requestScope}
+                        disabled={connectionStatus !== 'connected'}
+                      />
+                    </>
                   ) : null}
                   {state.url && (
                     <div className={styles.authUrlBox}>

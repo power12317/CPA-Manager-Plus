@@ -41,6 +41,7 @@ export type AuthFileConfigurationDraft = {
   requestRetry: string;
   websockets: boolean;
   useSiwc?: boolean;
+  useBasispoints?: boolean;
   allowCodexClientSiwc?: boolean;
   xaiRoutingMode: XaiRoutingMode;
   baseUrl: string;
@@ -382,6 +383,7 @@ export const buildAuthFileConfigurationDraft = (
     ...(providerKey === 'codex'
       ? {
           useSiwc: record.use_siwc === true,
+          useBasispoints: record.use_basispoints === true,
           allowCodexClientSiwc: record.allow_codex_client_siwc !== false,
         }
       : {}),
@@ -551,6 +553,14 @@ export const buildAuthFileConfigurationPatch = (
   ) {
     patch.use_siwc = draft.useSiwc;
     patch.allow_codex_client_siwc = draft.allowCodexClientSiwc !== false;
+  }
+
+  if (
+    normalizeProviderKey(provider) === 'codex' &&
+    typeof draft.useBasispoints === 'boolean' &&
+    draft.useBasispoints !== originalDraft.useBasispoints
+  ) {
+    patch.use_basispoints = draft.useBasispoints;
   }
 
   if (capabilities.xaiRouting) {

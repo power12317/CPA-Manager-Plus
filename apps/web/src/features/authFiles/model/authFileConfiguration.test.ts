@@ -46,6 +46,23 @@ describe('authFileConfiguration provider capabilities', () => {
   });
 });
 
+describe('independent Basispoints credential setting', () => {
+  it('keeps missing values off without persisting defaults and preserves both other grants', () => {
+    const record = { type: 'codex', use_siwc: true, allow_codex_client_siwc: false };
+    const draft = buildAuthFileConfigurationDraft(record, 'codex');
+    expect(draft.useBasispoints).toBe(false);
+    expect(buildAuthFileConfigurationPatch(record, 'codex', draft, draft).patch).toEqual({});
+    expect(
+      buildAuthFileConfigurationPatch(record, 'codex', draft, { ...draft, useBasispoints: true })
+        .patch
+    ).toEqual({ use_basispoints: true });
+    const other = buildAuthFileConfigurationDraft({}, 'claude');
+    expect(
+      buildAuthFileConfigurationPatch({}, 'claude', other, { ...other, useBasispoints: true }).patch
+    ).toEqual({});
+  });
+});
+
 describe('Codex client SIWC configuration', () => {
   it.each([
     [undefined, true],

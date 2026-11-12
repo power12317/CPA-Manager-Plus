@@ -48,6 +48,7 @@ type AuthFileModelApiItem = {
   owned_by?: string;
 };
 export type AuthFileFieldsPatch = {
+  use_basispoints?: boolean;
   use_siwc?: boolean;
   allow_codex_client_siwc?: boolean;
   expired?: string;
@@ -838,6 +839,9 @@ export const applyAuthFileFieldsPatchToRecord = (
 
   if (fields.use_siwc !== undefined) {
     next.use_siwc = fields.use_siwc;
+  }
+  if (fields.use_basispoints !== undefined) {
+    next.use_basispoints = fields.use_basispoints;
   }
   if (fields.allow_codex_client_siwc !== undefined) {
     next.allow_codex_client_siwc = fields.allow_codex_client_siwc;

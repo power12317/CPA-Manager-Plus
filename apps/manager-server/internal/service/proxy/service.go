@@ -601,7 +601,7 @@ func (s *Service) prepareAuthFileFieldsMutation(
 		)
 	}
 	selector := target.Selector
-	if strings.TrimRight(r.URL.Path, "/") == "/v8/management/oauth/siwc/bind" {
+	if isCredentialOAuthBindPath(strings.TrimRight(r.URL.Path, "/")) {
 		selector = target.File.Name
 	}
 	if err := rewriteAuthFileFieldsMutationRequest(r, selector); err != nil {
@@ -686,6 +686,10 @@ func detachedAuthFileOwnershipContext(ctx context.Context) (context.Context, con
 	return context.WithTimeout(context.WithoutCancel(ctx), authFileOwnershipPersistenceTimeout)
 }
 
+func isCredentialOAuthBindPath(path string) bool {
+	return path == "/v8/management/oauth/siwc/bind" || path == "/v8/management/oauth/basispoints/bind"
+}
+
 func inspectAuthFileOwnershipMutation(r *http.Request) (authFileOwnershipMutation, error) {
 	if r == nil {
 		return authFileOwnershipMutation{}, nil
@@ -693,7 +697,7 @@ func inspectAuthFileOwnershipMutation(r *http.Request) (authFileOwnershipMutatio
 	path := strings.TrimRight(r.URL.Path, "/")
 	// v8 credential writes retain the same local mutation locks and verified
 	// physical identity as their v0 counterparts; forwarding keeps the v8 URL.
-	if path == "/v8/management/oauth/siwc/bind" && r.Method == http.MethodPost {
+	if isCredentialOAuthBindPath(path) && r.Method == http.MethodPost {
 		return readAuthFileFieldsMutation(r)
 	}
 	if path == "/v8/management/credentials" || strings.HasPrefix(path, "/v8/management/credentials/") {

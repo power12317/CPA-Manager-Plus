@@ -1,11 +1,12 @@
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Input } from '@/components/ui/Input';
 import { CoolingPolicySelect } from '@/components/providers/CoolingPolicySelect';
 import type { AccountRow } from '@/features/accounts/model/accountRows';
 import type { UseAuthFileConfigurationEditorResult } from '@/features/authFiles/hooks/useAuthFileConfigurationEditor';
 import type { AuthFileConfigurationDraft } from '@/features/authFiles/model/authFileConfiguration';
 import { AccountConfigurationTab } from './AccountConfigurationTab';
+import { BasispointsOAuthEntry } from '@/features/oauth/basispoints/BasispointsBindDialog';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -13,6 +14,16 @@ const mockAuthState = vi.hoisted(() => ({
   serverVersion: null as string | null,
   serverCommit: null as string | null,
 }));
+const mockOffice = vi.hoisted(() => ({ resolve: vi.fn(), bindingStatus: vi.fn() }));
+vi.mock('@/services/api/basispoints', async (original) => ({
+  ...(await original<typeof import('@/services/api/basispoints')>()),
+  resolveBasispointsCredential: mockOffice.resolve,
+  basispointsApi: { bindingStatus: mockOffice.bindingStatus },
+}));
+beforeEach(() => {
+  mockOffice.resolve.mockReset().mockRejectedValue(new Error('unsupported test CPA'));
+  mockOffice.bindingStatus.mockReset();
+});
 vi.mock('@/stores/useAuthStore', () => ({
   useAuthStore: (selector: (state: typeof mockAuthState) => unknown) => selector(mockAuthState),
 }));
@@ -156,9 +167,16 @@ describe('AccountConfigurationTab', () => {
         ).toHaveLength(1);
       }
       editor.state = { ...editor.state!, loading: false, error: '' };
-      act(() => renderer.update(
-        <AccountConfigurationTab row={makeRow()} disableControls={false} editor={editor} onCopyText={vi.fn()} />
-      ));
+      act(() =>
+        renderer.update(
+          <AccountConfigurationTab
+            row={makeRow()}
+            disableControls={false}
+            editor={editor}
+            onCopyText={vi.fn()}
+          />
+        )
+      );
       expect(renderer.root.findAllByType(Input).some((node) => !node.props.disabled)).toBe(true);
       act(() => renderer.unmount());
     }
@@ -350,6 +368,44 @@ describe('AccountConfigurationTab', () => {
     expect(text).toContain('accounts.detail_runtime_config_unavailable');
     expect(text).toContain('accounts.config_runtime_only_desc');
     expect(text).not.toContain('common.save');
+  });
+
+  it('refreshes the saved Office grant status after authorization even when the row identity is unchanged', async () => {
+    const scope = { apiBase: 'https://cpa', managementKey: 'synthetic' };
+    const file = { name: 'credential.json', type: 'codex', basispoints_bind_supported: true };
+    mockOffice.resolve.mockResolvedValue({ scope, file });
+    mockOffice.bindingStatus.mockResolvedValue({
+      status: 'off',
+      bound: false,
+      bind_supported: true,
+    });
+    const editor = makeEditor('codex');
+    const reload = vi.spyOn(editor, 'reload').mockResolvedValue(undefined);
+    let view!: ReactTestRenderer;
+    await act(async () => {
+      view = create(
+        <AccountConfigurationTab
+          row={makeRow()}
+          editor={editor}
+          requestScope={scope}
+          disableControls={false}
+          onCopyText={vi.fn()}
+        />
+      );
+    });
+    expect(readText(view.toJSON())).toContain('basispoints.status_off');
+    mockOffice.bindingStatus.mockResolvedValue({
+      status: 'valid',
+      bound: true,
+      bind_supported: true,
+      use_basispoints: true,
+    });
+    await act(async () => {
+      view.root.findByType(BasispointsOAuthEntry).props.onBound();
+    });
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(readText(view.toJSON())).toContain('basispoints.status_valid');
+    act(() => view.unmount());
   });
 
   it.each([

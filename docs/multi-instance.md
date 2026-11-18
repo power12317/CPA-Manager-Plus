@@ -70,6 +70,9 @@ data/
 
 ## 子路径反向代理
 
+同域名部署时，面板和 CPA HTTP API 可以由反向代理分流；RESP Pub/Sub 和 RESP pop
+需要直连 CPA 端口。根路径分流示例见[官方反向代理文档](https://cpamp-docs.seakee.dev/deployment/reverse-proxy.html)。
+
 推荐让 Nginx 去掉外部前缀，Manager 无需额外的路径配置。同一个构建产物
 可以放在 `/cpamp/`、`/cpamc1/` 或多级子路径下。
 

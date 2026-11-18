@@ -150,15 +150,39 @@ describe('GitHub Actions workflow integrity', () => {
     expect(trigger).toContain('- edited');
   });
 
-  it('keeps Demo and Docs inside the stable required-check aggregate', () => {
+  it('keeps the Demo build inside the stable required-check aggregate', () => {
     const workflow = readWorkflow('pr-check.yml');
-    const demoJob = jobBlock(workflow, 'demo-docs');
+    const demoJob = jobBlock(workflow, 'demo');
     const requiredJob = jobBlock(workflow, 'required');
 
-    expect(demoJob).toContain('name: Demo and Docs');
-    expect(requiredJob).toContain('- demo-docs');
-    expect(requiredJob).toContain("DEMO_DOCS_RESULT: ${{ needs['demo-docs'].result }}");
-    expect(requiredJob).toContain('"Demo and Docs:${DEMO_DOCS_RESULT}"');
+    expect(demoJob).toContain('name: Demo');
+    expect(demoJob).toContain('npm --workspace apps/web run build:demo:bundle');
+    expect(demoJob).not.toContain('docs');
+    expect(requiredJob).toContain('\n      - demo\n');
+    expect(requiredJob).toContain("DEMO_RESULT: ${{ needs['demo'].result }}");
+    expect(requiredJob).toContain('"Demo:${DEMO_RESULT}"');
+  });
+
+  it('keeps the legacy Pages workflow as a static redirect deployment only', () => {
+    const workflow = readWorkflow('demo-pages.yml');
+    const buildJob = jobBlock(workflow, 'build');
+    const pages = parse(workflow);
+
+    expect(workflow).toContain('push:');
+    expect(workflow).toMatch(/branches:\s*\n\s+- main\n/);
+    expect(workflow).toContain('pages: write');
+    expect(workflow).toContain('id-token: write');
+    expect(pages.concurrency).toEqual({
+      group: 'demo-pages-${{ github.ref }}',
+      'cancel-in-progress': true,
+    });
+    expect(pages.jobs.build.if).toBe("github.repository == 'seakee/CPA-Manager-Plus'");
+    expect(pages.jobs.deploy.if).toBe(pages.jobs.build.if);
+    expect(buildJob).toContain('cp -R bin/pages-redirect/. dist/pages/');
+    expect(buildJob).not.toContain('npm ci');
+    expect(buildJob).not.toContain('build:demo');
+    expect(buildJob).not.toContain('docs:build');
+    expect(workflow).not.toContain('apps/docs');
   });
 
   it('always calls the security workflow and waits for it in Required checks', () => {
@@ -394,10 +418,6 @@ describe('GitHub Actions workflow integrity', () => {
       'RELEASE_POST_PATH: ${{ steps.release_source.outputs.release_post }}'
     );
     expect(deliveryStep).toContain('run: bash bin/release/send-telegram-release.sh');
-  });
-
-  it('does not retain the main-only standalone Demo and Docs workflow', () => {
-    expect(existsSync(path.join(workflowDir, 'demo-docs-check.yml'))).toBe(false);
   });
 
   it('keeps GitHub Actions dependency updates on the integration branch', () => {

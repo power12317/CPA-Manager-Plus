@@ -2,10 +2,12 @@
 
 本仓库是 `power12317/CPA-Manager-Plus`，唯一 Compose 入口为 `docker-compose.yml`，
 只启动独立的 CPAMP 服务。CPA 和 Codex master 使用各自项目的部署文件。
+本 fork 的镜像包含多实例等扩展；上游 `seakee/cpa-manager-plus` 镜像和安装脚本不包含这些改动。
+通用部署说明见[官方文档](https://cpamp-docs.seakee.dev/deployment/docker.html)。
 
 ## 部署和更新
 
-推送到 main 后，**Publish Docker image** 工作流构建 amd64、arm64 镜像并发布：
+只有 main 分支的 **Publish Docker image** 工作流可发布正式镜像。它构建 amd64、arm64 镜像并更新：
 
 ```text
 ghcr.io/power12317/cpa-manager-plus:latest
@@ -44,6 +46,26 @@ docker compose logs cpa-manager-plus
 Compose 已提供 `host.docker.internal:host-gateway`，适配 Linux 宿主机访问。
 宿主机 CPA 的映射端口需要可从 Manager 容器访问。容器里的 `127.0.0.1` 是容器自身。
 此 Compose 只启动一个 Manager，不会启动或替换你已有的 CPA 容器。
+
+## Reset the Admin Key
+
+如果忘记本 fork 的 CPAMP 管理员密钥，请在原部署目录执行。停止服务后先备份完整的 `/data` 卷，
+再运行重置命令。命令只输出一次新密钥；保存后重启服务，并用新密钥登录原管理面板。
+
+Run these commands in the original deployment directory. After stopping Manager Server,
+back up the full `/data` volume before resetting the key. Save the key printed by the reset command,
+then restart and use it to sign in to the same panel.
+
+```bash
+docker compose -f docker-compose.yml stop cpa-manager-plus
+# Back up the /data volume here.
+docker compose -f docker-compose.yml run --rm cpa-manager-plus reset-admin-key
+docker compose -f docker-compose.yml up -d cpa-manager-plus
+```
+
+该命令只重置 CPAMP 管理员密钥。CPA Management Key、请求历史和 `data.key` 不受影响；
+丢失的 `data.key` 无法通过此命令恢复。其他部署方式和排障见官方文档
+（[中文](https://cpamp-docs.seakee.dev/operations/reset-admin-key.html) / [English](https://cpamp-docs.seakee.dev/en/operations/reset-admin-key.html)）。
 
 ## 可选配置
 

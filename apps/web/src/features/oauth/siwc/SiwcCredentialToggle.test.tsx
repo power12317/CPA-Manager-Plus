@@ -22,60 +22,52 @@ afterEach(() => {
   act(() => view?.unmount());
 });
 
-describe('SIWC credential switches', () => {
-  it('renders the client permission beside Use SIWC using controlled draft values', async () => {
+describe('SIWC credential switch', () => {
+  it('renders one Use SIWC switch using a controlled draft value', async () => {
     const changeUse = vi.fn();
-    const changeClient = vi.fn();
     await act(async () => {
       view = create(
         <SiwcCredentialToggle
           file={file}
           requestScope={scope}
           checked
-          allowCodexClientSiwc={false}
           disabled={false}
           onChange={changeUse}
-          onAllowCodexClientSiwcChange={changeClient}
         />
       );
     });
     const switches = view!.root.findAllByType(ToggleSwitch);
-    expect(switches.map((node) => node.props.ariaLabel)).toEqual([
-      'siwc.use',
-      'siwc.allow_codex_client',
-    ]);
-    expect(switches.map((node) => node.props.checked)).toEqual([true, false]);
-    act(() => switches[1].props.onChange(true));
-    expect(changeClient).toHaveBeenCalledExactlyOnceWith(true);
-    expect(changeUse).not.toHaveBeenCalled();
-    expect(switches[1].props.checked).toBe(false);
+    expect(switches.map((node) => node.props.ariaLabel)).toEqual(['siwc.use']);
+    expect(switches[0].props.checked).toBe(true);
+    act(() => switches[0].props.onChange(false));
+    expect(changeUse).toHaveBeenCalledExactlyOnceWith(false);
+    expect(switches[0].props.checked).toBe(true);
   });
 
-  it('keeps the client preference editable while SIWC is off and disables both during save', async () => {
+  it('requires a binding before enabling SIWC and disables the switch during save', async () => {
     mocks.resolve.mockResolvedValue({ scope, file: { ...file, siwc_bound: false } });
     const props = {
       file,
       requestScope: scope,
       checked: false,
-      allowCodexClientSiwc: true,
       disabled: false,
       onChange: vi.fn(),
-      onAllowCodexClientSiwcChange: vi.fn(),
     };
     await act(async () => {
       view = create(<SiwcCredentialToggle {...props} />);
     });
-    expect(view!.root.findAllByType(ToggleSwitch).map((node) => node.props.disabled)).toEqual([
-      true,
-      false,
-    ]);
+    expect(view!.root.findByType(ToggleSwitch).props.disabled).toBe(true);
     await act(async () => {
-      view!.update(<SiwcCredentialToggle {...props} disabled />);
+      view!.update(<SiwcCredentialToggle {...props} checked />);
+    });
+    expect(view!.root.findByType(ToggleSwitch).props.disabled).toBe(false);
+    await act(async () => {
+      view!.update(<SiwcCredentialToggle {...props} checked disabled />);
     });
     expect(view!.root.findAllByType(ToggleSwitch).every((node) => node.props.disabled)).toBe(true);
   });
 
-  it('offers neither switch for an unsupported or unverified credential', async () => {
+  it('offers no switch for an unsupported or unverified credential', async () => {
     mocks.resolve.mockRejectedValue(new Error('unsupported'));
     await act(async () => {
       view = create(
@@ -83,10 +75,8 @@ describe('SIWC credential switches', () => {
           file={file}
           requestScope={scope}
           checked={false}
-          allowCodexClientSiwc
           disabled={false}
           onChange={vi.fn()}
-          onAllowCodexClientSiwcChange={vi.fn()}
         />
       );
     });

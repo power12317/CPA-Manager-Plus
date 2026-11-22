@@ -1811,6 +1811,20 @@ describe('authFilesApi patchFieldsForAuthIndexes', () => {
 });
 
 describe('applyAuthFileFieldsPatchToRecord', () => {
+  it('preserves obsolete client-specific fields when applying the SIWC credential flag', () => {
+    const record = {
+      type: 'codex',
+      use_siwc: false,
+      allow_codex_client_siwc: false,
+      siwc: { access_token: 'synthetic-binding' },
+    };
+    expect(applyAuthFileFieldsPatchToRecord(record, { use_siwc: true })).toEqual({
+      ...record,
+      use_siwc: true,
+    });
+    expect(record.use_siwc).toBe(false);
+  });
+
   it('clears legacy cooling aliases when canonical inherit is requested', () => {
     expect(
       applyAuthFileFieldsPatchToRecord(

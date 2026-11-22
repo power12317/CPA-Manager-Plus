@@ -100,8 +100,8 @@ func TestSIWCScopedV8ProxyAndCredentialIdentity(t *testing.T) {
 				{"POST", "/oauth/callback", `{"provider":"codex","redirect_url":"http://127.0.0.1:1455/auth/callback?code=a%2Bb&state=s&client_id=issued"}`, ""},
 				{"GET", "/oauth/status?state=s", "", ""},
 				{"DELETE", "/oauth/session?state=s", "", ""},
-				{"PATCH", "/credentials/fields", `{"name":"same.json","use_siwc":true,"allow_codex_client_siwc":false}`, "1"},
-				{"PATCH", "/credentials/fields", `{"name":"same.json","use_siwc":false,"allow_codex_client_siwc":true}`, "1"},
+				{"PATCH", "/credentials/fields", `{"name":"same.json","use_siwc":true}`, "1"},
+				{"PATCH", "/credentials/fields", `{"name":"same.json","use_siwc":false}`, "1"},
 			} {
 				testutil.RequireStatus(t, request(tc.method, tc.path, tc.body, tc.identity, testutil.AdminKey), http.StatusOK)
 				mu.Lock()
@@ -130,7 +130,7 @@ func TestSIWCScopedV8ProxyAndCredentialIdentity(t *testing.T) {
 				{"POST", "/oauth/siwc/bind", `{"name":"same.json"}`},
 				{"POST", "/oauth/basispoints/bind", `{"name":"same.json"}`},
 				{"PATCH", "/credentials/fields", `{"name":"same.json","use_basispoints":true}`},
-				{"PATCH", "/credentials/fields", `{"name":"same.json","use_siwc":true,"allow_codex_client_siwc":false}`},
+				{"PATCH", "/credentials/fields", `{"name":"same.json","use_siwc":true}`},
 			} {
 				response := request(tc.method, tc.path, tc.body, "replaced-auth-index", testutil.AdminKey)
 				if response.Code != http.StatusConflict && response.Code != http.StatusNotFound {

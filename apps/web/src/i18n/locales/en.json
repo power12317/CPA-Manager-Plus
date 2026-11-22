@@ -57,8 +57,6 @@
     "expired": "The authorization session expired. Close this dialog and start again.",
     "use": "Use SIWC",
     "use_hint": "Turning this off preserves the existing binding.",
-    "allow_codex_client": "Use SIWC for Codex clients",
-    "allow_codex_client_hint": "Follows “Use SIWC” when enabled; uses regular OAuth when disabled.",
     "settings_readback_failed": "Could not verify the saved SIWC settings. Your edits remain unsaved. Reload or retry saving.",
     "bind_first": "Bind SIWC on the OAuth login page before enabling this setting."
   },

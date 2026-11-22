@@ -63,42 +63,28 @@ describe('independent Basispoints credential setting', () => {
   });
 });
 
-describe('Codex client SIWC configuration', () => {
-  it.each([
-    [undefined, true],
-    [null, true],
-    [true, true],
-    [false, false],
-  ])('reads the full credential value %s as %s', (value, expected) => {
+describe('SIWC credential configuration', () => {
+  it.each([undefined, null, true, false])('ignores obsolete client preference %s', (value) => {
     const record = { use_siwc: false, allow_codex_client_siwc: value };
     const draft = buildAuthFileConfigurationDraft(record, 'codex');
-    expect(draft.allowCodexClientSiwc).toBe(expected);
+    expect(draft).toEqual(buildAuthFileConfigurationDraft({ use_siwc: false }, 'codex'));
     expect(buildAuthFileConfigurationPatch(record, 'codex', draft, draft).patch).toEqual({});
     expect(
       buildAuthFileConfigurationPatch(record, 'codex', draft, {
         ...draft,
-        allowCodexClientSiwc: !expected,
+        useSiwc: true,
       }).patch
-    ).toEqual({ use_siwc: false, allow_codex_client_siwc: !expected });
-  });
-
-  it('saves both SIWC flags without dropping the Codex client preference', () => {
-    const record = { use_siwc: false, allow_codex_client_siwc: false };
-    const draft = buildAuthFileConfigurationDraft(record, 'codex');
-    expect(
-      buildAuthFileConfigurationPatch(record, 'codex', draft, { ...draft, useSiwc: true }).patch
-    ).toEqual({ use_siwc: true, allow_codex_client_siwc: false });
-    expect(buildAuthFileConfigurationDraft({}, 'codex').allowCodexClientSiwc).toBe(true);
+    ).toEqual({ use_siwc: true });
+    expect(record.allow_codex_client_siwc).toBe(value);
   });
 
   it('does not add SIWC settings for other providers', () => {
     const draft = buildAuthFileConfigurationDraft({}, 'claude');
-    expect(draft.allowCodexClientSiwc).toBeUndefined();
+    expect(draft.useSiwc).toBeUndefined();
     expect(
       buildAuthFileConfigurationPatch({}, 'claude', draft, {
         ...draft,
         useSiwc: true,
-        allowCodexClientSiwc: false,
       }).patch
     ).toEqual({});
   });

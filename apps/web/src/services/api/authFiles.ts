@@ -50,7 +50,6 @@ type AuthFileModelApiItem = {
 export type AuthFileFieldsPatch = {
   use_basispoints?: boolean;
   use_siwc?: boolean;
-  allow_codex_client_siwc?: boolean;
   expired?: string;
   last_refresh?: string;
   prefix?: string;
@@ -842,9 +841,6 @@ export const applyAuthFileFieldsPatchToRecord = (
   }
   if (fields.use_basispoints !== undefined) {
     next.use_basispoints = fields.use_basispoints;
-  }
-  if (fields.allow_codex_client_siwc !== undefined) {
-    next.allow_codex_client_siwc = fields.allow_codex_client_siwc;
   }
 
   if (fields.using_api !== undefined) {

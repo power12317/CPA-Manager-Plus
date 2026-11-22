@@ -10,18 +10,14 @@ export function SiwcCredentialToggle({
   file,
   requestScope,
   checked,
-  allowCodexClientSiwc,
   disabled,
   onChange,
-  onAllowCodexClientSiwcChange,
 }: {
   file: AuthFileItem;
   requestScope?: ApiClientRequestScope;
   checked: boolean;
-  allowCodexClientSiwc: boolean;
   disabled: boolean;
   onChange: (checked: boolean) => void;
-  onAllowCodexClientSiwcChange: (checked: boolean) => void;
 }) {
   const { t } = useTranslation();
   const { apiBase, managementKey } = requestScope ?? apiClient.getRequestScope();
@@ -40,31 +36,17 @@ export function SiwcCredentialToggle({
   }, [apiBase, managementKey, file, key]);
   if (loaded?.key !== key) return null;
   return (
-    <>
-      <div className={styles.configurationToggleRow}>
-        <div>
-          <strong>{t('siwc.use')}</strong>
-          <p>{t(loaded.bound ? 'siwc.use_hint' : 'siwc.bind_first')}</p>
-        </div>
-        <ToggleSwitch
-          checked={checked}
-          onChange={onChange}
-          disabled={disabled || (!loaded.bound && !checked)}
-          ariaLabel={t('siwc.use')}
-        />
+    <div className={styles.configurationToggleRow}>
+      <div>
+        <strong>{t('siwc.use')}</strong>
+        <p>{t(loaded.bound ? 'siwc.use_hint' : 'siwc.bind_first')}</p>
       </div>
-      <div className={styles.configurationToggleRow}>
-        <div>
-          <strong>{t('siwc.allow_codex_client')}</strong>
-          <p>{t('siwc.allow_codex_client_hint')}</p>
-        </div>
-        <ToggleSwitch
-          checked={allowCodexClientSiwc}
-          onChange={onAllowCodexClientSiwcChange}
-          disabled={disabled}
-          ariaLabel={t('siwc.allow_codex_client')}
-        />
-      </div>
-    </>
+      <ToggleSwitch
+        checked={checked}
+        onChange={onChange}
+        disabled={disabled || (!loaded.bound && !checked)}
+        ariaLabel={t('siwc.use')}
+      />
+    </div>
   );
 }

@@ -42,7 +42,6 @@ export type AuthFileConfigurationDraft = {
   websockets: boolean;
   useSiwc?: boolean;
   useBasispoints?: boolean;
-  allowCodexClientSiwc?: boolean;
   xaiRoutingMode: XaiRoutingMode;
   baseUrl: string;
   cloakMode: string;
@@ -384,7 +383,6 @@ export const buildAuthFileConfigurationDraft = (
       ? {
           useSiwc: record.use_siwc === true,
           useBasispoints: record.use_basispoints === true,
-          allowCodexClientSiwc: record.allow_codex_client_siwc !== false,
         }
       : {}),
     xaiRoutingMode: usingApi ? 'official-api' : 'grok-build',
@@ -547,12 +545,10 @@ export const buildAuthFileConfigurationPatch = (
 
   if (
     normalizeProviderKey(provider) === 'codex' &&
-    (draft.useSiwc !== originalDraft.useSiwc ||
-      draft.allowCodexClientSiwc !== originalDraft.allowCodexClientSiwc) &&
+    draft.useSiwc !== originalDraft.useSiwc &&
     typeof draft.useSiwc === 'boolean'
   ) {
     patch.use_siwc = draft.useSiwc;
-    patch.allow_codex_client_siwc = draft.allowCodexClientSiwc !== false;
   }
 
   if (
